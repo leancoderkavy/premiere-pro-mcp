@@ -417,7 +417,7 @@ describe("PR #3 follow-ups — color_correct and export_sequence", () => {
 
 
 
-    const projectScript = await scriptFor(advanced.export_as_project, { output_path: "/tmp/export.prproj" });
+    const projectScript = await scriptFor(advanced.export_as_project, { output_path: "/tmp/export.prproj", overwrite: true });
     const xmlScript = await scriptFor(exportTools.export_as_fcp_xml, { output_path: "/tmp/export.xml" });
     const sequenceScript = await scriptFor(exportTools.export_sequence, {
       output_path: "/tmp/out.mp4",

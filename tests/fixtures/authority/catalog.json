@@ -1,0 +1,5338 @@
+[
+  {
+    "tool": "acknowledge_operation_recovery",
+    "args": {},
+    "required": [
+      "inspect",
+      "edit"
+    ]
+  },
+  {
+    "tool": "add_adjustment_layer",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "add_audio_keyframes",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "add_custom_metadata_field",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "add_keyframe",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "add_marker",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "add_marker_to_project_item",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "add_markers_batch",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "add_text_overlay",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "add_title",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "add_to_render_queue",
+    "args": {},
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "add_to_timeline",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "add_to_timeline_batch",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "add_track",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "add_tracks",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "add_transition",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "add_transition_to_clip",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "add_video_transition_uxp",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "adjust_audio_levels",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "analyze_dialogue_edit_candidates",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "analyze_loudness",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "analyze_video_interlacing",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "analyze_video_qc",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "apply_after_effects_render_handoff",
+    "args": {},
+    "required": [
+      "inspect",
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "apply_audio_effect",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "apply_beat_markers_uxp",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "apply_derived_dialogue_sequence_uxp",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "apply_edit_plan",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "apply_editorial_organization_plan",
+    "args": {},
+    "required": [
+      "inspect",
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "apply_effect",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "apply_extended_edit_plan",
+    "args": {},
+    "required": [
+      "inspect",
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "apply_lut",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "apply_mogrt_premiere_handoff",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "apply_scene_review_workflow",
+    "args": {},
+    "required": [
+      "inspect",
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "apply_spot_workflow_plan",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "apply_stacked_camera_edit",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "attach_custom_property",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "audit_object_masks_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "audit_timeline_health",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "audition_source_monitor_uxp",
+    "args": {
+      "action": "state"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "audition_source_monitor_uxp",
+    "args": {
+      "action": "open_project_item"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "audition_source_monitor_uxp",
+    "args": {
+      "action": "open_file"
+    },
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "audition_source_monitor_uxp",
+    "args": {
+      "action": "set_position"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "audition_source_monitor_uxp",
+    "args": {
+      "action": "play"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "audition_source_monitor_uxp",
+    "args": {
+      "action": "close"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "audition_source_monitor_uxp",
+    "args": {
+      "action": "close_all"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "auto_reframe_sequence",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "automate_effect_parameters_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "automate_effect_parameters_uxp",
+    "args": {
+      "action": "inspect_point_value"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "automate_effect_parameters_uxp",
+    "args": {
+      "action": "inspect_point_displacement"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "automate_effect_parameters_uxp",
+    "args": {
+      "action": "set_point_value"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "automate_effect_parameters_uxp",
+    "args": {
+      "action": "inspect_color_value"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "automate_effect_parameters_uxp",
+    "args": {
+      "action": "set_color_value"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "automate_effect_parameters_uxp",
+    "args": {
+      "action": "inspect_keyframe"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "automate_effect_parameters_uxp",
+    "args": {
+      "action": "set_value"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "automate_effect_parameters_uxp",
+    "args": {
+      "action": "add_keyframe"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "automate_effect_parameters_uxp",
+    "args": {
+      "action": "remove_keyframe"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "automate_effect_parameters_uxp",
+    "args": {
+      "action": "remove_keyframe_range"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "automate_effect_parameters_uxp",
+    "args": {
+      "action": "set_interpolation"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "automate_effect_parameters_uxp",
+    "args": {
+      "action": "inspect_time_varying"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "automate_effect_parameters_uxp",
+    "args": {
+      "action": "set_time_varying"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "batch_add_transitions",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "batch_apply_effect",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "batch_enable_disable",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "batch_rename_clips",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "batch_selected_clips_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "batch_selected_clips_uxp",
+    "args": {
+      "action": "add_effect"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "batch_selected_clips_uxp",
+    "args": {
+      "action": "remove_effect"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "bind_media_provenance",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "build_caption_artifact",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "build_edit_review_evidence",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "build_project_handoff_manifest",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "calculate_tick_time_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "can_execute",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "cancel_workflow_job",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "capture_frame",
+    "args": {},
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "check_caption_safe_zone",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "check_offline_media",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "clear_item_in_out",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "clear_sequence_in_out",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "close_all_source_clips",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "close_project",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "close_sequence",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "close_source_monitor",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "color_correct",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "compare_cmx3600_edls",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "compute_mask_fit_motion",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "configure_encoder_uxp",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "consolidate_and_transfer",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "consolidate_duplicates",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "convert_timeline_time",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "copy_effect_values",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "copy_effects_between_clips",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "create_bars_and_tone",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "create_bin",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "create_caption_track",
+    "args": {
+      "action": "import"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "create_caption_track",
+    "args": {
+      "action": "plan_lecture_workflow"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "create_context_edit_plan",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "create_editorial_context_pack",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "create_editorial_plan",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "create_empty_sequence_uxp",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "create_mogrt_batch",
+    "args": {},
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "create_mogrt_recipe",
+    "args": {},
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "create_project",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "create_project_backup",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "create_project_metadata_field_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "create_project_metadata_field_uxp",
+    "args": {
+      "action": "create"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "create_sequence",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "create_sequence_checkpoint",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "create_sequence_from_clips",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "create_sequence_from_preset",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "create_sequence_with_preset_uxp",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "create_silence_cut_source_stringout_uxp",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "create_smart_bin",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "create_subclip",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "create_subclip_uxp",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "create_subsequence",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "crop_clip",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "delete_bin",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "delete_marker",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "delete_multiple_project_items",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "delete_preview_files",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "delete_project_item",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "delete_sequence",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "delete_track",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "deselect_all_clips",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "detach_proxy",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "detect_active_picture_bounds",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "detect_audio_transients",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "detect_beats",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "detect_motion_peaks",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "detect_object_masks_uxp",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "detect_repeated_takes",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "detect_scene_edits",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "detect_scene_edits_uxp",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "detect_silence",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "detect_source_scene_changes",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "diff_sequence_snapshots",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "duplicate_clip",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "duplicate_sequence",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "duplicate_track_item_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "duplicate_track_item_uxp",
+    "args": {
+      "action": "apply"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "edit_timeline_uxp",
+    "args": {
+      "action": "insert"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "edit_timeline_uxp",
+    "args": {
+      "action": "overwrite"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "edit_timeline_uxp",
+    "args": {
+      "action": "clone_selection"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "edit_timeline_uxp",
+    "args": {
+      "action": "remove_selection"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "edit_timeline_uxp",
+    "args": {
+      "action": "insert_mogrt_path"
+    },
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "edit_timeline_uxp",
+    "args": {
+      "action": "insert_mogrt_library"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "enable_disable_clip",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "encode_file",
+    "args": {},
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "encode_media_uxp",
+    "args": {
+      "action": "preflight"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "encode_media_uxp",
+    "args": {
+      "action": "jobs"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "encode_media_uxp",
+    "args": {
+      "action": "wait"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "encode_media_uxp",
+    "args": {
+      "action": "sequence"
+    },
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "encode_media_uxp",
+    "args": {
+      "action": "project_item"
+    },
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "encode_media_uxp",
+    "args": {
+      "action": "file"
+    },
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "encode_project_item",
+    "args": {},
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "enqueue_after_effects_render",
+    "args": {},
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "evaluate_expression",
+    "args": {},
+    "required": [
+      "edit",
+      "export",
+      "filesystem",
+      "unsafe-script"
+    ]
+  },
+  {
+    "tool": "execute_extendscript",
+    "args": {},
+    "required": [
+      "edit",
+      "export",
+      "filesystem",
+      "unsafe-script"
+    ]
+  },
+  {
+    "tool": "export_aaf",
+    "args": {},
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "export_aaf_uxp",
+    "args": {},
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "export_and_verify",
+    "args": {},
+    "required": [
+      "inspect",
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "export_as_fcp_xml",
+    "args": {},
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "export_as_project",
+    "args": {},
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "export_facility_metadata_table",
+    "args": {},
+    "required": [
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "export_frame",
+    "args": {},
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "export_frame_uxp",
+    "args": {},
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "export_interchange_uxp",
+    "args": {},
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "export_omf",
+    "args": {},
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "export_review_markers",
+    "args": {},
+    "required": [
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "export_sequence",
+    "args": {},
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "export_sequence_clip_review_frames",
+    "args": {},
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "export_sequence_edl",
+    "args": {},
+    "required": [
+      "export"
+    ]
+  },
+  {
+    "tool": "export_sequence_marker_review_frames",
+    "args": {},
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "export_sequence_review_frames",
+    "args": {},
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "extract_selection",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "find_item_usages",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "find_items_by_media_path",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "find_project_item_by_name",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "freeze_frame",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "generate_media_contact_sheet",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "get_active_sequence",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_advanced_feature_support",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_all_project_paths",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_av_feature_support",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_bin_contents",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_bridge_telemetry",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_capabilities",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_caption_style_guidance",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_clip_adjustment_layer",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_clip_at_playhead",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_clip_at_position",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_clip_links",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_clip_markers",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_clip_properties",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_clip_speed",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_clip_transcript_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_clip_volume",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_color_label",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_color_space",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_duplicate_media",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_effect_properties",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_encoder_presets",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "get_export_file_extension",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "get_footage_interpretation",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_full_clip_info",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_full_project_overview",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_full_sequence_info",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_graphics_white_luminance",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_insertion_bin",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_item_info",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_keyframes",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_last_operations",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_linked_items",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_metadata",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_mogrt_component",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_next_edit_point",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_offline_media",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_operation_performance",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_playhead_position",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_premiere_state",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_project_info",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_project_item_info",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_project_panel_metadata",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_project_scratch_disks",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "get_qe_clip_info",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_render_queue_status",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_selected_clips",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_sequence_count",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_sequence_in_out_points",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_sequence_markers_by_type",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_sequence_settings",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_sequence_structure",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_source_monitor_info",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_source_monitor_position",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_target_tracks",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_timeline_gaps",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_timeline_summary",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_total_clip_count",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_track_info",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_transcript_languages_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_unused_media",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_used_media_report",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_uxp_capabilities",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_uxp_state",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_uxp_workspace_access",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_value_at_time",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_version_info",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_work_area",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_workspaces",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "get_xmp_metadata",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "has_proxy",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "has_transcript_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "import_ae_comps",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "import_edl",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "import_fcp_xml",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "import_folder",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "import_image_sequence",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "import_media",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "import_mogrt",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "import_mogrt_from_library",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "import_project_media_uxp",
+    "args": {
+      "action": "files"
+    },
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "import_project_media_uxp",
+    "args": {
+      "action": "sequences"
+    },
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "import_project_media_uxp",
+    "args": {
+      "action": "ae_comps"
+    },
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "import_project_media_uxp",
+    "args": {
+      "action": "all_ae_comps"
+    },
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "import_sequences",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "import_transcript_uxp",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "insert_from_source",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "inspect_after_effects_render_templates",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_after_effects_template_source",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_caption_tracks_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_cmx3600_edl",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "inspect_dom_object",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_edit_readiness",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_effect_parameter_catalog_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_fcpxml_interchange",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "inspect_film_editorial_workflow",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "inspect_frame_alignment_uxp",
+    "args": {
+      "action": "align"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_frame_alignment_uxp",
+    "args": {
+      "action": "frame"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_installed_mogrt_directory_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_interchange_artifact",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "inspect_interchange_loss_report",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "inspect_media_streams",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "inspect_mogrt_library",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "inspect_operation_recovery",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_otio_interchange",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "inspect_premiere_environment_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_premiere_events_uxp",
+    "args": {
+      "action": "list"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_premiere_events_uxp",
+    "args": {
+      "action": "wait"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_project_insertion_bin_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_project_item_av_metadata",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_project_panel_metadata_uxp",
+    "args": {
+      "action": "panel"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_project_panel_metadata_uxp",
+    "args": {
+      "action": "item_columns"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_project_recovery",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "inspect_project_selection_uxp",
+    "args": {
+      "action": "views"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_project_selection_uxp",
+    "args": {
+      "action": "selection"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_project_tree_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_project_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_rendered_video_scopes",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "inspect_sequence_av_settings",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_sequence_review_report",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_sequence_structure_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_sequence_timing_by_guid_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_sequence_timing_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_source_media_provenance_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_source_proxy_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_stabilizer_status",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_timeline_snapshot",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_track_item_identity_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_unique_object_identity_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_video_transition_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "inspect_workflow_checkpoint",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "inspect_workflow_job",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "invert_selection",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "is_language_pack_available_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "is_work_area_enabled",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "lift_selection",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "lift_selection_uxp",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "link_selection",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "list_available_audio_effects",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "list_available_audio_transitions",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "list_available_effects",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "list_available_transitions",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "list_clip_effects",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "list_extensions",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "list_markers",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "list_markers_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "list_project_items",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "list_sequence_checkpoints",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "list_sequence_tracks",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "list_sequences",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "list_stock_titles",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "list_video_transitions_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "lock_track",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "maintain_media_health_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "maintain_media_health_uxp",
+    "args": {
+      "action": "refresh"
+    },
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "maintain_media_health_uxp",
+    "args": {
+      "action": "set_offline"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "maintain_media_health_uxp",
+    "args": {
+      "action": "find_by_media_path"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "make_split_edit_uxp",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_app_preferences_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_app_preferences_uxp",
+    "args": {
+      "action": "set"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_clip_effects_uxp",
+    "args": {
+      "action": "catalog"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_clip_effects_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_clip_effects_uxp",
+    "args": {
+      "action": "add"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_clip_effects_uxp",
+    "args": {
+      "action": "remove"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_color_conformance_uxp",
+    "args": {
+      "action": "preflight"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_color_conformance_uxp",
+    "args": {
+      "action": "update"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_growing_media_uxp",
+    "args": {
+      "action": "status"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_growing_media_uxp",
+    "args": {
+      "action": "pause"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_growing_media_uxp",
+    "args": {
+      "action": "resume"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_markers_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_markers_uxp",
+    "args": {
+      "action": "add"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_markers_uxp",
+    "args": {
+      "action": "update"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_markers_uxp",
+    "args": {
+      "action": "remove"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_markers_uxp",
+    "args": {
+      "action": "remove_many"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_media_watch",
+    "args": {
+      "action": "start"
+    },
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "manage_media_watch",
+    "args": {
+      "action": "status"
+    },
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "manage_media_watch",
+    "args": {
+      "action": "scan"
+    },
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "manage_media_watch",
+    "args": {
+      "action": "stop"
+    },
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "manage_metadata_uxp",
+    "args": {
+      "action": "get"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_metadata_uxp",
+    "args": {
+      "action": "update"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_metadata_uxp",
+    "args": {
+      "action": "inspect_fields"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_metadata_uxp",
+    "args": {
+      "action": "update_field"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_project_context",
+    "args": {
+      "action": "capture"
+    },
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "manage_project_context",
+    "args": {
+      "action": "enrich"
+    },
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "manage_project_context",
+    "args": {
+      "action": "import_evidence"
+    },
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "manage_project_context",
+    "args": {
+      "action": "status"
+    },
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "manage_project_context",
+    "args": {
+      "action": "clear"
+    },
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "manage_project_panel_metadata_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_project_panel_metadata_uxp",
+    "args": {
+      "action": "update"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_project_sessions_uxp",
+    "args": {
+      "action": "list"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_project_sessions_uxp",
+    "args": {
+      "action": "validate"
+    },
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "manage_project_sessions_uxp",
+    "args": {
+      "action": "create"
+    },
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "manage_project_sessions_uxp",
+    "args": {
+      "action": "open"
+    },
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "manage_project_sessions_uxp",
+    "args": {
+      "action": "save"
+    },
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "manage_project_sessions_uxp",
+    "args": {
+      "action": "save_as"
+    },
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "manage_project_sessions_uxp",
+    "args": {
+      "action": "branch_copies"
+    },
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "manage_project_sessions_uxp",
+    "args": {
+      "action": "close"
+    },
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "manage_proxies",
+    "args": {
+      "action": "create"
+    },
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "manage_proxies",
+    "args": {
+      "action": "attach"
+    },
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "manage_proxies",
+    "args": {
+      "action": "toggle"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_proxy_ingest_uxp",
+    "args": {
+      "action": "inspect_proxy"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_proxy_ingest_uxp",
+    "args": {
+      "action": "attach_proxy"
+    },
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "manage_proxy_ingest_uxp",
+    "args": {
+      "action": "get_ingest"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_proxy_ingest_uxp",
+    "args": {
+      "action": "set_ingest"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_sequence_display_format_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_sequence_display_format_uxp",
+    "args": {
+      "action": "update"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_sequence_playhead_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_sequence_playhead_uxp",
+    "args": {
+      "action": "set"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_sequence_preview_frame_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_sequence_preview_frame_uxp",
+    "args": {
+      "action": "update"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_sequence_range_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_sequence_range_uxp",
+    "args": {
+      "action": "update"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_sequence_settings_uxp",
+    "args": {
+      "action": "get"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_sequence_settings_uxp",
+    "args": {
+      "action": "update"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_sequences_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_sequences_uxp",
+    "args": {
+      "action": "create_from_media"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_sequences_uxp",
+    "args": {
+      "action": "clone"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_sequences_uxp",
+    "args": {
+      "action": "subsequence"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_sequences_uxp",
+    "args": {
+      "action": "activate"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_sequences_uxp",
+    "args": {
+      "action": "open"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_sequences_uxp",
+    "args": {
+      "action": "close"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_sequences_uxp",
+    "args": {
+      "action": "delete"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_source_clip_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_source_clip_uxp",
+    "args": {
+      "action": "update"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_source_media_overrides_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_source_media_overrides_uxp",
+    "args": {
+      "action": "update"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_source_media_timing_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_source_media_timing_uxp",
+    "args": {
+      "action": "set_start"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_timeline_selection_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_timeline_selection_uxp",
+    "args": {
+      "action": "inspect_targets"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_timeline_selection_uxp",
+    "args": {
+      "action": "replace"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_timeline_selection_uxp",
+    "args": {
+      "action": "add"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_timeline_selection_uxp",
+    "args": {
+      "action": "remove"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_timeline_selection_uxp",
+    "args": {
+      "action": "clear"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_timeline_source_label_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_timeline_source_label_uxp",
+    "args": {
+      "action": "update"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_track_state_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_track_state_uxp",
+    "args": {
+      "action": "set_mute"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_work_area_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_work_area_uxp",
+    "args": {
+      "action": "set"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_workflow_checkpoints_uxp",
+    "args": {
+      "action": "has"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_workflow_checkpoints_uxp",
+    "args": {
+      "action": "get"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "manage_workflow_checkpoints_uxp",
+    "args": {
+      "action": "set"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_workflow_checkpoints_uxp",
+    "args": {
+      "action": "clear"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "map_keyframe_time_domain",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "map_source_ranges_to_timeline",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "map_word_timeline_occurrences",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "match_frame",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "move_clip",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "move_clip_to_track",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "move_item_to_bin",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "move_items_to_bin",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "move_playhead_to_edit",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "multiple_undo",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "mute_track",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "navigate_playhead",
+    "args": {
+      "action": "start"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "navigate_playhead",
+    "args": {
+      "action": "end"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "navigate_playhead",
+    "args": {
+      "action": "in_point"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "navigate_playhead",
+    "args": {
+      "action": "out_point"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "navigate_playhead",
+    "args": {
+      "action": "work_area_in"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "navigate_playhead",
+    "args": {
+      "action": "work_area_out"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "navigate_playhead",
+    "args": {
+      "action": "next_edit"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "navigate_playhead",
+    "args": {
+      "action": "previous_edit"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "navigate_playhead",
+    "args": {
+      "action": "next_marker"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "navigate_playhead",
+    "args": {
+      "action": "previous_marker"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "navigate_playhead",
+    "args": {
+      "action": "step_forward"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "navigate_playhead",
+    "args": {
+      "action": "step_backward"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "nest_clips",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "normalize_loudness_file",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "open_extension",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "open_in_source",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "open_project",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "organize_project_items_uxp",
+    "args": {
+      "action": "inspect_bin"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "organize_project_items_uxp",
+    "args": {
+      "action": "create_bin"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "organize_project_items_uxp",
+    "args": {
+      "action": "create_smart_bin"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "organize_project_items_uxp",
+    "args": {
+      "action": "rename"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "organize_project_items_uxp",
+    "args": {
+      "action": "move"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "organize_project_items_uxp",
+    "args": {
+      "action": "set_color"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "organize_project_items_uxp",
+    "args": {
+      "action": "remove"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "overwrite_clip",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "overwrite_from_source",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "paste_clip_attributes",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "ping",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "plan_active_speaker_reframe",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "plan_audio_post_turnover",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "plan_beat_montage",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "plan_chapter_markers",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "plan_client_notes_checklist",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "plan_cross_app_workflow",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "plan_emphasis_zoom_keyframes",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "plan_filler_word_removal",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "plan_media_synchronization",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "plan_multicam_angle_switches",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "plan_music_remix",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "plan_pause_tightening",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "plan_platform_delivery_matrix",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "plan_reaction_captions",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "plan_scene_segments",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "plan_short_export_folder",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "plan_short_subscribe_cta",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "plan_shot_match",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "plan_silence_review_markers",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "plan_speaker_checkerboard",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "plan_transcript_rough_cut_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "plan_word_mute_ranges",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "play_source_monitor",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "play_timeline",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "predict_timeline_edit",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "preflight_production_storage_uxp",
+    "args": {
+      "action": "preflight"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "preflight_production_storage_uxp",
+    "args": {
+      "action": "configure_project"
+    },
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "prepare_transcript_workflow",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "preview_after_effects_render",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "preview_after_effects_render_handoff",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "preview_brand_spot",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "preview_derived_dialogue_sequence_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "preview_edit_plan",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "preview_editorial_plan",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "preview_extended_edit_plan",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "preview_facility_metadata_intake",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "preview_mogrt_batch",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "preview_mogrt_library_publish",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "preview_mogrt_premiere_handoff",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "preview_mogrt_recipe",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "preview_motion_graphics_demo",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "preview_otio_snapshot_export",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "preview_product_spot",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "preview_project_intake",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "preview_scene_review_workflow",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "preview_stacked_camera_edit",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "preview_transcript_edit_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "preview_watched_media_import",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "preview_workflow_recipe",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "publish_mogrt_to_library",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "rank_short_form_candidates",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "razor_all_tracks",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "read_sequence_captions",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "read_video_scopes",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "redo",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "refresh_media",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "relink_media",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "relink_offline_media_uxp",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "remove_all_effects",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "remove_effect",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "remove_effect_by_name",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "remove_from_timeline",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "remove_keyframe",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "remove_keyframe_range",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "remove_selected_clips",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "remove_transition",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "remove_video_transition_uxp",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "rename_bin",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "rename_clip",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "rename_project_item",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "rename_track",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "rename_track_uxp",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "replace_clip",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "replace_clip_media",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "reverse_clip",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "review_broll_placements",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "review_dialogue_candidates",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "review_quote_paper_edit",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "review_sync_evidence",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "review_text_changes",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "ripple_delete",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "ripple_delete_track_item_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "ripple_delete_track_item_uxp",
+    "args": {
+      "action": "apply"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "ripple_remove_timeline_ranges",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "roll_edit",
+    "args": {},
+    "required": [
+      "inspect",
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "save_project",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "save_project_as",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "save_project_uxp",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "save_workflow_checkpoint",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "scene_edit_detection",
+    "args": {
+      "action": "CreateMarkers"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "scene_edit_detection",
+    "args": {
+      "action": "ApplyCuts"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "search_clip_transcript_uxp",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "search_project_context",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "search_project_items",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "search_workflow_recipes",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "select_all_clips",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "select_clips_by_color",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "select_clips_by_name",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "select_clips_by_pattern",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "select_clips_in_range",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "select_disabled_clips",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "select_item",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_active_sequence",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_all_tracks_targeted",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_anti_alias_quality",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_blend_mode",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_clip_anchor_point",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_clip_duration",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "set_clip_opacity",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_clip_pan",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_clip_position",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_clip_properties",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_clip_properties_batch",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_clip_rotation",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_clip_scale",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_clip_selection",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_clip_speed_qe",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_clip_start_time",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_clip_volume",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_clips_volume",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_color_label",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_color_value",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_effect_property",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_footage_interpretation",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_frame_blend",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_graphics_white_luminance",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_item_in_out",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_keyframe_interpolation",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_metadata",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_offline",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_override_frame_rate",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_override_pixel_aspect_ratio",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_playhead_position",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_poster_frame",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_project_item_audio_channel_mapping",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_project_panel_metadata",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_project_scratch_disk",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "set_scale_to_frame_size",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_scale_width_height",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_scratch_disk_path",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "set_sequence_audio_settings",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_sequence_display_format",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_sequence_field_type",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_sequence_frame_rate",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_sequence_in_out_points",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_sequence_pixel_aspect_ratio",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_sequence_resolution",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_sequence_settings",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_source_in_out",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_source_monitor_position_uxp",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_start_time",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_target_track",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_time_interpolation",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_transcode_on_ingest",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_uniform_scale",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_work_area",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_workspace",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_xmp_metadata",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "set_zero_point",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "setup_ducking",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "slide_edit",
+    "args": {},
+    "required": [
+      "inspect",
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "slide_track_item_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "slide_track_item_uxp",
+    "args": {
+      "action": "apply"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "slip_edit",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "slip_track_item_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "slip_track_item_uxp",
+    "args": {
+      "action": "apply"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "speed_change",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "split_clip",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "stabilize_clip",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "start_batch_encode",
+    "args": {},
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "start_local_analysis_job",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "stop_playback",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "toggle_track_visibility",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "transcribe_clip_uxp",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "transform_track_item_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "transform_track_item_uxp",
+    "args": {
+      "action": "update"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "trim_clip",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "undo",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "unlink_selection",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "unnest_sequence",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "unnest_sequence_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "unnest_sequence_uxp",
+    "args": {
+      "action": "apply"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "update_marker",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "validate_cmx3600_edl",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "validate_export_preset",
+    "args": {},
+    "required": [
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "validate_mogrt_brand_kit",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "validate_platform_publish_package",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "validate_project_for_export",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "verify_after_effects_connection",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "verify_caption_render_evidence",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "verify_delivery_conformance",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "verify_delivery_file",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "verify_fcpxml_media_references",
+    "args": {},
+    "required": [
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "verify_mogrt_artifact",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "verify_premiere_connection",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "verify_temporal_render_artifact",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "verify_timeline_postconditions",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "wait_for_host_readiness_uxp",
+    "args": {
+      "action": "snapshot"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "wait_for_host_readiness_uxp",
+    "args": {
+      "action": "analysis"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "wait_for_host_readiness_uxp",
+    "args": {
+      "action": "operation"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "wait_workflow_job",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "close_project",
+    "args": {
+      "save_first": false
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_offline",
+    "args": {
+      "offline": false
+    },
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "prepare_transcript_workflow",
+    "args": {
+      "start_if_missing": true
+    },
+    "required": [
+      "inspect",
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "manage_project_sessions_uxp",
+    "args": {
+      "action": "close",
+      "save_before_close": false
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "manage_metadata_uxp",
+    "args": {
+      "action": "update",
+      "xmp_metadata": "<xmp/>"
+    },
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "manage_metadata_uxp",
+    "args": {
+      "action": "update_field",
+      "packet": "xmp"
+    },
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "encode_media_uxp",
+    "args": {
+      "action": "preflight",
+      "preset_file": "/approved/preset.epr"
+    },
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "set_metadata",
+    "args": {
+      "packet": "xmp"
+    },
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "export_sequence_edl",
+    "args": {
+      "output_path": "/approved/review.edl"
+    },
+    "required": [
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "export_sequence_job_start",
+    "args": {},
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "get_export_job_status",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "create_source_freeze_frame",
+    "args": {},
+    "required": [
+      "inspect",
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "audit_project_structure",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "audit_project_structure",
+    "args": {
+      "apply": true
+    },
+    "required": [
+      "inspect",
+      "edit"
+    ]
+  },
+  {
+    "tool": "retime_caption_file",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "retime_caption_file",
+    "args": {
+      "input_path": "captions.srt"
+    },
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  }
+]

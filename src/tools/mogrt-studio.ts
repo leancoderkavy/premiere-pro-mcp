@@ -1,10 +1,11 @@
+import { readBoundedRegularFile } from "../security/file-safety.js";
+import { assertNoSymlinkedPaths } from "../security/path-guard.js";
 import { randomUUID } from "node:crypto";
 import {
   constants as fsConstants,
   copyFileSync,
   existsSync,
   mkdirSync,
-  readFileSync,
   readdirSync,
   statSync,
 } from "node:fs";
@@ -126,6 +127,7 @@ function resolvePath(value: string): { api: typeof path.win32; resolved: string;
 }
 
 function containedPath(workspace: string, candidate: string, field: string): { root: string; candidate: string; api: typeof path.win32 } {
+  assertNoSymlinkedPaths({ workspace, candidate });
   const root = resolvePath(workspace);
   const target = resolvePath(candidate);
   if (root.windows !== target.windows) throw new Error(`${field} must use the same path format as approved_workspace_path`);
@@ -288,7 +290,7 @@ export function getMogrtStudioTools(bridgeOptions: BridgeOptions, dependencies: 
     try { return statSync(candidate).isDirectory(); } catch { return false; }
   });
   const fileExists = dependencies.fileExists ?? existsSync;
-  const readText = dependencies.readText ?? ((candidate) => readFileSync(candidate, "utf8"));
+  const readText = dependencies.readText ?? ((candidate) => readBoundedRegularFile(candidate, MAX_DATA_FILE_BYTES).toString("utf8"));
   const copyFile = dependencies.copyFile ?? ((source, destination) => copyFileSync(source, destination, fsConstants.COPYFILE_EXCL));
   const makeDirectory = dependencies.makeDirectory ?? ((candidate) => mkdirSync(candidate, { recursive: true }));
   const listDirectory = dependencies.listDirectory ?? ((candidate) => readdirSync(candidate));
@@ -386,6 +388,7 @@ export function getMogrtStudioTools(bridgeOptions: BridgeOptions, dependencies: 
         const batch = take(batchPlans, input.preview_token, "preview_token");
         const completed: Array<Record<string, unknown>> = [];
         for (const plan of batch.plans) {
+          assertNoSymlinkedPaths(plan);
           const result = await sendAfterEffects(buildMogrtRecipeScript(plan), { ...bridgeOptions, timeoutMs: MOGRT_EXPORT_TIMEOUT_MS });
           if (!result.success) {
             return { success: false, error: `${result.error ?? "MOGRT batch creation failed"} (operation ${operationId})`, data: { operationId, completed, failedTemplate: plan.template_name, batchAtomic: false } };
@@ -485,6 +488,7 @@ export function getMogrtStudioTools(bridgeOptions: BridgeOptions, dependencies: 
         assertOnlyKeys(input, ["preview_token", "confirm_publish"], "arguments");
         if (input.confirm_publish !== true) throw new Error("confirm_publish must be true to publish the MOGRT");
         const plan = take(libraryPlans, input.preview_token, "preview_token");
+        assertNoSymlinkedPaths(plan);
         if (!artifactStatus(plan.source).zip_header_valid) return { success: false, error: "The previewed source artifact is no longer a recognizable ZIP-based MOGRT" };
         if (fileExists(plan.destination)) return { success: false, error: "The previewed library destination now exists; preview publishing again to select a new immutable version" };
         makeDirectory(resolvePath(plan.destination).api.dirname(plan.destination));
@@ -548,6 +552,7 @@ export function getMogrtStudioTools(bridgeOptions: BridgeOptions, dependencies: 
         assertOnlyKeys(input, ["preview_token", "confirm_enqueue"], "arguments");
         if (input.confirm_enqueue !== true) throw new Error("confirm_enqueue must be true to queue the render");
         const plan = take(renderPlans, input.preview_token, "preview_token");
+        assertNoSymlinkedPaths(plan);
         const result = await sendAfterEffects(buildAfterEffectsScript(`
           function isInside(root, candidate) { return __hostPathIsInside(root, candidate); }
           var project = app.project;
@@ -594,6 +599,7 @@ export function getMogrtStudioTools(bridgeOptions: BridgeOptions, dependencies: 
         assertOnlyKeys(input, ["preview_token", "confirm_import"], "arguments");
         if (input.confirm_import !== true) throw new Error("confirm_import must be true to import the MOGRT into Premiere");
         const plan = take(handoffPlans, input.preview_token, "preview_token");
+        assertNoSymlinkedPaths(plan);
         if (!artifactStatus(plan.mogrtPath).zip_header_valid) return { success: false, error: "The previewed MOGRT artifact is no longer a recognizable ZIP-based file" };
         const result = await sendPremiere(buildPremiereHandoffScript(plan), bridgeOptions);
         return result.success ? { ...result, data: { ...(result.data as object), operationId } } : { ...result, error: `${result.error ?? "Premiere MOGRT handoff failed"} (operation ${operationId})` };

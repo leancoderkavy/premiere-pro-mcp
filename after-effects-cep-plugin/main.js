@@ -46,12 +46,14 @@
 
   function writeFileAtomic(filePath, text) {
     var staged = filePath + "." + engineId + ".staged";
+    var stagedOwned = false;
     try {
-      fs.writeFileSync(staged, text, "utf8");
+      fs.writeFileSync(staged, text, { encoding: "utf8", mode: 384, flag: "wx" });
+      stagedOwned = true;
       fs.renameSync(staged, filePath);
       return true;
     } catch (error) {
-      try { if (fs.existsSync(staged)) fs.unlinkSync(staged); } catch (ignored) {}
+      try { if (stagedOwned && fs.existsSync(staged)) fs.unlinkSync(staged); } catch (ignored) {}
       setStatus("Connector needs attention", false);
       return false;
     }
@@ -99,13 +101,14 @@
     var id = fileName.replace("cmd_", "").replace(".jsx", "");
     var busy = path.join(tempDir, "busy_" + id + ".json");
     var started = Date.now();
+    var busyOwned = false;
     var busyTimer = setInterval(function () {
-      try { fs.writeFileSync(busy, JSON.stringify({ id: id, elapsedMs: Date.now() - started }), "utf8"); } catch (ignored) {}
+      if (writeFileAtomic(busy, JSON.stringify({ id: id, elapsedMs: Date.now() - started }))) busyOwned = true;
     }, 2000);
     cs.evalScript(script, function (result) {
       commandInFlight = false;
       clearInterval(busyTimer);
-      try { if (fs.existsSync(busy)) fs.unlinkSync(busy); } catch (ignored) {}
+      try { if (busyOwned && fs.existsSync(busy)) fs.unlinkSync(busy); } catch (ignored) {}
       writeFileAtomic(path.join(tempDir, "res_" + id + ".json"), replyFor(String(result || "")));
     });
   }

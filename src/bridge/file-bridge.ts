@@ -565,7 +565,7 @@ function ensureHelpers(tempDir: string, helpers?: BridgeHelpers): string {
   };
   const helpersPath = join(tempDir, activeHelpers.fileName);
   if (!existsSync(helpersPath)) {
-    writeFileSync(helpersPath, activeHelpers.source, "utf-8");
+    writeFileSync(helpersPath, activeHelpers.source, { encoding: "utf-8", mode: 0o600, flag: "wx" });
   }
   return activeHelpers.buildBootstrap(helpersPath);
 }
@@ -666,25 +666,32 @@ async function sendCommandUnchecked(
   const stagedCmdFile = `${cmdFile}.staged`;
   const resFile = join(tempDir, `res_${id}.json`);
   const busyFile = join(tempDir, `busy_${id}.json`);
+  let stagedOwned = false;
+  let published = false;
 
   try {
     // Write a complete command before its .jsx name makes it visible to CEP.
     // renameSync is atomic when both paths are in the bridge directory.
     measureStageSync("dispatch", () => {
     writeFileSync(stagedCmdFile, withHelpers ? `${ensureHelpers(tempDir, options?.helpers)}
-${script}` : script, "utf-8");
+${script}` : script, { encoding: "utf-8", mode: 0o600, flag: "wx" });
+    stagedOwned = true;
     assertInvocationNotCancelled();
     renameSync(stagedCmdFile, cmdFile);
+    stagedOwned = false;
+    published = true;
     if (options?.mutating ?? (options?.mutationOnTimeout === true || undoTrackingEnabled())) markHostDispatch();
     });
 
     const mutating = options?.mutating ?? (options?.mutationOnTimeout === true || undoTrackingEnabled());
     return await pollForResponse(resFile, busyFile, timeoutMs, options?.hostLabel, options?.mutating === false ? false : (options?.mutationOnTimeout === true || undoTrackingEnabled()), mutating);
   } finally {
-    safeUnlink(stagedCmdFile);
-    safeUnlink(cmdFile);
-    safeUnlink(resFile);
-    safeUnlink(busyFile);
+    if (stagedOwned) safeUnlink(stagedCmdFile);
+    if (published) {
+      safeUnlink(cmdFile);
+      safeUnlink(resFile);
+      safeUnlink(busyFile);
+    }
   }
 }
 
@@ -739,22 +746,29 @@ async function sendRawCommandUnchecked(
   const stagedCmdFile = `${cmdFile}.staged`;
   const resFile = join(tempDir, `res_${id}.json`);
   const busyFile = join(tempDir, `busy_${id}.json`);
+  let stagedOwned = false;
+  let published = false;
 
   try {
     measureStageSync("dispatch", () => {
     writeFileSync(stagedCmdFile, `${ensureHelpers(tempDir, options?.helpers)}
-${script}`, "utf-8");
+${script}`, { encoding: "utf-8", mode: 0o600, flag: "wx" });
+    stagedOwned = true;
     assertInvocationNotCancelled();
     renameSync(stagedCmdFile, cmdFile);
+    stagedOwned = false;
+    published = true;
     if (options?.mutating ?? (options?.mutationOnTimeout === true || undoTrackingEnabled())) markHostDispatch();
     });
     const mutating = options?.mutating ?? (options?.mutationOnTimeout === true || undoTrackingEnabled());
     return await pollForResponse(resFile, busyFile, timeoutMs, options?.hostLabel, options?.mutating === false ? false : (options?.mutationOnTimeout === true || undoTrackingEnabled()), mutating);
   } finally {
-    safeUnlink(stagedCmdFile);
-    safeUnlink(cmdFile);
-    safeUnlink(resFile);
-    safeUnlink(busyFile);
+    if (stagedOwned) safeUnlink(stagedCmdFile);
+    if (published) {
+      safeUnlink(cmdFile);
+      safeUnlink(resFile);
+      safeUnlink(busyFile);
+    }
   }
 }
 

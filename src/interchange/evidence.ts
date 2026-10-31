@@ -1,5 +1,6 @@
+import { readBoundedRegularFile } from "../security/file-safety.js";
 import { createHash } from "node:crypto";
-import { closeSync, constants, fstatSync, openSync, readFileSync } from "node:fs";
+
 import { isAbsolute } from "node:path";
 import { ticks, rate, type RationalRate } from "../ai/exact-time.js";
 import { inspectFcpxml, parseCmx3600Edl } from "../tools/interchange-analysis.js";
@@ -65,11 +66,9 @@ function validateXmlStructure(contents: string) {
 export function inspectInterchangeArtifact(path: unknown, expected?: InterchangeFormat) {
   const target = boundedText(path, "path", 4096, false);
   if (!isAbsolute(target)) throw new Error("path must be absolute");
-  const descriptor = openSync(target, constants.O_RDONLY);
-  try {
-    const stat = fstatSync(descriptor);
-    if (!stat.isFile() || stat.size <= 0 || stat.size > MAX_INTERCHANGE_BYTES) throw new Error("Artifact must be a nonempty regular file of at most 10 MiB");
-    const buffer = readFileSync(descriptor);
+  {
+    const buffer = readBoundedRegularFile(target, MAX_INTERCHANGE_BYTES);
+    if (buffer.length === 0) throw new Error("Artifact must be nonempty");
     if (buffer.length > MAX_INTERCHANGE_BYTES) throw new Error("Artifact grew beyond byte limit");
     let format: InterchangeFormat | null = null, structure: unknown = null;
     const decoded = buffer.toString("utf8"), text = decoded.replace(/^\uFEFF/, "");
@@ -96,7 +95,7 @@ export function inspectInterchangeArtifact(path: unknown, expected?: Interchange
     if (expected && format !== expected && !(expected === "fcpxml" && format === "fcp7xml")) throw new Error(`Artifact bytes identify ${format}, not requested ${expected}`);
     const parsed = format !== "aaf" && format !== "omf";
     return { schemaVersion: "premiere-mcp.interchange-artifact.v1", format, bytes: buffer.length, sha256: createHash("sha256").update(buffer).digest("hex"), exists: true, parsed, structure, roundTripValidated: false, hostVerified: false, verificationBoundary: parsed ? "bounded_local_structure_inspection" : "local_file_bytes_only" };
-  } finally { closeSync(descriptor); }
+  }
 }
 
 export function interchangeLossReport(format: InterchangeFormat, sourceFeatures: unknown = {}, artifact?: ReturnType<typeof inspectInterchangeArtifact>) {

@@ -194,6 +194,7 @@ describe("getDarwinUserTempDirectory", () => {
 describe("sendCommand", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockedWriteFileSync.mockReset();
     vi.useFakeTimers();
     mockedMkdirSync.mockReturnValue(undefined);
     mockedReaddirSync.mockReturnValue([]);
@@ -572,7 +573,7 @@ describe("sendCommand", () => {
     const content = String(writeCall?.[1]);
     expect(content.endsWith("\nvar x = 1;")).toBe(true);
     expect(content.replaceAll("\\\\", "/")).toContain('$.evalFile("/tmp/test-bridge/helpers_');
-    expect(writeCall?.[2]).toBe("utf-8");
+    expect(writeCall?.[2]).toEqual({ encoding: "utf-8", mode: 0o600, flag: "wx" });
   });
 
   it("names a headless-routed command so its reply file matches", async () => {
@@ -616,6 +617,35 @@ describe("sendCommand", () => {
       error: `Bridge response exceeds the ${MAX_BRIDGE_RESPONSE_BYTES}-byte limit`,
     });
     expect(mockedReadFileSync).not.toHaveBeenCalled();
+  });
+
+  it("creates command files with private permissions and exclusive ownership", async () => {
+    mockedExistsSync.mockReturnValue(true);
+    mockedReadFileSync.mockReturnValue('{"success":true}');
+    await sendCommand("test", { tempDir: "/tmp/test-bridge" });
+    const commands = mockedWriteFileSync.mock.calls.filter(([path]) => String(path).endsWith(".jsx.staged"));
+    expect(commands).toHaveLength(1);
+    expect(commands[0][2]).toEqual({ encoding: "utf-8", mode: 0o600, flag: "wx" });
+  });
+
+  it.each([sendCommand, sendRawCommand])("preserves unowned files after exclusive staging creation fails", async (send) => {
+    mockedExistsSync.mockReturnValue(true);
+    mockedWriteFileSync.mockImplementation((path) => {
+      if (String(path).endsWith(".jsx.staged")) throw Object.assign(new Error("staging collision"), { code: "EEXIST" });
+    });
+    await expect(send("test", { tempDir: "/tmp/test-bridge" })).rejects.toThrow("staging collision");
+    expect(mockedRenameSync).not.toHaveBeenCalled();
+    expect(mockedUnlinkSync).not.toHaveBeenCalled();
+  });
+
+  it.each([sendCommand, sendRawCommand])("preserves a racing helper collision and unrelated command files", async (send) => {
+    mockedExistsSync.mockImplementation((path) => !String(path).includes("helpers_"));
+    mockedWriteFileSync.mockImplementation((path) => {
+      if (String(path).includes("helpers_")) throw Object.assign(new Error("helper collision"), { code: "EEXIST" });
+    });
+    await expect(send("test", { tempDir: "/tmp/test-bridge" })).rejects.toThrow("helper collision");
+    expect(mockedRenameSync).not.toHaveBeenCalled();
+    expect(mockedUnlinkSync).not.toHaveBeenCalled();
   });
 
   it("uses distinct cryptographic IDs for concurrently-created command files", async () => {

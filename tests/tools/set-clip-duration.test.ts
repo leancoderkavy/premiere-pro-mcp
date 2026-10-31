@@ -157,6 +157,10 @@ describe("set_clip_duration authority", () => {
     expect(handler).not.toHaveBeenCalled();
     await expect(
       guardToolHandler("set_clip_duration", handler, resolveCapabilities("inspect,edit"))({}),
+    ).rejects.toMatchObject({ code: "CAPABILITY_DENIED", capability: "filesystem" });
+    expect(handler).not.toHaveBeenCalled();
+    await expect(
+      guardToolHandler("set_clip_duration", handler, resolveCapabilities("inspect,edit,filesystem"))({}),
     ).resolves.toBe("ok");
   });
 });

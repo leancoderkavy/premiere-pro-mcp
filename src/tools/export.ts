@@ -1,6 +1,7 @@
+import { readBoundedRegularFile } from "../security/file-safety.js";
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
-import { closeSync, createReadStream, openSync, readFileSync, readSync, unlinkSync, existsSync, statSync, lstatSync, readdirSync } from "node:fs";
+import { closeSync, createReadStream, openSync, readSync, unlinkSync, existsSync, statSync, lstatSync, readdirSync } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { extname, join, resolve } from "node:path";
@@ -578,8 +579,9 @@ const MAX_EXPORT_PRESET_BYTES = 8 * 1024 * 1024;
 export function decodeExportPresetContents(contents: Buffer): string {
   if (contents.length >= 2 && contents[0] === 0x1f && contents[1] === 0x8b) {
     try {
-      return gunzipSync(contents).toString("utf8");
-    } catch {
+      return gunzipSync(contents, { maxOutputLength: MAX_EXPORT_PRESET_BYTES }).toString("utf8");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ERR_BUFFER_TOO_LARGE") throw new Error("Export preset expands beyond the byte limit");
       // Fall through to a raw scan when the gzip payload is truncated.
     }
   }
@@ -598,7 +600,7 @@ export function inspectExportPresetFile(presetPath: string) {
   if (!stats.isFile()) throw new Error(`Export preset path is not a regular file: ${path}`);
   if (stats.size === 0) throw new Error(`Export preset is empty: ${path}`);
   if (stats.size > MAX_EXPORT_PRESET_BYTES) throw new Error(`Export preset exceeds ${MAX_EXPORT_PRESET_BYTES} bytes`);
-  const contents = readFileSync(path);
+  const contents = readBoundedRegularFile(path, MAX_EXPORT_PRESET_BYTES);
   if (exportPresetUsesSameAsProject(contents)) {
     throw new Error(
       "This Adobe Media Encoder preset uses a Same as Project output destination. Premiere copies the project to a scratch folder for AME, so the encoded file will not land at the requested output_path. Use a preset with an explicit output location.",
@@ -2291,7 +2293,7 @@ ${ameQueueBatchStartScript(startBatch)}
               error: `Captured frame exceeds the ${MAX_CAPTURE_FRAME_BYTES}-byte inline response limit`,
             };
           }
-          const bytes = readFileSync(framePath);
+          const bytes = readBoundedRegularFile(framePath, MAX_CAPTURE_FRAME_BYTES);
           const afterRead = lstatSync(framePath);
           if (frameStat.ino !== afterRead.ino || frameStat.dev !== afterRead.dev || frameStat.size !== afterRead.size || frameStat.mtimeMs !== afterRead.mtimeMs) return { success: false, error: "CAPTURE_FILE_CHANGED: output changed while reading" };
           const hasAlpha = pngHasAlpha(bytes);

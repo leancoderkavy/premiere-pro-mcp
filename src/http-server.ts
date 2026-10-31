@@ -105,11 +105,11 @@ const mediaWatchRegistry = new MediaWatchRegistry();
 const mcpHandler = createMcpHandler(
   () => createServer(bridgeOptions, { telemetry, contextRepository: projectContextRepository, mediaWatchRegistry }),
   {
-    onerror: (error) => console.error("[premiere-pro-mcp] MCP handler error:", error),
+    onerror: (error) => console.error("[premiere-pro-mcp] MCP handler error:", telemetryErrorType(error)),
   },
 );
 const handleMcpRequest = toNodeHandler(mcpHandler, {
-  onerror: (error) => console.error("[premiere-pro-mcp] MCP Node adapter error:", error),
+  onerror: (error) => console.error("[premiere-pro-mcp] MCP Node adapter error:", telemetryErrorType(error)),
 });
 
 const tempDir = getTempDir(bridgeOptions);
@@ -302,7 +302,7 @@ const httpServer = http.createServer(async (req, res) => {
       duration_ms: Date.now() - requestStartedAt,
       error_type: telemetryErrorType(err),
     });
-    console.error("[premiere-pro-mcp] Request error:", err);
+    console.error("[premiere-pro-mcp] Request error:", telemetryErrorType(err));
     if (!res.headersSent) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Internal server error" }));

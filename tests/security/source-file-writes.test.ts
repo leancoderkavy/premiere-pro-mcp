@@ -43,9 +43,9 @@ describe("sequence presets and AME queue handoff require filesystem authority", 
   it.each([
     ["create_sequence", "edit"],
     ["create_sequence_from_preset", "edit"],
-    ["add_to_render_queue", "export"],
+    ["add_to_render_queue", "edit,export"],
   ])("%s", async (name, authority) => {
-    expect(capabilitiesForToolInvocation(name, {})).toEqual([authority, "filesystem"]);
+    expect(capabilitiesForToolInvocation(name, {})).toEqual([...authority.split(","), "filesystem"]);
     const handler = vi.fn().mockResolvedValue({ success: true });
     const guarded = guardToolHandler(name, handler, resolveCapabilities(authority));
     await expect(guarded({})).rejects.toThrow(/filesystem/);

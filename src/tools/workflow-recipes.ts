@@ -1,5 +1,6 @@
+import { readBoundedRegularFile } from "../security/file-safety.js";
 import { createHash } from "node:crypto";
-import { readFileSync, realpathSync, statSync } from "node:fs";
+import { realpathSync, statSync } from "node:fs";
 import path from "node:path";
 
 const MAX_RECIPE_BYTES = 1024 * 1024;
@@ -101,7 +102,7 @@ function customRecipes(workspace?: unknown, file?: unknown): WorkflowRecipe[] {
   const workspacePath = requiredText(workspace, "approved_workspace_path", 4096);
   const filePath = containedFile(workspacePath, requiredText(file, "recipe_file", 4096));
   if (statSync(filePath).size > MAX_RECIPE_BYTES) throw new Error("recipe_file exceeds 1 MiB");
-  const parsed = JSON.parse(readFileSync(filePath, "utf8")) as unknown;
+  const parsed = JSON.parse(readBoundedRegularFile(filePath, MAX_RECIPE_BYTES).toString("utf8")) as unknown;
   if (!Array.isArray(parsed) || parsed.length > MAX_RECIPES) throw new Error(`recipe_file must contain a JSON array of at most ${MAX_RECIPES} recipes`);
   const recipes = parsed.map((entry, index) => validateWorkflowRecipe(entry, `recipes[${index}]`));
   const ids = new Set(BUILT_INS.map((recipe) => recipe.id));

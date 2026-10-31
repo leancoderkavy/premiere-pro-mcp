@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanupTempDirs, makeTempDir } from "../helpers/temp-dir.js";
@@ -200,6 +200,28 @@ describe("normalize_loudness_file safety boundary", () => {
     expect(applies[1][applies[1].indexOf("-af") + 1]).toContain("TP=-2.2");
     expect(readFileSync(outputPath, "utf8")).toBe("attempt-2");
     expect(readdirSync(dirname(outputPath)).filter((name) => name.includes(".retry-"))).toEqual([]);
+  });
+
+  it("preserves unrelated files at the former predictable retry and backup paths", async () => {
+    const { inputPath, outputPath } = fixture();
+    const collision = join(dirname(outputPath), `.normalized.retry-2-${process.pid}.wav`);
+    const backupCollision = `${collision}.previous`;
+    writeFileSync(collision, "unrelated-retry");
+    writeFileSync(backupCollision, "unrelated-backup");
+    mockedExecFileAsync.mockImplementation(async (command: string, args: string[]) => {
+      if (command === "ffprobe") return { stdout: JSON.stringify({ streams: [{ sample_rate: "48000" }] }), stderr: "" };
+      if (args.some(value => value.includes("ebur128"))) return { stdout: "", stderr: measuredSummary(-16, args.includes(outputPath) ? -0.5 : -2) };
+      if (args.some(value => value.includes("measured_I"))) {
+        const destination = args[args.length - 1];
+        if (existsSync(destination)) throw new Error("refusing existing output");
+        writeFileSync(destination, "normalized-audio");
+      }
+      return { stdout: "", stderr: FIRST_PASS };
+    });
+    await expect(tool.handler({ input_path: inputPath, output_path: outputPath })).resolves.toMatchObject({ success: true });
+    expect(readFileSync(collision, "utf8")).toBe("unrelated-retry");
+    expect(readFileSync(backupCollision, "utf8")).toBe("unrelated-backup");
+    expect(readdirSync(dirname(outputPath)).filter(name => name.startsWith(".mcp-normalize-"))).toEqual([]);
   });
 
   it("keeps the first output and stops when max_attempts is 1 or a retry fails", async () => {

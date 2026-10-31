@@ -1,4 +1,5 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { readBoundedRegularFile } from "../security/file-safety.js";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { basename, delimiter, dirname, join, relative, sep } from "node:path";
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
@@ -55,7 +56,7 @@ function localized(value: unknown): string {
 /** Parse a .mogrt file's text controls from its definition.json. */
 export function readMogrtTextFields(mogrtPath: string): StockTitleTextField[] {
   if (statSync(mogrtPath).size > MAX_MOGRT_FILE_BYTES) throw new Error("MOGRT file is too large to inspect");
-  const definition = readZipEntry(readFileSync(mogrtPath), "definition.json");
+  const definition = readZipEntry(readBoundedRegularFile(mogrtPath, MAX_MOGRT_FILE_BYTES), "definition.json");
   if (!definition) throw new Error("MOGRT has no definition.json");
   const parsed = JSON.parse(definition.toString("utf8").replace(/^\uFEFF/, "")) as { clientControls?: unknown[] };
   const controls = Array.isArray(parsed.clientControls) ? parsed.clientControls : [];

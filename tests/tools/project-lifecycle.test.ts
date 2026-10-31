@@ -206,7 +206,7 @@ describe("project lifecycle tools", () => {
   it("fails when saveAs leaves a pre-existing project file unchanged", async () => {
     host({ saveAsNoop: true });
     await tools.open_project.handler({ path: "/p/Main.prproj" });
-    await expect(tools.save_project_as.handler({ path: "/p/Backup.prproj" })).resolves.toMatchObject({
+    await expect(tools.save_project_as.handler({ path: "/p/Backup.prproj", overwrite: true })).resolves.toMatchObject({
       success: false,
       error: expect.stringContaining("existing output was unchanged"),
     });
@@ -215,7 +215,7 @@ describe("project lifecycle tools", () => {
   it("treats a rewritten pre-existing path as a verified Save As", async () => {
     const { app } = host();
     await tools.open_project.handler({ path: "/p/Main.prproj" });
-    await expect(tools.save_project_as.handler({ path: "/p/Backup.prproj" })).resolves.toMatchObject({
+    await expect(tools.save_project_as.handler({ path: "/p/Backup.prproj", overwrite: true })).resolves.toMatchObject({
       success: true,
       data: { saved: true, verified: true, activeProjectPath: "/p/Backup.prproj" },
     });
@@ -225,7 +225,7 @@ describe("project lifecycle tools", () => {
   it.each(["before", "after", "both"] as const)("refuses unchanged size when the %s timestamp is unreadable", async (modifiedUnavailable) => {
     host({ saveAsNoop: true, modifiedUnavailable });
     await tools.open_project.handler({ path: "/p/Main.prproj" });
-    await expect(tools.save_project_as.handler({ path: "/p/Backup.prproj" })).resolves.toMatchObject({
+    await expect(tools.save_project_as.handler({ path: "/p/Backup.prproj", overwrite: true })).resolves.toMatchObject({
       success: false, error: expect.stringContaining("timestamp is unreadable"),
     });
   });
@@ -233,7 +233,7 @@ describe("project lifecycle tools", () => {
   it("verifies same-size rewrites using millisecond timestamp precision", async () => {
     host({ sameSizeRewrite: true });
     await tools.open_project.handler({ path: "/p/Main.prproj" });
-    await expect(tools.save_project_as.handler({ path: "/p/Backup.prproj" })).resolves.toMatchObject({
+    await expect(tools.save_project_as.handler({ path: "/p/Backup.prproj", overwrite: true })).resolves.toMatchObject({
       success: true, data: { saved: true, verified: true },
     });
   });
@@ -241,7 +241,7 @@ describe("project lifecycle tools", () => {
   it.each(["missingOutput", "emptyOutput"] as const)("refuses %s after Save As", async (option) => {
     host({ [option]: true });
     await tools.open_project.handler({ path: "/p/Main.prproj" });
-    await expect(tools.save_project_as.handler({ path: "/p/Backup.prproj" })).resolves.toMatchObject({
+    await expect(tools.save_project_as.handler({ path: "/p/Backup.prproj", overwrite: true })).resolves.toMatchObject({
       success: false, error: expect.stringContaining("non-empty project file"),
     });
   });
@@ -249,7 +249,7 @@ describe("project lifecycle tools", () => {
   it("refuses a missing parent before Save As", async () => {
     const h = host({ missingParent: true });
     await tools.open_project.handler({ path: "/p/Main.prproj" });
-    await expect(tools.save_project_as.handler({ path: "/p/Backup.prproj" })).resolves.toMatchObject({
+    await expect(tools.save_project_as.handler({ path: "/p/Backup.prproj", overwrite: true })).resolves.toMatchObject({
       success: false, error: expect.stringContaining("directory does not exist"),
     });
     expect(h.saveCalls()).toBe(0);

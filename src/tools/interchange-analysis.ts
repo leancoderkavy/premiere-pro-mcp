@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { readBoundedRegularFile } from "../security/file-safety.js";
+import { existsSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { BridgeOptions } from "../bridge/file-bridge.js";
@@ -188,7 +189,7 @@ function readInterchangeFile(value: unknown, extensions: readonly string[]): { p
   if (!extensions.some(extension => path.toLowerCase().endsWith(extension))) throw new Error(`path must have one of: ${extensions.join(", ")}`);
   if (!existsSync(path) || !statSync(path).isFile()) throw new Error(`Interchange file does not exist: ${path}`);
   if (statSync(path).size > MAX_INTERCHANGE_BYTES) throw new Error(`Interchange file exceeds the ${MAX_INTERCHANGE_BYTES}-byte limit`);
-  return { path, contents: readFileSync(path, "utf8") };
+  return { path, contents: readBoundedRegularFile(path, MAX_INTERCHANGE_BYTES).toString("utf8") };
 }
 
 function fileUrlPath(value: string | null): string | null {
