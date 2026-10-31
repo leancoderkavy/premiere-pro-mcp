@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - `get_effect_properties` and `set_effect_property` say when an audio effect's parameters are Premiere's normalized 0-1 values rather than Hz, dB or ms. Effects on audio clips (other than the built-in Volume, Channel Volume, Panner and Balance) report `valueScale`, a `parameterScale` summary and a warning to calibrate by rendering, because Adobe does not document the mapping. Highpass Cutoff carries measured guidance from Premiere 26.5.2 (the 0.25 default measured near 1.2 kHz), presented as measurements, not a formula. Volume Level also reports its value in dB using the mapping `set_clip_volume` already writes with.
 - `set_effect_property` refuses, before writing, a number outside 0-1 for an audio effect parameter whose current value is inside 0-1 (such as 80 meant as Hz, which Premiere would clamp). `allow_out_of_range_audio_value: true` permits a deliberate raw write.
+- Undo and redo stack-guard refusals report `not_applied` before any step. Project creation checks its parent directory before calling the host, so a missing folder cannot set a recovery lock; uncertain post-call failures remain guarded.
 
 ## [1.26.0] - 2026-10-27
 

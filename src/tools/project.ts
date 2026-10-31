@@ -259,10 +259,10 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           if (expectedIndex !== null) {
             var currentIndex = __readUndoIndex();
             if (currentIndex === null || typeof currentIndex === "undefined" || isNaN(Number(currentIndex))) {
-              return __jsonStringify({ success: false, error: "Premiere did not expose undoStackIndex; undo was not attempted", data: { expectedUndoStackIndex: expectedIndex } });
+              return __jsonStringify({ success: false, error: "Premiere did not expose undoStackIndex; undo was not attempted", data: { expectedUndoStackIndex: expectedIndex, mutationOutcome: "not_applied", timelineChanged: false } });
             }
             if (currentIndex !== expectedIndex) {
-              return __jsonStringify({ success: false, error: "Premiere's undo stack is at " + currentIndex + ", not the expected " + expectedIndex + ": the undo-stack position changed since that call (actions were undone or recorded), so undo was not attempted.", data: { undoStackIndex: currentIndex, expectedUndoStackIndex: expectedIndex } });
+              return __jsonStringify({ success: false, error: "Premiere's undo stack is at " + currentIndex + ", not the expected " + expectedIndex + ": the undo-stack position changed since that call (actions were undone or recorded), so undo was not attempted.", data: { undoStackIndex: currentIndex, expectedUndoStackIndex: expectedIndex, mutationOutcome: "not_applied", timelineChanged: false } });
             }
           }
           var outcome = __qeUndoSteps("undo", ${count}, ${args.acknowledge_untracked_markers === true ? "true" : "false"});
@@ -372,6 +372,14 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           var beforePath = app.project ? String(app.project.path || "") : "";
           if (__normalizedProjectPath(beforePath) === __normalizedProjectPath(requestedPath)) {
             return __error("A project is already open at " + requestedPath + "; choose a new .prproj file path instead.");
+          }
+          try {
+            var requestedFolder = new File(requestedPath).parent;
+            if (!requestedFolder || requestedFolder.exists !== true) {
+              return __error("The project directory does not exist or could not be read for " + requestedPath + "; no project creation was attempted.", { mutationOutcome: "not_applied", timelineChanged: false });
+            }
+          } catch (folderReadError) {
+            return __error("The project directory could not be read for " + requestedPath + "; no project creation was attempted.", { mutationOutcome: "not_applied", timelineChanged: false });
           }
           // A new project has its own undo stack; do not report a count across it.
           __undoStart = null;
