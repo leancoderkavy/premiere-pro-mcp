@@ -6,18 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.27.0] - 2026-10-31
+
+### Added
+
+- `unnest_sequence_uxp` unnests a nested sequence clip by cloning its clips into the parent with documented UXP SequenceEditor actions, keeping each clip's effects, keyframes, enabled state and source range. Inspect returns the full plan; apply runs one undoable transaction with per-clone readback (#937).
+
 ### Fixed
 
+- Project-item mark restore handles time-of-day timecode that passes midnight, so media from a camera started late in the evening keeps its marks (#938).
+- Dependency audit: `@hono/node-server` 2.1.5 (GHSA-rmxm-3fg6-px4f) and a `minimatch` 11.0.3 override for the dev-only eslint chain (GHSA-g3hv-75wg-m249) (#932, #939).
 - Full-server registration and catalog test files allow 60 seconds for tests and setup hooks on loaded machines, while retaining the global 10-second default and existing longer explicit test limits.
 - Project-item tools resolve a sequence ID (the GUID returned by `create_sequence`, `duplicate_sequence` and `list_sequences`) to that sequence's project item after node-ID and name matches fail, so `rename_project_item`, `move_item_to_bin`, `delete_project_item` and similar tools accept the ID a sequence tool just reported. `duplicate_sequence` also reports the copy's `projectItemNodeId`.
 - Audio effect removal distinguishes applied `Internal Highpass` and `Internal Parameteric EQ` components from audio intrinsics. Targeted and remove-all paths retain Volume, Channel Volume, Panner and video intrinsics, with unchanged localization refusals and removal readback.
-
 - `get_effect_properties` and `set_effect_property` say when an audio effect's parameters are Premiere's normalized 0-1 values rather than Hz, dB or ms. Effects on audio clips (other than the built-in Volume, Channel Volume, Panner and Balance) report `valueScale`, a `parameterScale` summary and a warning to calibrate by rendering, because Adobe does not document the mapping. Highpass Cutoff carries measured guidance from Premiere 26.5.2 (the 0.25 default measured near 1.2 kHz), presented as measurements, not a formula. Volume Level also reports its value in dB using the mapping `set_clip_volume` already writes with.
 - `set_effect_property` refuses, before writing, a number outside 0-1 for an audio effect parameter whose current value is inside 0-1 (such as 80 meant as Hz, which Premiere would clamp). `allow_out_of_range_audio_value: true` permits a deliberate raw write.
 - Undo and redo stack-guard refusals report `not_applied` before any step. Project creation checks its parent directory before calling the host, so a missing folder cannot set a recovery lock; uncertain post-call failures remain guarded.
 - Caption-track import reports captured undo steps and guarded reversal guidance without guessing an undo count. Descriptions and workflow guidance warn that caption tracks render in exports by default, cannot be removed or hidden through CEP, and can be muted through a capable UXP panel.
 - Sequence source-alignment reads report offsets for unlinked separate picture/sound files at matching starts and flag inconsistent offsets within each media-pair group. Constant offsets remain observations; bounded group context and diagnostic truncation are disclosed without exposing source paths.
-
 - Paged sequence reads expose audio source In/Out and bounded source-alignment warnings for linked or unambiguous same-media pairs. Checks use the exact sequence frame duration, account for timeline offsets and retain paging and payload limits; warnings are not playback verification.
 - Additional effect-removal preflight refusals beyond #901 report `not_applied` when no removal was attempted. An explicit attempt flag keeps thrown or unverified removals recovery-required, including host calls that change a component and then throw.
 - `create_subclip` reads a subclip's stored range relative to the start of the file, so subclips of media with a start timecode (a BWF WAV's `time_reference`, a camera clip at 01:00:00:00) verify instead of reporting a range off by the start timecode. The receipt reports `mediaStartSeconds` when the media has one.
