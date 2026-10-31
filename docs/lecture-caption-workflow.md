@@ -72,3 +72,26 @@ The plan does not authorize a mutation. Follow its steps separately:
 The workflow is a guide and returns `not_run` for structural, playback, and
 rendered-output verification until the editor performs and records those steps
 on the actual host.
+
+## Export visibility and reversal
+
+Caption tracks render in `export_sequence` by default. CEP cannot remove or
+hide them, and deleting the imported SRT/VTT project item does not remove its
+caption track. Retire an old track in Premiere or hide it through a capable UXP
+panel before importing a replacement, so stale captions do not render twice.
+
+The import result includes `undoSteps` and `reversal`. A usable observed count
+comes with exact `multiple_undo` arguments, including `expected_undo_stack_index`.
+Use them only immediately, before other edits, and inspect the track afterwards.
+The experimental QE count measures the project-wide undo stack; its position alone does not prove
+which action is on top or that native caption reversal succeeded. A null count
+means no usable count was captured, not zero steps. Never guess a count to undo:
+that can reverse an earlier edit.
+
+When a connected UXP panel advertises caption-track mute support, identify the
+new track and call `manage_track_state_uxp` with `action: "inspect"`,
+`media_type: "caption"` and its exact `track_indices`. Then use `action:
+"set_mute"`, `muted: true`, a fresh `operation_id` and the unchanged
+`expected_sequence_id` / `expected_muted` values returned by inspection. Read the
+mute state back. Muting hides a track; it does not delete it. Export/render review
+remains a separate verification step.
