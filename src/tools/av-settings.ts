@@ -80,9 +80,9 @@ export function getAvSettingsTools(bridgeOptions: BridgeOptions) {
       handler: async () => {
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           var settings = seq.getSettings();
-          if (!settings) return __error("Could not get sequence settings");
+          if (!settings) return __refuse("Could not get sequence settings");
 
           function valueOfTime(value) {
             if (value === undefined || value === null) return null;
@@ -135,7 +135,7 @@ export function getAvSettingsTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { item_id: string }) => {
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found: ${escapeForExtendScript(args.item_id)}");
+          if (!item) return __refuse("Item not found: ${escapeForExtendScript(args.item_id)}");
           function optionalCall(name) {
             try { return typeof item[name] === "function" ? item[name]() : null; } catch (_) { return null; }
           }
@@ -200,14 +200,14 @@ export function getAvSettingsTools(bridgeOptions: BridgeOptions) {
         }
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found: ${escapeForExtendScript(args.item_id)}");
+          if (!item) return __refuse("Item not found: ${escapeForExtendScript(args.item_id)}");
           var mapping = null;
           try { mapping = item.getAudioChannelMapping; } catch (_) {}
           if (typeof mapping === "function" || !mapping) {
             try { if (typeof item.getAudioChannelMapping === "function") mapping = item.getAudioChannelMapping(); } catch (_) {}
           }
           if (!mapping || typeof mapping.setMappingForChannel !== "function") {
-            return __error("This item or Premiere build does not expose AudioChannelMapping.setMappingForChannel");
+            return __refuse("This item or Premiere build does not expose AudioChannelMapping.setMappingForChannel");
           }
           var accepted = mapping.setMappingForChannel(${args.channel_index}, ${args.source_channel_index});
           if (accepted !== true) return __error("Premiere rejected this channel mapping", { accepted: false, verified: false, outcome: "failed" });

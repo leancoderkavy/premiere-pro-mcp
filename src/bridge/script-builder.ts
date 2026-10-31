@@ -3439,6 +3439,7 @@ function __jsonStringify(obj) {
 // none. __result reports how many entries the command added so an agent can
 // undo exactly that call.
 var __undoStart = null;
+var __commandMutating = false;
 var __markerWriteAttempted = false;
 var __stillFrameRecoveryRequired = false;
 function __captureRestorationReceipt(data) {
@@ -3516,6 +3517,32 @@ function __error(msg, extraData) {
   return data ? __jsonStringify({ success: false, error: message, data: data }) : __jsonStringify({ success: false, error: message });
 }
 
+// A refusal raised before this command changed anything (lookup failed,
+// input out of range, guard mismatch). It reports not_applied so a stale ID
+// does not leave a recovery lock. If the undo history moved, a marker write
+// was attempted or a still-frame restore failed, it falls back to __error,
+// as it does for inspect-only commands, whose result shape is unchanged.
+// The file bridge also treats it as unknown when an earlier command of the
+// same tool call was dispatched.
+function __refuse(msg, extraData) {
+  if (!__commandMutating) return __error(msg, extraData);
+  var data = {};
+  if (extraData && typeof extraData === "object") {
+    for (var key in extraData) if (extraData.hasOwnProperty(key)) data[key] = extraData[key];
+  }
+  var unchanged = !__markerWriteAttempted && !__stillFrameRecoveryRequired;
+  if (unchanged && __undoStart !== null) {
+    var undoNow = __readUndoIndex();
+    if (undoNow === null || undoNow > __undoStart) unchanged = false;
+  }
+  if (unchanged && data.mutationOutcome === undefined && data.timelineChanged === undefined) {
+    data.mutationOutcome = "not_applied";
+    data.timelineChanged = false;
+    data.refusedBeforeChange = true;
+  }
+  return __error(msg, data);
+}
+
 // === End MCP Bridge Helpers ===
 `;
 
@@ -3560,22 +3587,22 @@ export function buildScript(code: string): string {
   const target = expectedHostTarget();
   let targetGuard = target?.sequence_id ? `
     var __guardSequence = app.project && app.project.activeSequence;
-    if (!__guardSequence || String(__guardSequence.sequenceID) !== "${escapeForExtendScript(target.sequence_id)}") return __error("Expected target guard refused: active sequence changed; nothing was changed.");
+    if (!__guardSequence || String(__guardSequence.sequenceID) !== "${escapeForExtendScript(target.sequence_id)}") return __refuse("Expected target guard refused: active sequence changed; nothing was changed.");
   ` : "";
-  if (target?.project_document_id) targetGuard += `if (!app.project || String(app.project.documentID) !== "${escapeForExtendScript(target.project_document_id)}") return __error("Expected target guard refused: project document changed; nothing was changed.");\n`;
+  if (target?.project_document_id) targetGuard += `if (!app.project || String(app.project.documentID) !== "${escapeForExtendScript(target.project_document_id)}") return __refuse("Expected target guard refused: project document changed; nothing was changed.");\n`;
   if (target?.source_item) {
-    targetGuard += `var __guardSourceItem = __findProjectItem("${escapeForExtendScript(target.source_item.node_id)}"); if (!__guardSourceItem || String(__guardSourceItem.nodeId) !== "${escapeForExtendScript(target.source_item.node_id)}") return __error("Expected source guard refused: exact source identity changed; nothing was changed.");\n`;
-    if (target.source_item.media_path !== undefined) targetGuard += `if (typeof __guardSourceItem.getMediaPath !== "function" || String(__guardSourceItem.getMediaPath()) !== "${escapeForExtendScript(target.source_item.media_path)}") return __error("Expected source guard refused: source media path changed; nothing was changed.");\n`;
+    targetGuard += `var __guardSourceItem = __findProjectItem("${escapeForExtendScript(target.source_item.node_id)}"); if (!__guardSourceItem || String(__guardSourceItem.nodeId) !== "${escapeForExtendScript(target.source_item.node_id)}") return __refuse("Expected source guard refused: exact source identity changed; nothing was changed.");\n`;
+    if (target.source_item.media_path !== undefined) targetGuard += `if (typeof __guardSourceItem.getMediaPath !== "function" || String(__guardSourceItem.getMediaPath()) !== "${escapeForExtendScript(target.source_item.media_path)}") return __refuse("Expected source guard refused: source media path changed; nothing was changed.");\n`;
   }
   if (target?.clip) {
     const clip = target.clip;
     targetGuard += `
     var __guardClip = __findClip("${escapeForExtendScript(clip.node_id)}");
-    if (!__guardClip || __guardClip.trackType !== "${clip.track_type}" || __guardClip.trackIndex !== ${clip.track_index}) return __error("Expected target guard refused: clip identity or track changed; nothing was changed.");
+    if (!__guardClip || __guardClip.trackType !== "${clip.track_type}" || __guardClip.trackIndex !== ${clip.track_index}) return __refuse("Expected target guard refused: clip identity or track changed; nothing was changed.");
     `;
-    if (clip.project_item_id !== undefined) targetGuard += `if (!__guardClip.clip.projectItem || String(__guardClip.clip.projectItem.nodeId) !== "${escapeForExtendScript(clip.project_item_id)}") return __error("Expected target guard refused: source identity changed; nothing was changed.");\n`;
+    if (clip.project_item_id !== undefined) targetGuard += `if (!__guardClip.clip.projectItem || String(__guardClip.clip.projectItem.nodeId) !== "${escapeForExtendScript(clip.project_item_id)}") return __refuse("Expected target guard refused: source identity changed; nothing was changed.");\n`;
     for (const [field, host] of [["start_ticks", "start"], ["end_ticks", "end"], ["in_ticks", "inPoint"], ["out_ticks", "outPoint"]] as const) {
-      if (clip[field] !== undefined) targetGuard += `if (String(__guardClip.clip.${host}.ticks) !== "${escapeForExtendScript(clip[field]!)}") return __error("Expected target guard refused: clip range changed; nothing was changed.");\n`;
+      if (clip[field] !== undefined) targetGuard += `if (String(__guardClip.clip.${host}.ticks) !== "${escapeForExtendScript(clip[field]!)}") return __refuse("Expected target guard refused: clip range changed; nothing was changed.");\n`;
     }
     if (clip.effect) {
       const effect = clip.effect;
@@ -3585,35 +3612,39 @@ export function buildScript(code: string): string {
           var __candidateComponent = __guardClip.clip.components[__gc];
           if (String(__candidateComponent.matchName) === "${escapeForExtendScript(effect.match_name)}") { __guardComponent = __candidateComponent; __guardMatches++; }
         }
-        if (__guardMatches !== 1 || !__guardComponent) return __error("Expected effect guard refused: component identity is missing or ambiguous; nothing was changed.");
-        ${effect.display_name === undefined ? "" : `if (String(__guardComponent.displayName) !== "${escapeForExtendScript(effect.display_name)}") return __error("Expected effect guard refused: component display identity changed; nothing was changed.");`}
-        if (!__guardComponent.properties || __guardComponent.properties.numItems <= ${effect.parameter_index} || String(__guardComponent.properties[${effect.parameter_index}].displayName) !== "${escapeForExtendScript(effect.parameter_name)}") return __error("Expected effect guard refused: indexed parameter identity changed; nothing was changed.");
+        if (__guardMatches !== 1 || !__guardComponent) return __refuse("Expected effect guard refused: component identity is missing or ambiguous; nothing was changed.");
+        ${effect.display_name === undefined ? "" : `if (String(__guardComponent.displayName) !== "${escapeForExtendScript(effect.display_name)}") return __refuse("Expected effect guard refused: component display identity changed; nothing was changed.");`}
+        if (!__guardComponent.properties || __guardComponent.properties.numItems <= ${effect.parameter_index} || String(__guardComponent.properties[${effect.parameter_index}].displayName) !== "${escapeForExtendScript(effect.parameter_name)}") return __refuse("Expected effect guard refused: indexed parameter identity changed; nothing was changed.");
       `;
     }
   }
   const projectGuard = expected === undefined ? "" : `
     var __expectedProjectPath = new File("${escapeForExtendScript(expected)}").fsName;
     var __activeProjectPath = app.project && app.project.path;
-    if (!__activeProjectPath) return __error("Expected project guard refused: active project is missing or unsaved; nothing was changed.");
+    if (!__activeProjectPath) return __refuse("Expected project guard refused: active project is missing or unsaved; nothing was changed.");
     __activeProjectPath = new File(__activeProjectPath).fsName;
     if (String($.os).toLowerCase().indexOf("windows") !== -1) {
       __expectedProjectPath = __expectedProjectPath.toLowerCase();
       __activeProjectPath = __activeProjectPath.toLowerCase();
     }
-    if (__activeProjectPath !== __expectedProjectPath) return __error("Expected project guard refused: active project differs; nothing was changed.");
+    if (__activeProjectPath !== __expectedProjectPath) return __refuse("Expected project guard refused: active project differs; nothing was changed.");
   `;
   // Helpers live in a long-lived engine, so __undoStart is always reset: set
   // for tools that change the project, cleared for everything else.
   const undoStart = undoTrackingEnabled()
     ? `__undoStart = typeof __readUndoIndex === "function" ? __readUndoIndex() : null;`
     : `__undoStart = null;`;
+  // Reset per-command state before the guards: the engine is long-lived, so a
+  // guard refusal must not inherit the previous command's undo or write flags.
   return `(function() {
   try {
+    __undoStart = null;
+    __commandMutating = ${undoTrackingEnabled()};
+    __markerWriteAttempted = false;
+    __stillFrameRecoveryRequired = false;
     ${projectGuard}
     ${targetGuard}
     ${undoStart}
-    __markerWriteAttempted = false;
-    __stillFrameRecoveryRequired = false;
     ${code}
   } catch(e) {
     return __error(e.toString());

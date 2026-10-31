@@ -9,7 +9,7 @@ export function getWorkspaceTools(bridgeOptions: BridgeOptions) {
       handler: async () => {
         const script = buildToolScript(`
           var workspaces = app.getWorkspaces();
-          if (!workspaces) return __error("Could not retrieve workspaces");
+          if (!workspaces) return __refuse("Could not retrieve workspaces");
           var list = [];
           for (var i = 0; i < workspaces.length; i++) {
             list.push(workspaces[i]);

@@ -159,7 +159,7 @@ export function getCompetitorGapTools(
 
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           var placements = [${emittedClips}];
           var i;
 
@@ -394,8 +394,8 @@ export function getCompetitorGapTools(
 
         const script = buildToolScript(`
           var found = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!found) return __error("Clip not found: ${escapeForExtendScript(args.node_id)}");
-          if (found.trackType !== "video") return __error("crop_clip only supports video timeline clips.");
+          if (!found) return __refuse("Clip not found: ${escapeForExtendScript(args.node_id)}");
+          if (found.trackType !== "video") return __refuse("crop_clip only supports video timeline clips.");
           var clip = found.clip;
           var crop = null;
           var componentIndex = -1;
@@ -540,13 +540,13 @@ export function getCompetitorGapTools(
 
         const script = buildToolScript(`
           var found = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!found) return __error("Clip not found: ${escapeForExtendScript(args.node_id)}");
-          if (found.trackType !== "audio") return __error("setup_ducking only supports audio timeline clips. Target the music or SFX audio clip, not its linked video clip.");
+          if (!found) return __refuse("Clip not found: ${escapeForExtendScript(args.node_id)}");
+          if (found.trackType !== "audio") return __refuse("setup_ducking only supports audio timeline clips. Target the music or SFX audio clip, not its linked video clip.");
           var clip = found.clip;
           var base = __clipKeyframeBase(clip);
-          if (!base.ok) return __error(base.error);
+          if (!base.ok) return __refuse(base.error);
           var duration = base.durationSeconds;
-          if (!isFinite(duration) || duration <= 0) return __error("The audio clip has no readable positive duration; no automation was written.");
+          if (!isFinite(duration) || duration <= 0) return __refuse("The audio clip has no readable positive duration; no automation was written.");
           var windows = [${emittedWindows}];
           var i;
           for (i = 0; i < windows.length; i++) {

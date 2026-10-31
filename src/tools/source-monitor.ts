@@ -18,7 +18,7 @@ export function getSourceMonitorTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { item_id: string }) => {
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Project item not found");
+          if (!item) return __refuse("Project item not found");
           app.sourceMonitor.openProjectItem(item);
           var showing = null;
           try { showing = app.sourceMonitor.getProjectItem(); } catch (eShowing) {
@@ -39,8 +39,8 @@ export function getSourceMonitorTools(bridgeOptions: BridgeOptions) {
       handler: async () => {
         const script = buildToolScript(`
           var before = null;
-          try { before = app.sourceMonitor.getProjectItem(); } catch (eBefore) { return __error("Cannot read the Source Monitor before closing; no close was attempted."); }
-          if (!before) return __error("No clip open in Source Monitor");
+          try { before = app.sourceMonitor.getProjectItem(); } catch (eBefore) { return __refuse("Cannot read the Source Monitor before closing; no close was attempted."); }
+          if (!before) return __refuse("No clip open in Source Monitor");
           var closedName = before.name;
           app.sourceMonitor.closeClip();
           var after = null;
@@ -107,7 +107,7 @@ export function getSourceMonitorTools(bridgeOptions: BridgeOptions) {
         }
         const script = buildToolScript(`
           var item = app.sourceMonitor.getProjectItem();
-          if (!item) return __error("No clip open in Source Monitor");
+          if (!item) return __refuse("No clip open in Source Monitor");
           var markMediaType = __markMediaTypeForItem(item, 4);
 
           var originalMarks = __itemMarksForRestore(item, markMediaType);
@@ -225,10 +225,10 @@ export function getSourceMonitorTools(bridgeOptions: BridgeOptions) {
         }
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
 
           var item = app.sourceMonitor.getProjectItem();
-          if (!item) return __error("No clip open in Source Monitor");
+          if (!item) return __refuse("No clip open in Source Monitor");
 
           var pos = seq.getPlayerPosition().ticks;
           var outcome = __insertClipHonoringSyncLock(seq, item, pos, ${vTrack}, ${aTrack}, "${scope}");
@@ -262,16 +262,16 @@ export function getSourceMonitorTools(bridgeOptions: BridgeOptions) {
         }
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           if (${vTrack} >= seq.videoTracks.numTracks) {
-            return __error("Video track index ${vTrack} is out of range: the sequence has " + seq.videoTracks.numTracks + " video track(s).");
+            return __refuse("Video track index ${vTrack} is out of range: the sequence has " + seq.videoTracks.numTracks + " video track(s).");
           }
           if (${aTrack} >= seq.audioTracks.numTracks) {
-            return __error("Audio track index ${aTrack} is out of range: the sequence has " + seq.audioTracks.numTracks + " audio track(s).");
+            return __refuse("Audio track index ${aTrack} is out of range: the sequence has " + seq.audioTracks.numTracks + " audio track(s).");
           }
 
           var item = app.sourceMonitor.getProjectItem();
-          if (!item) return __error("No clip open in Source Monitor");
+          if (!item) return __refuse("No clip open in Source Monitor");
 
           var pos = seq.getPlayerPosition().ticks;
           function mediaSpan(mediaType) {

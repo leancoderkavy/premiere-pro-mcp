@@ -331,9 +331,9 @@ export function getTimelineTools(
 
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Project item not found: ${escapeForExtendScript(args.item_id)}");
+          if (!item) return __refuse("Project item not found: ${escapeForExtendScript(args.item_id)}");
           var startTicks = __secondsToTicks(${startSeconds}).toString();
           var outcome = __insertClipHonoringSyncLock(seq, item, startTicks, ${trackIndex}, ${audioTrackIndex}, "${scope}");
           if (!outcome.ok) return __error(outcome.error, outcome.changed ? { timelineChanged: true, outcome: "committed_unverified", verified: false, displacedTails: outcome.displacedTails, placedOn: outcome.placedOn } : null);
@@ -721,9 +721,9 @@ export function getTimelineTools(
         const evidenceScript = buildToolScript(`
           var projectId; var sequenceId;
           try { projectId = app.project.documentID; sequenceId = app.project.activeSequence.sequenceID; } catch (contextError) {}
-          if (typeof projectId !== "string" || !projectId.length || typeof sequenceId !== "string" || !sequenceId.length) return __error("Project and sequence identities could not be read; no edit was attempted.");
+          if (typeof projectId !== "string" || !projectId.length || typeof sequenceId !== "string" || !sequenceId.length) return __refuse("Project and sequence identities could not be read; no edit was attempted.");
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
+          if (!result) return __refuse("Clip not found");
           var mp = "";
           try { mp = String(result.clip.projectItem.getMediaPath() || ""); } catch (eMediaPath) {}
           return __result({ mediaPath: mp, projectId: projectId, sequenceId: sequenceId });
@@ -757,7 +757,7 @@ export function getTimelineTools(
         const script = buildToolScript(`
           var currentProjectId; var currentSequenceId;
           try { currentProjectId = app.project.documentID; currentSequenceId = app.project.activeSequence.sequenceID; } catch (contextError) {}
-          if (currentProjectId !== "${escapeForExtendScript(projectId)}" || currentSequenceId !== "${escapeForExtendScript(sequenceId)}") return __error("Project or active sequence changed after media preflight; no edit was attempted.");
+          if (currentProjectId !== "${escapeForExtendScript(projectId)}" || currentSequenceId !== "${escapeForExtendScript(sequenceId)}") return __refuse("Project or active sequence changed after media preflight; no edit was attempted.");
           function __editOne(result, nodeId, checkOnly) {
             var currentMediaPath = "";
             try { currentMediaPath = String(result.clip.projectItem.getMediaPath() || ""); } catch (eBoundPath) {}
@@ -1375,9 +1375,9 @@ export function getTimelineTools(
         const script = buildToolScript(`
           app.enableQE();
           var domSequence = app.project.activeSequence;
-          if (!domSequence) return __error("No active sequence");
+          if (!domSequence) return __refuse("No active sequence");
           var seq = qe.project.getActiveSequence();
-          if (!seq) return __error("No active sequence (QE)");
+          if (!seq) return __refuse("No active sequence (QE)");
           
           var track = ${trackType === "video" ? `seq.getVideoTrackAt(${trackIndex})` : `seq.getAudioTrackAt(${trackIndex})`};
           if (!track) return __error("QE track not found");
@@ -1729,7 +1729,7 @@ export function getTimelineTools(
       handler: async (args: { node_id: string; enabled: boolean }) => {
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found: ${escapeForExtendScript(args.node_id)}");
+          if (!result) return __refuse("Clip not found: ${escapeForExtendScript(args.node_id)}");
           
           var wantDisabled = ${args.enabled ? "false" : "true"};
           result.clip.disabled = wantDisabled;
@@ -1790,7 +1790,7 @@ export function getTimelineTools(
 
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found: ${escapeForExtendScript(args.node_id)}");
+          if (!result) return __refuse("Clip not found: ${escapeForExtendScript(args.node_id)}");
           var clip = result.clip;
           function readNumericProperty(prop) {
             var value = prop.getValue();
@@ -1957,15 +1957,15 @@ export function getTimelineTools(
       handler: async (args: { node_id: string; new_item_id: string }) => {
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found: ${escapeForExtendScript(args.node_id)}");
+          if (!result) return __refuse("Clip not found: ${escapeForExtendScript(args.node_id)}");
           
           var newItem = __findProjectItem("${escapeForExtendScript(args.new_item_id)}");
-          if (!newItem) return __error("Replacement project item not found: ${escapeForExtendScript(args.new_item_id)}");
+          if (!newItem) return __refuse("Replacement project item not found: ${escapeForExtendScript(args.new_item_id)}");
           
-          if (__isBinItem(newItem)) return __error("Replace refused; nothing was changed. " + newItem.name + " is a bin, not a clip.");
+          if (__isBinItem(newItem)) return __refuse("Replace refused; nothing was changed. " + newItem.name + " is a bin, not a clip.");
 
           var clip = result.clip;
           var oldName = clip.name;
@@ -1978,16 +1978,16 @@ export function getTimelineTools(
           var oldStart = parseFloat(clip.start.ticks);
           var oldEnd = parseFloat(clip.end.ticks);
           var span = oldEnd - oldStart;
-          if (!(span > 0)) return __error("Replace refused; nothing was changed. The clip has an empty or inverted timeline range.");
+          if (!(span > 0)) return __refuse("Replace refused; nothing was changed. The clip has an empty or inverted timeline range.");
           if (__isTrackLocked(track)) {
-            return __error("Replace refused; nothing was changed. " + trackType + " track " + trackIndex + " is locked.");
+            return __refuse("Replace refused; nothing was changed. " + trackType + " track " + trackIndex + " is locked.");
           }
           if (typeof track.overwriteClip !== "function" || typeof newItem.setInPoint !== "function" || typeof newItem.setOutPoint !== "function") {
-            return __error("Replace refused; nothing was changed. This Premiere build does not expose Track.overwriteClip or project item In/Out marks, so the clip span could not be preserved.");
+            return __refuse("Replace refused; nothing was changed. This Premiere build does not expose Track.overwriteClip or project item In/Out marks, so the clip span could not be preserved.");
           }
           var newIn = NaN;
           try { newIn = parseFloat(newItem.getInPoint(mediaType).ticks); } catch (eNewIn) {}
-          if (isNaN(newIn)) return __error("Replace refused; nothing was changed. Could not read the In point of " + newItem.name + ".");
+          if (isNaN(newIn)) return __refuse("Replace refused; nothing was changed. Could not read the In point of " + newItem.name + ".");
           var newOut = newIn + span;
 
           function countClips(list) {

@@ -25,7 +25,7 @@ export function getInspectionTools(bridgeOptions: BridgeOptions) {
           : -1;
         const script = buildToolScript(`
           var project = app.project;
-          if (!project) return __error("No project is open");
+          if (!project) return __refuse("No project is open");
 
           function walkBin(bin, depth) {
             var items = [];
@@ -162,7 +162,7 @@ export function getInspectionTools(bridgeOptions: BridgeOptions) {
         const limit = Number.isInteger(args.limit) && (args.limit as number) > 0 ? Math.min(args.limit as number, 500) : -1;
         const maxDepth = Number.isInteger(args.max_depth) ? Math.min(Math.max(args.max_depth as number, 0), 10) : -1;
         const script = buildToolScript(`
-          if (!app.project || !app.project.rootItem) return __error("No project is open");
+          if (!app.project || !app.project.rootItem) return __refuse("No project is open");
           var requestedBin = "${escapeForExtendScript(args.bin_id)}";
           // The project root is a bin too, but list_project_items never lists it:
           // accept "/", "root", or its node ID. Otherwise node ID, then bin
@@ -173,8 +173,8 @@ export function getInspectionTools(bridgeOptions: BridgeOptions) {
           else target = __findBin(requestedBin);
           if (!target) {
             var nonBin = __findProjectItemByNodeId(requestedBin);
-            if (nonBin) return __error("Project item " + requestedBin + " is not a bin. Pass a bin node ID, bin path, or bin name; use get_project_item_info for other item types.");
-            return __error("Bin not found: " + requestedBin + ". Pass a bin node ID from list_project_items, a slash-separated bin path, or an exact bin name.");
+            if (nonBin) return __refuse("Project item " + requestedBin + " is not a bin. Pass a bin node ID, bin path, or bin name; use get_project_item_info for other item types.");
+            return __refuse("Bin not found: " + requestedBin + ". Pass a bin node ID from list_project_items, a slash-separated bin path, or an exact bin name.");
           }
 
           function getItemDetails(item) {
@@ -491,7 +491,7 @@ export function getInspectionTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { node_id: string }) => {
         const script = buildToolScript(`
           var found = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!found) return __error("Clip not found: ${escapeForExtendScript(args.node_id)}");
+          if (!found) return __refuse("Clip not found: ${escapeForExtendScript(args.node_id)}");
 
           var clip = found.clip;
           var info = {
@@ -630,7 +630,7 @@ export function getInspectionTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { item_id: string }) => {
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found: ${escapeForExtendScript(args.item_id)}");
+          if (!item) return __refuse("Item not found: ${escapeForExtendScript(args.item_id)}");
 
           var info = {
             nodeId: item.nodeId,
@@ -1193,8 +1193,8 @@ export function getInspectionTools(bridgeOptions: BridgeOptions) {
 
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
-          if (${trackIndex} >= seq.videoTracks.numTracks) return __error("Primary video track index is out of range");
+          if (!seq) return __refuse("No active sequence");
+          if (${trackIndex} >= seq.videoTracks.numTracks) return __refuse("Primary video track index is out of range");
           var blockers = [];
           var warnings = [];
           var counts = { videoClips: 0, audioClips: 0, disabledClips: 0, mutedTracks: 0, excessiveScaleClips: 0, gaps: 0 };

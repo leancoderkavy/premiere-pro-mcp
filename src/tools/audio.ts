@@ -479,7 +479,7 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
         if (normalizedLevel <= 0) return { success: false, error: "level_db is too small to represent as a nonzero normalized level" };
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
+          if (!result) return __refuse("Clip not found");
           
           var clip = result.clip;
           // Find the Volume component
@@ -554,7 +554,7 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
 
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
+          if (!result) return __refuse("Clip not found");
 
           var clip = result.clip;
           var levelProp = null;
@@ -630,9 +630,9 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
         }
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
 
-          if (${args.track_index} >= seq.audioTracks.numTracks) return __error("Track index out of range");
+          if (${args.track_index} >= seq.audioTracks.numTracks) return __refuse("Track index out of range");
 
           var track = seq.audioTracks[${args.track_index}];
           function readMute() {

@@ -154,9 +154,9 @@ function safeName(value: unknown, fallback: string): string {
 function captureScript(): string {
   return buildToolScript(`
     var project = app.project;
-    if (!project) return __error("No project is open");
+    if (!project) return __refuse("No project is open");
     var sequence = project.activeSequence;
-    if (!sequence) return __error("No active sequence");
+    if (!sequence) return __refuse("No active sequence");
     var clips = [];
     var truncated = false;
     var maxItems = ${MAX_CAPTURED_TIMELINE_ITEMS};

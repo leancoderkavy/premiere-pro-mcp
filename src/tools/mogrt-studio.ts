@@ -246,11 +246,11 @@ function premiereHandoffPlan(value: unknown, artifactStatus: (candidate: string)
 function buildPremiereHandoffScript(plan: PremiereHandoffPlan): string {
   return buildToolScript(`
     var seq = __findSequence("${escapeForExtendScript(plan.sequenceId)}");
-    if (!seq) return __error("The previewed verification sequence no longer exists");
-    if (String(seq.name) !== "${escapeForExtendScript(plan.disposableSequenceName)}") return __error("The sequence name no longer matches the explicit disposable verification target");
+    if (!seq) return __refuse("The previewed verification sequence no longer exists");
+    if (String(seq.name) !== "${escapeForExtendScript(plan.disposableSequenceName)}") return __refuse("The sequence name no longer matches the explicit disposable verification target");
     var titleTrack = seq.videoTracks[${plan.videoTrackIndex}];
-    if (!titleTrack) return __error("The requested verification video track does not exist");
-    if (titleTrack.clips.numItems !== 0) return __error("The requested verification video track is not empty; no MOGRT was imported");
+    if (!titleTrack) return __refuse("The requested verification video track does not exist");
+    if (titleTrack.clips.numItems !== 0) return __refuse("The requested verification video track is not empty; no MOGRT was imported");
     var before = titleTrack.clips.numItems;
     try {
       var imported = seq.importMGT("${escapeForExtendScript(plan.mogrtPath)}", __secondsToTicks(${plan.startSeconds}).toString(), ${plan.videoTrackIndex}, ${plan.audioTrackIndex});

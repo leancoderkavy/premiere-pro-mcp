@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- A stale node ID or other pre-write refusal from an editing tool no longer locks the CEP bridge. Previously `enable_disable_clip` with a clip that no longer existed returned "Clip not found" with an unknown outcome, which recorded `unknown_command_outcome` recovery and blocked every later edit until `inspect_operation_recovery` and `acknowledge_operation_recovery`. Refusals raised before a command changes anything (332 lookup and validation sites, plus the expected project/target guards) now report `not_applied` through a new `__refuse` helper. They stay unknown when the undo history moved, a marker write was attempted, or an earlier command of the same tool call was already dispatched. Per-command undo and write flags are now reset before the guards run, so a guard refusal no longer inherits the previous command's marker-write state.
+
 ## [1.27.0] - 2026-10-31
 
 ### Added

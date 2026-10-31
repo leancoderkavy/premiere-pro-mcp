@@ -37,7 +37,7 @@ export function getTrackTools(bridgeOptions: BridgeOptions) {
         const isVideo = args.track_type === "video";
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
 
           var before = ${isVideo ? "seq.videoTracks.numTracks" : "seq.audioTracks.numTracks"};
           var expected = before + ${count};
@@ -143,11 +143,11 @@ export function getTrackTools(bridgeOptions: BridgeOptions) {
         const video = args.track_type === "video";
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           var tracks = ${video ? "seq.videoTracks" : "seq.audioTracks"};
           var before = tracks.numTracks;
-          if (${args.track_index} >= before) return __error("Track index out of range");
-          if (before <= 1) return __error("A sequence keeps at least one ${args.track_type} track");
+          if (${args.track_index} >= before) return __refuse("Track index out of range");
+          if (before <= 1) return __refuse("A sequence keeps at least one ${args.track_type} track");
           // Identity of every track before the delete: clip IDs, custom name and
           // lock/mute state. Premiere's default names are a prefix plus the track's
           // position ("Video 3", "Vidéo 3") and renumber when a track goes. The
@@ -231,12 +231,12 @@ export function getTrackTools(bridgeOptions: BridgeOptions) {
         if (typeof args.locked !== "boolean") return { success: false, error: "locked must be a boolean." };
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           
-          if (${args.track_index} >= seq.videoTracks.numTracks) return __error("Track index out of range");
+          if (${args.track_index} >= seq.videoTracks.numTracks) return __refuse("Track index out of range");
           
           var track = seq.videoTracks[${args.track_index}];
-          if (!track || typeof track.isLocked !== "function" || typeof track.setLocked !== "function") return __error("Track lock state cannot be read or set on this Premiere host; nothing was changed.");
+          if (!track || typeof track.isLocked !== "function" || typeof track.setLocked !== "function") return __refuse("Track lock state cannot be read or set on this Premiere host; nothing was changed.");
           var beforeLocked;
           try { beforeLocked = track.isLocked(); } catch (beforeLockError) { return __error("Track lock state could not be read before mutation; nothing was changed: " + beforeLockError.toString()); }
           if (typeof beforeLocked !== "boolean") return __error("Track lock state was not boolean before mutation; nothing was changed.");
@@ -273,12 +273,12 @@ export function getTrackTools(bridgeOptions: BridgeOptions) {
         if (typeof args.visible !== "boolean") return { success: false, error: "visible must be a boolean." };
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           
-          if (${args.track_index} >= seq.videoTracks.numTracks) return __error("Track index out of range");
+          if (${args.track_index} >= seq.videoTracks.numTracks) return __refuse("Track index out of range");
           
           var track = seq.videoTracks[${args.track_index}];
-          if (!track || typeof track.isMuted !== "function" || typeof track.setMute !== "function") return __error("Track mute/visibility state cannot be read or set on this Premiere host; nothing was changed.");
+          if (!track || typeof track.isMuted !== "function" || typeof track.setMute !== "function") return __refuse("Track mute/visibility state cannot be read or set on this Premiere host; nothing was changed.");
           var beforeMuted;
           try { beforeMuted = track.isMuted(); } catch (beforeMuteError) { return __error("Track mute state could not be read before mutation; nothing was changed: " + beforeMuteError.toString()); }
           if (typeof beforeMuted !== "boolean") return __error("Track mute state was not boolean before mutation; nothing was changed.");

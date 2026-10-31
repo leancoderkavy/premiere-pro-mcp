@@ -10,7 +10,7 @@ function execute(expected: string | undefined, active: string | undefined, os = 
   const result = runInNewContext(script, {
     app: { project: active === undefined ? null : { path: active } }, $: { os },
     File: function (this: { fsName: string }, value: string) { this.fsName = value.replace(/\\/g, "/"); },
-    __error: (error: string) => ({ success: false, error }), __result: (data: unknown) => ({ success: true, data }), mutation,
+    __error: (error: string) => ({ success: false, error }), __refuse: (error: string) => ({ success: false, error }), __result: (data: unknown) => ({ success: true, data }), mutation,
   });
   return { result, mutation, script };
 }

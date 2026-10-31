@@ -349,7 +349,7 @@ export function getRecoveryTools(bridgeOptions: BridgeOptions) {
       handler: async () => {
         const result = await sendCommand(
           buildToolScript(`
-            if (!app.project) return __error("No project is open");
+            if (!app.project) return __refuse("No project is open");
             return __result({
               name: app.project.name || "",
               path: app.project.path || ""

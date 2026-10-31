@@ -232,10 +232,10 @@ export function getCaptionTools(bridgeOptions: BridgeOptions) {
 
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           
           var item = __findProjectItem("${escapeForExtendScript(itemId)}");
-          if (!item) return __error("Caption item not found: ${escapeForExtendScript(itemId)}");
+          if (!item) return __refuse("Caption item not found: ${escapeForExtendScript(itemId)}");
 
           function __captionTrackCount(sequence) {
             var tracks = null;

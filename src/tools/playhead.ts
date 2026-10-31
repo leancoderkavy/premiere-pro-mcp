@@ -17,7 +17,7 @@ export function getPlayheadTools(bridgeOptions: BridgeOptions) {
       handler: async () => {
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           
           var ticks = seq.getPlayerPosition().ticks;
           return __result({
@@ -47,13 +47,13 @@ export function getPlayheadTools(bridgeOptions: BridgeOptions) {
         }
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           
           var requestedTicks = __secondsToTicks(${args.time_seconds});
           var endTicks = parseFloat(seq.end);
-          if (!isFinite(endTicks) || endTicks < 0) return __error("Premiere did not expose a valid sequence end; the playhead was not moved.");
+          if (!isFinite(endTicks) || endTicks < 0) return __refuse("Premiere did not expose a valid sequence end; the playhead was not moved.");
           var frameTicks = __sequenceFrameTicks(seq);
-          if (!isFinite(frameTicks)) return __error("The active sequence frame grid could not be read; the playhead was not moved.");
+          if (!isFinite(frameTicks)) return __refuse("The active sequence frame grid could not be read; the playhead was not moved.");
           var snappedTicks = __snapSequenceTicks(seq, requestedTicks);
           var targetTicks = Math.min(snappedTicks, __snapSequenceTicks(seq, endTicks));
           seq.setPlayerPosition(String(Math.round(targetTicks)));
@@ -91,19 +91,19 @@ export function getPlayheadTools(bridgeOptions: BridgeOptions) {
         if (invalid) return { success: false, error: invalid };
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           
           // Live hosts (25.2, 26.5.1) read and write work-area points in seconds,
           // not ticks. Write seconds, then read back: some builds ignore the write.
           var requestedInRaw = __secondsToTicks(${Number(args.in_seconds)});
           var requestedOutRaw = __secondsToTicks(${Number(args.out_seconds)});
           var frameTicks = __sequenceFrameTicks(seq);
-          if (!isFinite(frameTicks)) return __error("The active sequence frame grid could not be read; no work-area points were changed.");
+          if (!isFinite(frameTicks)) return __refuse("The active sequence frame grid could not be read; no work-area points were changed.");
           var appliedInTicks = __snapSequenceTicks(seq, requestedInRaw);
           var appliedOutTicks = __snapSequenceTicks(seq, requestedOutRaw);
           var requestedIn = __ticksToSeconds(appliedInTicks);
           var requestedOut = __ticksToSeconds(appliedOutTicks);
-          if (!(requestedOut > requestedIn)) return __error("out_seconds must be greater than in_seconds.");
+          if (!(requestedOut > requestedIn)) return __refuse("out_seconds must be greater than in_seconds.");
           if (typeof seq.setWorkAreaInPoint !== "function" || typeof seq.setWorkAreaOutPoint !== "function" ||
               typeof seq.getWorkAreaInPoint !== "function" || typeof seq.getWorkAreaOutPoint !== "function") {
             return __error("Work-area point APIs are unavailable; no points were changed.", { outcome: "failed", verified: false });
@@ -179,7 +179,7 @@ export function getPlayheadTools(bridgeOptions: BridgeOptions) {
       handler: async () => {
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           var inPoint = null, outPoint = null;
           try { inPoint = seq.getWorkAreaInPoint(); } catch (inReadError) {}
           try { outPoint = seq.getWorkAreaOutPoint(); } catch (outReadError) {}
@@ -220,10 +220,10 @@ export function getPlayheadTools(bridgeOptions: BridgeOptions) {
         if (!(args.out_seconds > args.in_seconds)) return { success: false, error: "out_seconds must be after in_seconds. Nothing was changed." };
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           
           var frameTicks = __sequenceFrameTicks(seq);
-          if (!isFinite(frameTicks)) return __error("The active sequence frame grid could not be read; no sequence in/out points were changed.");
+          if (!isFinite(frameTicks)) return __refuse("The active sequence frame grid could not be read; no sequence in/out points were changed.");
           var frameSeconds = __ticksToSeconds(frameTicks);
           var requestedInTicks = __secondsToTicks(${args.in_seconds});
           var requestedOutTicks = __secondsToTicks(${args.out_seconds});
@@ -231,10 +231,10 @@ export function getPlayheadTools(bridgeOptions: BridgeOptions) {
           var appliedOutTicks = __snapSequenceTicks(seq, requestedOutTicks);
           var appliedInSeconds = __ticksToSeconds(appliedInTicks);
           var appliedOutSeconds = __ticksToSeconds(appliedOutTicks);
-          if (!(appliedOutTicks > appliedInTicks)) return __error("The requested sequence marks collapse after frame-grid snapping; no points were changed.");
+          if (!(appliedOutTicks > appliedInTicks)) return __refuse("The requested sequence marks collapse after frame-grid snapping; no points were changed.");
           var endSeconds = __ticksToSeconds(seq.end);
           if (isFinite(endSeconds) && appliedOutSeconds > endSeconds + frameSeconds / 2) {
-            return __error("out_seconds ${args.out_seconds}s is past the sequence end at " + endSeconds + "s. Nothing was changed.");
+            return __refuse("out_seconds ${args.out_seconds}s is past the sequence end at " + endSeconds + "s. Nothing was changed.");
           }
           var previousIn = __sequencePointSeconds(seq.getInPoint());
           var previousOut = __sequencePointSeconds(seq.getOutPoint());
@@ -279,7 +279,7 @@ export function getPlayheadTools(bridgeOptions: BridgeOptions) {
       handler: async () => {
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           
           var inSeconds = __sequencePointSeconds(seq.getInPoint());
           var outSeconds = __sequencePointSeconds(seq.getOutPoint());

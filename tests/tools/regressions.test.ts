@@ -1468,7 +1468,7 @@ describe("issue #615 — encode_file passes natively typed arguments", () => {
     const script = await scriptFor(exports.encode_file, base);
 
     expect(script).toContain('var presetFile = new File("/tmp/preset.epr")');
-    expect(script).toContain("if (!presetFile.exists) return __error");
+    expect(script).toContain("if (!presetFile.exists) return __refuse");
     expect(script).toContain("var removeUponCompletion = true;");
     expect(script).toContain("String(inputFile.fsName), String(outputFile.fsName), String(presetFile.fsName), removeUponCompletion)");
     expect(script).not.toMatch(/,\s*workArea,/);

@@ -21,14 +21,14 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
       handler: async () => {
         const script = buildToolScript(`
           var project = app.project;
-          if (!project) return __error("No project is open");
+          if (!project) return __refuse("No project is open");
           var projectPath = String(project.path || "");
           if (!projectPath) {
-            return __error("This project has no saved path; use save_project_as. Premiere was not asked to save.");
+            return __refuse("This project has no saved path; use save_project_as. Premiere was not asked to save.");
           }
           var outputFile = new File(projectPath);
           if (!outputFile.parent || !outputFile.parent.exists) {
-            return __error("The project directory does not exist: " + outputFile.parent + "; Premiere was not asked to save.");
+            return __refuse("The project directory does not exist: " + outputFile.parent + "; Premiere was not asked to save.");
           }
           function saveFileEvidence(file) {
             try {
@@ -82,7 +82,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
         const target = escapeForExtendScript(args.path.trim());
         const script = buildToolScript(`
           var project = app.project;
-          if (!project) return __error("No project is open");
+          if (!project) return __refuse("No project is open");
           var previousPath = String(project.path || "");
           if (__normProjectPath(previousPath) === __normProjectPath("${target}")) {
             return __error("That is the current project's own path; use save_project instead.");
@@ -208,7 +208,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { sequence_id: string }) => {
         const script = buildToolScript(`
           var seq = __findSequence("${escapeForExtendScript(args.sequence_id)}");
-          if (!seq) return __error("Sequence not found: ${escapeForExtendScript(args.sequence_id)}");
+          if (!seq) return __refuse("Sequence not found: ${escapeForExtendScript(args.sequence_id)}");
           app.project.activeSequence = seq;
           var active = __getCurrentActiveSequence();
           if (!active || String(active.sequenceID) !== String(seq.sequenceID)) {
@@ -452,7 +452,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           const verification = runWithExpectedProject(undefined, () => runWithExpectedHostTarget(undefined, () => runWithUndoTracking(false, () => buildToolScript(`
             var targetPath = "${escapeForExtendScript(data.path!)}", targetId = "${escapeForExtendScript(data.documentId!)}";
             var projects = app.projects;
-            if (!projects || typeof projects.numProjects !== "number" || !isFinite(projects.numProjects) || projects.numProjects < 0 || Math.floor(projects.numProjects) !== projects.numProjects || projects.numProjects > 256) return __error("Open project collection is unreadable");
+            if (!projects || typeof projects.numProjects !== "number" || !isFinite(projects.numProjects) || projects.numProjects < 0 || Math.floor(projects.numProjects) !== projects.numProjects || projects.numProjects > 256) return __refuse("Open project collection is unreadable");
             var paths = [], stillOpen = false;
             for (var i = 0; i < projects.numProjects; i++) {
               var candidate = projects[i], candidatePath = String(candidate.path || ""), candidateId = String(candidate.documentID || "");
@@ -611,8 +611,8 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { bin_id: string; confirm_remove_from_sequences?: boolean; allow_offline?: boolean }) => {
         const script = buildToolScript(`
           var bin = __findProjectItem("${escapeForExtendScript(args.bin_id)}");
-          if (!bin) return __error("Bin not found: ${escapeForExtendScript(args.bin_id)}");
-          if (bin.type !== 2) return __error("Item is not a bin");
+          if (!bin) return __refuse("Bin not found: ${escapeForExtendScript(args.bin_id)}");
+          if (bin.type !== 2) return __refuse("Item is not a bin");
           var nodeId = String(bin.nodeId);
           var name = bin.name;
           var usage = __projectItemUsage(bin);
@@ -652,8 +652,8 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { bin_id: string; new_name: string }) => {
         const script = buildToolScript(`
           var bin = __findProjectItem("${escapeForExtendScript(args.bin_id)}");
-          if (!bin) return __error("Bin not found: ${escapeForExtendScript(args.bin_id)}");
-          if (bin.type !== 2) return __error("Item is not a bin");
+          if (!bin) return __refuse("Bin not found: ${escapeForExtendScript(args.bin_id)}");
+          if (bin.type !== 2) return __refuse("Item is not a bin");
           var oldName = bin.name;
           bin.renameBin("${escapeForExtendScript(args.new_name)}");
           if (String(bin.name) !== "${escapeForExtendScript(args.new_name)}") return __error("Premiere kept the bin name " + bin.name + ".");
@@ -751,13 +751,13 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
-          if (!app.encoder || typeof app.encoder.startBatch !== "function") return __error("Adobe Media Encoder is not available");
+          if (!app.encoder || typeof app.encoder.startBatch !== "function") return __refuse("Adobe Media Encoder is not available");
           try {
             var startResult = app.encoder.startBatch();
             // Premiere reports an accepted batch-start request as 1/true.
-            if (startResult !== 1 && startResult !== true) return __error("Adobe Media Encoder did not accept the start request.");
+            if (startResult !== 1 && startResult !== true) return __refuse("Adobe Media Encoder did not accept the start request.");
           } catch (e) {
-            return __error("Adobe Media Encoder rejected the start request: " + e.message);
+            return __refuse("Adobe Media Encoder rejected the start request: " + e.message);
           }
           return __result({
             requested: true,
@@ -843,7 +843,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           .join(", ");
         const script = buildToolScript(`
           var sourceProject = new File("${escapeForExtendScript(args.project_path)}");
-          if (!sourceProject.exists) return __error("Source Premiere project does not exist: " + sourceProject.fsName);
+          if (!sourceProject.exists) return __refuse("Source Premiere project does not exist: " + sourceProject.fsName);
           var beforeIds = {};
           for (var beforeIndex = 0; beforeIndex < app.project.sequences.numSequences; beforeIndex++) {
             beforeIds[String(app.project.sequences[beforeIndex].sequenceID)] = true;
@@ -1030,8 +1030,8 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
             : `var targetBin = app.project.rootItem;`;
           const intoScript = buildToolScript(`
             var xmlFile = new File("${escapeForExtendScript(args.path)}");
-            if (!xmlFile.exists) return __error("FCP XML file not found on disk: ${escapeForExtendScript(args.path)}");
-            if (!app.project) return __error("No open project to import into");
+            if (!xmlFile.exists) return __refuse("FCP XML file not found on disk: ${escapeForExtendScript(args.path)}");
+            if (!app.project) return __refuse("No open project to import into");
             ${binLookup}
             var sequencesBefore = app.project.sequences.numSequences;
             // Premiere can link the XML's clips to project items that already
@@ -1229,7 +1229,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { enabled: boolean }) => {
         const script = buildToolScript(`
           if (!app.project || typeof app.project.setEnableTranscodeOnIngest !== "function") {
-            return __error("This Premiere build does not expose setEnableTranscodeOnIngest; no change was attempted.");
+            return __refuse("This Premiere build does not expose setEnableTranscodeOnIngest; no change was attempted.");
           }
           var hostReturn;
           try { hostReturn = app.project.setEnableTranscodeOnIngest(${args.enabled ? 1 : 0}); }
@@ -1249,7 +1249,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
       handler: async () => {
         const script = buildToolScript(`
           var bin = app.project.getInsertionBin();
-          if (!bin) return __error("No insertion bin found");
+          if (!bin) return __refuse("No insertion bin found");
           return __result({ name: bin.name, nodeId: bin.nodeId, treePath: bin.treePath });
         `);
         return sendCommand(script, bridgeOptions);
@@ -1285,7 +1285,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
         }
         const script = buildToolScript(`
           var meta = app.project.getProjectPanelMetadata();
-          if (!meta) return __error("Could not retrieve project panel metadata");
+          if (!meta) return __refuse("Could not retrieve project panel metadata");
           var text = String(meta);
           var maxChars = ${maxChars};
           var totalChars = text.length;

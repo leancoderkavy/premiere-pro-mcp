@@ -310,7 +310,7 @@ export function getMarkerTools(bridgeOptions: BridgeOptions) {
         const wanted = markerWanted(args);
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           ${MARKER_UNDO_RECEIPT}
           
           var targetTicks = __secondsToTicks(${args.time_seconds});

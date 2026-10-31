@@ -394,9 +394,9 @@ export function getAdvancedTools(
         const evidenceScript = buildToolScript(`
           var projectId; var sequenceId;
           try { projectId = app.project.documentID; sequenceId = app.project.activeSequence.sequenceID; } catch (contextError) {}
-          if (typeof projectId !== "string" || !projectId.length || typeof sequenceId !== "string" || !sequenceId.length) return __error("Project and sequence identities could not be read; no edit was attempted.");
+          if (typeof projectId !== "string" || !projectId.length || typeof sequenceId !== "string" || !sequenceId.length) return __refuse("Project and sequence identities could not be read; no edit was attempted.");
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
+          if (!result) return __refuse("Clip not found");
           var mp = "";
           try { mp = String(result.clip.projectItem.getMediaPath() || ""); } catch (eMediaPath) {}
           return __result({ mediaPath: mp, projectId: projectId, sequenceId: sequenceId });
@@ -428,7 +428,7 @@ export function getAdvancedTools(
         const script = buildToolScript(`
           var currentProjectId; var currentSequenceId;
           try { currentProjectId = app.project.documentID; currentSequenceId = app.project.activeSequence.sequenceID; } catch (contextError) {}
-          if (currentProjectId !== "${escapeForExtendScript(projectId)}" || currentSequenceId !== "${escapeForExtendScript(sequenceId)}") return __error("Project or active sequence changed after media preflight; no edit was attempted.");
+          if (currentProjectId !== "${escapeForExtendScript(projectId)}" || currentSequenceId !== "${escapeForExtendScript(sequenceId)}") return __refuse("Project or active sequence changed after media preflight; no edit was attempted.");
           function __editOne(result, nodeId, checkOnly) {
             var currentMediaPath = "";
             try { currentMediaPath = String(result.clip.projectItem.getMediaPath() || ""); } catch (eBoundPath) {}
@@ -519,7 +519,7 @@ export function getAdvancedTools(
         const script = buildToolScript(`
           app.enableQE();
           var qeSeq = qe.project.getActiveSequence();
-          if (!qeSeq) return __error("No active sequence (QE)");
+          if (!qeSeq) return __refuse("No active sequence (QE)");
 
           var result = __findClip("${nodeId}");
           if (!result) return __error("Clip not found: ${nodeId}");
@@ -689,7 +689,7 @@ export function getAdvancedTools(
       handler: async (args: { node_id: string }) => {
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
+          if (!result) return __refuse("Clip not found");
           // qeClip.removeEffects() returned without removing anything on Premiere
           // 25.2 (Lumetri stayed while this tool reported removed: true), so
           // remove each effect individually and verify.
@@ -790,18 +790,18 @@ export function getAdvancedTools(
         const script = buildToolScript(`
           app.enableQE();
           var qeSeq = qe.project.getActiveSequence();
-          if (!qeSeq) return __error("No active sequence (QE)");
+          if (!qeSeq) return __refuse("No active sequence (QE)");
           
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
+          if (!result) return __refuse("Clip not found");
           
           var qeTrack = result.trackType === "video"
             ? qeSeq.getVideoTrackAt(result.trackIndex)
             : qeSeq.getAudioTrackAt(result.trackIndex);
-          if (!qeTrack) return __error("QE track not found; nothing was changed.");
+          if (!qeTrack) return __refuse("QE track not found; nothing was changed.");
           // QE track items include gaps, so the DOM clip index is not a QE index.
           var qeClip = __findQeClipByDomClip(qeTrack, result.clip);
-          if (!qeClip) return __error("Could not match the QE clip for " + result.clip.name + " by timeline start; nothing was changed.");
+          if (!qeClip) return __refuse("Could not match the QE clip for " + result.clip.name + " by timeline start; nothing was changed.");
 
           try { qeClip.setFrameBlend(${args.enabled}); }
           catch (writeError) {
@@ -838,18 +838,18 @@ export function getAdvancedTools(
         const script = buildToolScript(`
           app.enableQE();
           var qeSeq = qe.project.getActiveSequence();
-          if (!qeSeq) return __error("No active sequence (QE)");
+          if (!qeSeq) return __refuse("No active sequence (QE)");
           
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
+          if (!result) return __refuse("Clip not found");
           
           var qeTrack = result.trackType === "video"
             ? qeSeq.getVideoTrackAt(result.trackIndex)
             : qeSeq.getAudioTrackAt(result.trackIndex);
-          if (!qeTrack) return __error("QE track not found; nothing was changed.");
+          if (!qeTrack) return __refuse("QE track not found; nothing was changed.");
           // QE track items include gaps, so the DOM clip index is not a QE index.
           var qeClip = __findQeClipByDomClip(qeTrack, result.clip);
-          if (!qeClip) return __error("Could not match the QE clip for " + result.clip.name + " by timeline start; nothing was changed.");
+          if (!qeClip) return __refuse("Could not match the QE clip for " + result.clip.name + " by timeline start; nothing was changed.");
 
           try { qeClip.setTimeInterpolationType(${args.interpolation_type}); }
           catch (writeError) {
@@ -891,7 +891,7 @@ export function getAdvancedTools(
         }
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
+          if (!result) return __refuse("Clip not found");
           // TrackItem.name is writable. The previous QE route looked the clip up by
           // index, but QE counts empty gaps as items, so after a gap it renamed the
           // gap and Premiere threw "Unknown error exception" (live 25.2).
@@ -919,7 +919,7 @@ export function getAdvancedTools(
       handler: async (args: { node_id: string }) => {
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found: ${escapeForExtendScript(args.node_id)}");
+          if (!result) return __refuse("Clip not found: ${escapeForExtendScript(args.node_id)}");
           
           var clip = result.clip;
           var speed = 1;
@@ -957,7 +957,7 @@ export function getAdvancedTools(
         if (typeof args.selected !== "boolean") return { success: false, error: "selected must be a boolean" };
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
+          if (!result) return __refuse("Clip not found");
           result.clip.setSelected(${args.selected ? 1 : 0}, true);
           var applied = null;
           try { var observed = result.clip.isSelected(); if (typeof observed === "boolean" || observed === 0 || observed === 1) applied = !!observed; } catch (readError) {}
@@ -1088,17 +1088,17 @@ export function getAdvancedTools(
 
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
 
           if (${trackIndex} >= seq.videoTracks.numTracks) {
-            return __error("Video track index ${trackIndex} is out of range: the sequence has " + seq.videoTracks.numTracks + " video track(s).");
+            return __refuse("Video track index ${trackIndex} is out of range: the sequence has " + seq.videoTracks.numTracks + " video track(s).");
           }
           if (${audioTrackIndex} >= seq.audioTracks.numTracks) {
-            return __error("Audio track index ${audioTrackIndex} is out of range: the sequence has " + seq.audioTracks.numTracks + " audio track(s).");
+            return __refuse("Audio track index ${audioTrackIndex} is out of range: the sequence has " + seq.audioTracks.numTracks + " audio track(s).");
           }
           var audioTrackIndex = ${audioTrackIndex};
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Project item not found: ${escapeForExtendScript(args.item_id)}");
+          if (!item) return __refuse("Project item not found: ${escapeForExtendScript(args.item_id)}");
 
           var startTicks = __secondsToTicks(${startSeconds}).toString();
           var wantedItemId = String(item.nodeId);
@@ -1485,9 +1485,9 @@ export function getAdvancedTools(
         const sensitivity = args.sensitivity ?? "MediumSensitivity";
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           var selected = seq.getSelection();
-          if (!selected || selected.length === 0) return __error("Select at least one clip before scene edit detection.");
+          if (!selected || selected.length === 0) return __refuse("Select at least one clip before scene edit detection.");
 
           var round3 = function (v) { return Math.round(v * 1000) / 1000; };
           var countClips = function () {
@@ -1748,7 +1748,7 @@ export function getAdvancedTools(
 
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
 
           // A total-count check cannot tell "appended at the end" apart from
           // "inserted at index 0 and every existing track shifted up", so
@@ -1911,7 +1911,7 @@ export function getAdvancedTools(
         }
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
+          if (!result) return __refuse("Clip not found");
           
           var clip = result.clip;
           var components = clip.components;
@@ -1969,7 +1969,7 @@ export function getAdvancedTools(
       handler: async (args: { node_id: string }) => {
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
+          if (!result) return __refuse("Clip not found");
           
           var clip = result.clip;
           var isAdj = false;
@@ -1997,7 +1997,7 @@ export function getAdvancedTools(
       handler: async (args: { node_id: string }) => {
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
+          if (!result) return __refuse("Clip not found");
           
           var linked = result.clip.getLinkedItems();
           var items = [];
@@ -2040,13 +2040,13 @@ export function getAdvancedTools(
         const expected = validateMogrtTextMap(args.expected_values, "expected_values");
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
+          if (!result) return __refuse("Clip not found");
           
           var mgtComp = result.clip.getMGTComponent();
           if (!mgtComp) {
             var isGraphic = false;
             try { isGraphic = typeof result.clip.isMGT === "function" && !!result.clip.isMGT(); } catch (eMgt) {}
-            if (!isGraphic) return __error("Not a MOGRT clip or no MGT component found");
+            if (!isGraphic) return __refuse("Not a MOGRT clip or no MGT component found");
             // Premiere-authored graphics (e.g. Essential Graphics "Basic Lower Third")
             // report isMGT() but no MGT component, and their Source Text reads back as
             // a single opaque character (live 25.2), so the text cannot be read here.

@@ -529,9 +529,9 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
         // and reads every written value back.
         const listing = await sendCommand(buildToolScript(`
           var srcResult = __findClip("${escapeForExtendScript(args.source_node_id)}");
-          if (!srcResult) return __error("Source clip not found");
+          if (!srcResult) return __refuse("Source clip not found");
           var tgtResult = __findClip("${escapeForExtendScript(args.target_node_id)}");
-          if (!tgtResult) return __error("Target clip not found");
+          if (!tgtResult) return __refuse("Target clip not found");
           var effectFilter = ${args.effect_name ? `"${escapeForExtendScript(args.effect_name)}"` : "null"};
           var intrinsic = ["Motion", "Opacity", "Time Remapping", "Volume", "Channel Volume", "Panner"];
           var intrinsicMatches = ["AE.ADBE Motion", "AE.ADBE Opacity", "AE.ADBE Time Remapping", "ADBE Motion", "ADBE Opacity", "ADBE Time Remapping", "AE.ADBE Volume", "AE.ADBE Channel Volume", "AE.ADBE Panner", "audioVolume", "audioChannelVolume", "audioPanner"];
@@ -682,9 +682,9 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { source_node_id: string; target_node_id: string; effect_name: string }) => {
         const script = buildToolScript(`
           var srcResult = __findClip("${escapeForExtendScript(args.source_node_id)}");
-          if (!srcResult) return __error("Source clip not found");
+          if (!srcResult) return __refuse("Source clip not found");
           var tgtResult = __findClip("${escapeForExtendScript(args.target_node_id)}");
-          if (!tgtResult) return __error("Target clip not found");
+          if (!tgtResult) return __refuse("Target clip not found");
 
           var srcComp = null;
           var tgtComp = null;
@@ -892,9 +892,9 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           app.enableQE();
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           var qeSeq = qe.project.getActiveSequence();
-          if (!qeSeq) return __error("No active sequence (QE)");
+          if (!qeSeq) return __refuse("No active sequence (QE)");
 
           var effectName = "${escapeForExtendScript(args.effect_name)}";
           var qeEffect = qe.project.getVideoEffectByName(effectName);
@@ -903,7 +903,7 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
             qeEffect = qe.project.getAudioEffectByName(effectName);
             effectType = "audio";
           }
-          if (!qeEffect) return __error("Effect not found: " + effectName);
+          if (!qeEffect) return __refuse("Effect not found: " + effectName);
 
           var target = "${args.target}";
           var targets = [];
@@ -1028,9 +1028,9 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { node_id: string; effect_name: string }) => {
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
+          if (!result) return __refuse("Clip not found");
           var effectName = "${escapeForExtendScript(args.effect_name)}";
-          if (__BUILT_IN_COMPONENTS[effectName]) return __error(effectName + " is a built-in clip component, not an effect, and cannot be removed.");
+          if (__BUILT_IN_COMPONENTS[effectName]) return __refuse(effectName + " is a built-in clip component, not an effect, and cannot be removed.");
           var found = 0;
           var builtIn = 0;
           for (var i = 0; i < result.clip.components.numItems; i++) {
@@ -1081,7 +1081,7 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
 
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
+          if (!result) return __refuse("Clip not found");
 
           var clip = result.clip;
           var blendProperty = null;

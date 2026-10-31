@@ -10,7 +10,7 @@ export function getDiscoveryTools(bridgeOptions: BridgeOptions) {
       handler: async () => {
         const script = buildToolScript(`
           var project = app.project;
-          if (!project) return __error("No project is open");
+          if (!project) return __refuse("No project is open");
           
           var info = {
             name: project.name,
@@ -96,7 +96,7 @@ export function getDiscoveryTools(bridgeOptions: BridgeOptions) {
       handler: async () => {
         const script = buildToolScript(`
           var project = app.project;
-          if (!project) return __error("No project is open");
+          if (!project) return __refuse("No project is open");
           
           var sequences = [];
           for (var i = 0; i < project.sequences.numSequences; i++) {
@@ -256,7 +256,7 @@ export function getDiscoveryTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { node_id: string }) => {
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found: ${escapeForExtendScript(args.node_id)}");
+          if (!result) return __refuse("Clip not found: ${escapeForExtendScript(args.node_id)}");
           
           var clip = result.clip;
           var props = {
@@ -309,7 +309,7 @@ export function getDiscoveryTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { name: string }) => {
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.name)}");
-          if (!item) return __error("Project item not found: ${escapeForExtendScript(args.name)}");
+          if (!item) return __refuse("Project item not found: ${escapeForExtendScript(args.name)}");
           
           var info = {
             nodeId: item.nodeId,
@@ -383,7 +383,7 @@ export function getDiscoveryTools(bridgeOptions: BridgeOptions) {
       handler: async () => {
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           
           var selection = seq.getSelection();
           var clips = [];
@@ -429,10 +429,10 @@ export function getDiscoveryTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { time_seconds: number; track_index: number; track_type: string }) => {
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           
           var tracks = ${args.track_type === "video" ? "seq.videoTracks" : "seq.audioTracks"};
-          if (${args.track_index} >= tracks.numTracks) return __error("Track index out of range");
+          if (${args.track_index} >= tracks.numTracks) return __refuse("Track index out of range");
           
           var track = tracks[${args.track_index}];
           var targetTicks = __secondsToTicks(${args.time_seconds});

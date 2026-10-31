@@ -31,9 +31,9 @@ const strictLinkedPartners = `
 export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId: string, includeLinked: boolean, slide: boolean, single = false) {
   const inspection = await sendCommand(buildToolScript(`
     var target = __findClip("${escapeForExtendScript(nodeId)}");
-    if (!target) return __error("Clip not found");
+    if (!target) return __refuse("Clip not found");
     var seq = app.project.activeSequence;
-    if (!seq.sequenceID) return __error("Sequence identity cannot be verified; nothing was changed.");
+    if (!seq.sequenceID) return __refuse("Sequence identity cannot be verified; nothing was changed.");
     var documentId = null;
     try { documentId = app.project.documentID; } catch (documentIdentityError) {}
     if ((typeof documentId !== "string" && typeof documentId !== "number") || String(documentId).replace(/\\s/g, "") === "") return __error("Project identity cannot be verified; nothing was changed.");
