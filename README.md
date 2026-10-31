@@ -722,6 +722,18 @@ full-catalog mode and cannot be combined with another pack. `ping` and
 `get_capabilities` remain listed for diagnosis, and every registered call still
 passes through the same capability guard; a pack never grants authority.
 
+### Compact schema profile
+
+Every tool accepts two optional host guards per call, `expected_project_path`
+and `expected_cep_target`, and by default every listed `inputSchema` carries
+both (about 3,100 characters per tool). Set `PREMIERE_MCP_SCHEMA_PROFILE=compact`
+to omit them from `tools/list` and register one extra tool, `set_session_guard`,
+that stores them once for the MCP session (one stdio process or one HTTP
+session, memory only). Every later call applies the stored guards exactly as if
+the client had passed them; a per-call value still wins and is still validated
+against the full guard schema. `full` is the default and changes nothing. The
+profile is a listing decision only: enforcement is unchanged under both.
+
 Every listed tool now declares the same machine-readable result envelope through
 MCP `outputSchema`: `ok`, `tool`, plus `data` on success or `error` on failure.
 The tool-specific `data` shape remains versioned by the individual tool result,

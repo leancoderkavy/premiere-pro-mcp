@@ -77,6 +77,7 @@ import { getOperationRecoveryTools } from "./tools/operation-recovery.js";
 import { getTimelineEditorialTools } from "./tools/timeline-editorial.js";
 import { getInterchangeWorkflowTools } from "./tools/interchange-workflows.js";
 import { getTemporalRenderEvidenceTools } from "./tools/temporal-render-evidence.js";
+import { getSessionGuardTools, SessionGuardStore } from "./tools/session-guard.js";
 import { deriveToolOperationalCapability } from "./tool-capability-report.js";
 import { getUxpTools } from "./tools/uxp.js";
 import { getMogrtAuthoringTools } from "./tools/mogrt-authoring.js";
@@ -106,6 +107,8 @@ import {
   type ToolPackSelection,
 } from "./workflows/tool-packs.js";
 import { getTelemetry, telemetryErrorType, type Telemetry } from "./telemetry.js";
+import { resolveSchemaProfile, SESSION_GUARD_TOOL_NAME, type SchemaProfileSelection } from "./workflows/schema-profile.js";
+import { EXPECTED_CEP_TARGET_SCHEMA, EXPECTED_PROJECT_PATH_SCHEMA, GUARD_ARGUMENT_NAMES, GUARD_ARGUMENTS_SCHEMA } from "./workflows/guard-schemas.js";
 import { currentInvocation, withInvocationContext, reportProgress } from "./workflows/invocation-context.js";
 import { beginOperation, finishOperation, type OperationLogEntry } from "./workflows/operation-log.js";
 import { claimIdempotencyKey, completeIdempotencyKey, idempotencyResponse, IDEMPOTENCY_KEY_SCHEMA, type IdempotencyClaim } from "./workflows/idempotency.js";
@@ -243,6 +246,40 @@ function namingUnknownArguments(
             ...issues.filter((issue) => !/additional properties/.test(issue.message)),
           ],
         };
+      },
+    },
+  } as StandardSchemaWithJSON<unknown, unknown>;
+}
+
+/**
+ * Compact profile: tools/list omits expected_project_path and
+ * expected_cep_target, but a client that sends them per call must still be
+ * honored. Validate those two against the full guard schema, validate the rest
+ * against the listed schema, then hand the tool both.
+ */
+function withUnlistedGuardArguments(
+  listed: StandardSchemaWithJSON<unknown, unknown>,
+): StandardSchemaWithJSON<unknown, unknown> {
+  const guards = jsonSchemaToInputSchema(GUARD_ARGUMENTS_SCHEMA as unknown as Record<string, unknown>);
+  const standard = listed["~standard"];
+  return {
+    "~standard": {
+      ...standard,
+      validate: async (value: unknown) => {
+        if (!value || typeof value !== "object" || Array.isArray(value)) return standard.validate(value);
+        const input = value as Record<string, unknown>;
+        const guardInput: Record<string, unknown> = {};
+        const rest: Record<string, unknown> = {};
+        for (const [key, entry] of Object.entries(input)) {
+          if ((GUARD_ARGUMENT_NAMES as readonly string[]).includes(key)) guardInput[key] = entry;
+          else rest[key] = entry;
+        }
+        if (Object.keys(guardInput).length === 0) return standard.validate(value);
+        const guardResult = await guards["~standard"].validate(guardInput);
+        if ("issues" in guardResult && guardResult.issues) return guardResult;
+        const restResult = await standard.validate(rest);
+        if ("issues" in restResult && restResult.issues) return restResult;
+        return { value: { ...(restResult.value as Record<string, unknown>), ...(guardResult.value as Record<string, unknown>) } };
       },
     },
   } as StandardSchemaWithJSON<unknown, unknown>;
@@ -436,6 +473,8 @@ export interface ServerOptions {
   toolPacks?: string;
   /** Selects connected UXP by default, or forces the CEP compatibility bridge. */
   bridgeMode?: PremiereBridgeMode;
+  /** Overrides PREMIERE_MCP_SCHEMA_PROFILE (full or compact) for this server instance. */
+  schemaProfile?: string;
 }
 
 /**
@@ -472,6 +511,13 @@ export function createServer(
   const toolPacks = serverOptions.toolPacks === undefined
     ? resolveToolPacks()
     : resolveToolPacks(serverOptions.toolPacks, "explicit");
+  const schemaProfile: SchemaProfileSelection = serverOptions.schemaProfile === undefined
+    ? resolveSchemaProfile()
+    : resolveSchemaProfile(serverOptions.schemaProfile, "explicit");
+  // The session guard is per server instance, like idempotency keys: one per
+  // stdio process, one per HTTP session. It is only settable under the compact
+  // profile, where set_session_guard is registered.
+  const sessionGuard = new SessionGuardStore();
   const telemetry = serverOptions.telemetry ?? getTelemetry();
   // Context consumers must share a single in-memory backend as well as the
   // durable backends; independent repository instances would otherwise make
@@ -490,6 +536,8 @@ export function createServer(
     mediaWatchRegistry,
     serverOptions.bridgeMode ?? resolvePremiereBridgeMode(),
   );
+
+  if (schemaProfile.compactGuards) Object.assign(toolModules, getSessionGuardTools(sessionGuard));
 
   const premiereInstructions = buildPremiereInstructions(new Set(
     Object.keys(toolModules).filter((name) =>
@@ -536,7 +584,7 @@ export function createServer(
     // Tool packs are a discovery/context optimization. They only decide which
     // permitted tools this server registers; they never change the capability
     // guard that protects every registered handler.
-    if (!isToolInSelectedPacks(name, toolPacks)) {
+    if (name !== SESSION_GUARD_TOOL_NAME && !isToolInSelectedPacks(name, toolPacks)) {
       packWithheld++;
       continue;
     }
@@ -544,46 +592,25 @@ export function createServer(
     // Only tools that can change state advertise idempotency_key. A key sent
     // with a read-only action of a multi-action tool is accepted and ignored.
     const acceptsIdempotencyKey = toolMayChangeState(name);
-    const inputSchema = jsonSchemaToInputSchema({
+    // The session guard tool carries its own guard schema; every other tool
+    // accepts the guards per call. Under the compact profile the listed schema
+    // omits them (they are still validated and honored when sent).
+    const advertisesGuards = name !== SESSION_GUARD_TOOL_NAME && !schemaProfile.compactGuards;
+    const acceptsGuardsUnlisted = name !== SESSION_GUARD_TOOL_NAME && schemaProfile.compactGuards;
+    const listedSchema = {
       ...tool.parameters,
       properties: {
         ...(tool.parameters as { properties?: Record<string, unknown> }).properties,
         ...(acceptsIdempotencyKey ? { idempotency_key: IDEMPOTENCY_KEY_SCHEMA } : {}),
-        expected_project_path: {
-          type: "string", minLength: 1, maxLength: 4096,
-          description: "Optional absolute saved-project path. Every generated CEP command refuses before its body when the active project differs or is unsaved. UXP commands refuse this CEP-only guard; local-only tools do not inspect Premiere. Omit to keep existing behavior.",
-        },
-        expected_cep_target: {
-          type: "object", additionalProperties: false,
-          description: "Optional reviewed CEP sequence/clip identity and exact tick ranges. Checked before every generated command; UXP refuses this CEP-only guard.",
-          properties: {
-            backend: { type: "string", const: "cep", description: "Backend namespace for these IDs." },
-            sequence_id: { type: "string", minLength: 1, maxLength: 512, description: "Stable expected active sequence ID." },
-            project_document_id: { type: "string", minLength: 1, maxLength: 512, description: "Exact Premiere project document ID observed during review." },
-            source_item: { type: "object", additionalProperties: false, description: "Reviewed source identity for a source-only operation.", properties: {
-              node_id: { type: "string", minLength: 1, maxLength: 512, description: "Exact project-item node ID." },
-              media_path: { type: "string", minLength: 1, maxLength: 4096, description: "Optional exact source-media path." },
-            }, required: ["node_id"] },
-            clip: { type: "object", additionalProperties: false, description: "Optional exact reviewed timeline clip.", properties: {
-              node_id: { type: "string", minLength: 1, maxLength: 512, description: "Stable CEP node ID." },
-              track_type: { type: "string", enum: ["video", "audio"], description: "Expected media track group." },
-              track_index: { type: "integer", minimum: 0, maximum: 255, description: "Expected zero-based track index; identity still checked." },
-              project_item_id: { type: "string", minLength: 1, maxLength: 512, description: "Expected source project-item node ID." },
-              start_ticks: { type: "string", pattern: "^-?\\d{1,30}$", description: "Exact expected timeline start ticks." },
-              end_ticks: { type: "string", pattern: "^-?\\d{1,30}$", description: "Exact expected exclusive timeline end ticks." },
-              in_ticks: { type: "string", pattern: "^-?\\d{1,30}$", description: "Exact expected source In ticks." },
-              out_ticks: { type: "string", pattern: "^-?\\d{1,30}$", description: "Exact expected exclusive source Out ticks." },
-              effect: { type: "object", additionalProperties: false, description: "Reviewed effect and parameter identity checked before mutation.", properties: {
-                match_name: { type: "string", minLength: 1, maxLength: 512, description: "Effect match name from host inspection." },
-                display_name: { type: "string", minLength: 1, maxLength: 512, description: "Optional exact host display name." },
-                parameter_index: { type: "integer", minimum: 0, maximum: 255, description: "Inspected zero-based parameter index." },
-                parameter_name: { type: "string", minLength: 1, maxLength: 512, description: "Exact inspected parameter name." },
-              }, required: ["match_name", "parameter_index", "parameter_name"] },
-            }, required: ["node_id", "track_type", "track_index"] },
-          }, required: ["backend"], anyOf: [{ required: ["sequence_id"] }, { required: ["source_item"] }],
-        },
+        ...(advertisesGuards ? {
+          expected_project_path: EXPECTED_PROJECT_PATH_SCHEMA,
+          expected_cep_target: EXPECTED_CEP_TARGET_SCHEMA,
+        } : {}),
       },
-    });
+    };
+    const inputSchema = acceptsGuardsUnlisted
+      ? withUnlistedGuardArguments(jsonSchemaToInputSchema(listedSchema))
+      : jsonSchemaToInputSchema(listedSchema);
     const guardedHandler = guardToolHandler(name, withFrameRateDefaultWarning(tool), capabilities);
 
     const annotations = annotationsForTool(name, tool.annotations);
@@ -630,7 +657,15 @@ export function createServer(
             // export tools such as import_*, relink_*, consolidate_* that add
             // project items). Only inspect-only calls skip it.
             const tracksUndo = capabilitiesForToolInvocation(name, callArgs).some((capability) => capability !== "inspect");
-            const { expected_project_path, expected_cep_target, ...toolArgs } = callArgs;
+            const { expected_project_path: callProjectPath, expected_cep_target: callTarget, ...restArgs } = callArgs;
+            // A per-call guard always wins; the session guard fills in when a
+            // call omits one. The session guard tool itself runs unguarded and
+            // receives the guard values as its own arguments.
+            const isSessionGuardTool = name === SESSION_GUARD_TOOL_NAME;
+            const stored: { expected_project_path?: string; expected_cep_target?: unknown } = isSessionGuardTool ? {} : sessionGuard.get();
+            const toolArgs = isSessionGuardTool ? callArgs : restArgs;
+            const expected_project_path = isSessionGuardTool ? undefined : (callProjectPath ?? stored.expected_project_path);
+            const expected_cep_target = isSessionGuardTool ? undefined : (callTarget ?? stored.expected_cep_target);
             const work = () => runWithExpectedHostTarget(expected_cep_target,
               () => runWithUndoTracking(tracksUndo, () => guardedHandler(toolArgs)));
             const usesHost = deriveToolOperationalCapability(name, tool, capabilities).backends.some(backend => ["cep", "extendscript", "qe", "uxp"].includes(backend));
