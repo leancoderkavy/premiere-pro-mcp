@@ -54,7 +54,10 @@ import { MAX_CAPTION_ARTIFACT_CHARACTERS } from "../ai/caption-timing.js";
 
 export const MAX_INLINE_ARTIFACT_BYTES = 512 * 1024;
 const MAX_PATH_LENGTH = 4096;
-const CAPTION_STYLE_VERIFY_ROUTES = ["export_sequence"] as const;
+// Burn-in check: save the marks, set a short range, export it, restore the marks.
+const CAPTION_STYLE_VERIFY_ROUTES = ["get_sequence_in_out_points", "set_sequence_in_out_points", "export_sequence", "clear_sequence_in_out"] as const;
+// Still-frame review exports omit caption tracks, so caption guidance never routes to them.
+const CAPTION_STILL_FRAME_ROUTES: readonly string[] = ["export_sequence_review_frames"];
 
 const HEX_COLOR_PATTERN = "^#[0-9A-Fa-f]{6}$";
 const LIMITS = CUSTOM_CAPTION_STYLE_LIMITS;
@@ -405,7 +408,7 @@ export function getCaptionAuthoringTools() {
               applied: false,
               mutation_refused: "This tool provides guidance only. MCP for Adobe Premiere Pro does not expose a CaptionTrack style mutation API because Premiere does not expose one through documented ExtendScript, QE DOM, or UXP surfaces. Apply caption styles manually in Premiere's Properties panel (or Essential Graphics) and save them as a Track Style. Per-word colour and Upgrade Caption to Graphic are also manual.",
               safe_zones: presetStyle?.safe_zone_recommendation ?? captionSafeZoneRecommendation(),
-              routes: [...CAPTION_AUTHORING_ROUTES, ...SAFE_ZONE_ROUTES, ...CAPTION_STYLE_VERIFY_ROUTES],
+              routes: [...new Set<string>([...CAPTION_AUTHORING_ROUTES, ...SAFE_ZONE_ROUTES, ...CAPTION_STYLE_VERIFY_ROUTES])].filter((route) => !CAPTION_STILL_FRAME_ROUTES.includes(route)),
             },
           };
         } catch (error) {

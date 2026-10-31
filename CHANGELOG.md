@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `create_subclip` and the `overwrite_clip` `sourceInShift` check read the media start from `Column.Intrinsic.MediaStart` when the stored points carry no offset child, and handle time-of-day ranges that pass midnight, so a camera clip at 01:00:00:00 no longer reports a range (or shift) off by an hour. An unreadable MediaStart leaves the range unverified instead of assuming zero (#920 follow-up).
 - `overwrite_clip` no longer says `slip_edit` can correct a `sourceInShift`: slip_edit snaps to whole sequence frames, so it cannot correct a shift smaller than one frame (#920 follow-up).
 - `import_media`, `import_folder`, `import_ae_comps` and `import_fcp_xml` resolve `target_bin` through the bin-only lookup, so a sequence ID, clip ID or clip name is refused as "not a bin" before Premiere is asked to import. Every `item_id` parameter that resolves a sequence ID now says so in its schema (#921 follow-up).
+- `get_caption_style_guidance` no longer lists `export_sequence_review_frames` among its routes (still frames omit caption tracks), and its burn-in recipe saves sequence In/Out before setting the test range and restores them afterwards only if they still match, because `export_sequence` does not restore marks (#922 follow-up).
 
 ## [1.27.0] - 2026-10-31
 
