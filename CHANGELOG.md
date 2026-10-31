@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Full-server registration and catalog test files allow 60 seconds for tests and setup hooks on loaded machines, while retaining the global 10-second default and existing longer explicit test limits.
 - Project-item tools resolve a sequence ID (the GUID returned by `create_sequence`, `duplicate_sequence` and `list_sequences`) to that sequence's project item after node-ID and name matches fail, so `rename_project_item`, `move_item_to_bin`, `delete_project_item` and similar tools accept the ID a sequence tool just reported. `duplicate_sequence` also reports the copy's `projectItemNodeId`.
+- `get_effect_properties` and `set_effect_property` say when an audio effect's parameters are Premiere's normalized 0-1 values rather than Hz, dB or ms. Effects on audio clips (other than the built-in Volume, Channel Volume, Panner and Balance) report `valueScale`, a `parameterScale` summary and a warning to calibrate by rendering, because Adobe does not document the mapping. Highpass Cutoff carries measured guidance from Premiere 26.5.2 (the 0.25 default measured near 1.2 kHz), presented as measurements, not a formula. Volume Level also reports its value in dB using the mapping `set_clip_volume` already writes with.
+- `set_effect_property` refuses, before writing, a number outside 0-1 for an audio effect parameter whose current value is inside 0-1 (such as 80 meant as Hz, which Premiere would clamp). `allow_out_of_range_audio_value: true` permits a deliberate raw write.
 
 ## [1.26.0] - 2026-10-27
 

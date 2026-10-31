@@ -1264,6 +1264,23 @@ function __isBuiltInComponent(component) {
   return !!__BUILT_IN_COMPONENTS[String(component.displayName)];
 }
 
+// Audio components every audio clip carries, as opposed to audio effects.
+// __isBuiltInComponent treats every "Internal ..." match name as built in,
+// which is right for removal safety but wrong here: Premiere 26.5.2 also
+// names effects that way ("Internal Highpass", "Internal Parameteric EQ"),
+// while others use GUIDs (DeEsser, Single-band Compressor, Hard Limiter).
+// Live intrinsics: "Internal Volume Mono|Stereo|5.1", "Internal Channel
+// Volume Stereo|5.1", "Internal Audio Balance". Panner's match name is not
+// confirmed, so "Internal (Audio) Panner" and the English/Spanish display
+// names also count; Balance and Pan take raw values (set_clip_pan writes
+// -100..100), so misreading them as normalized effects must be avoided.
+var __INTRINSIC_AUDIO_DISPLAY_NAMES = { "Volume": true, "Channel Volume": true, "Panner": true, "Balance": true, "Volumen": true, "Volumen del canal": true, "Equilibrio": true, "Paneo de balance": true };
+function __isIntrinsicAudioComponent(component) {
+  var match = __componentMatchName(component);
+  if (/^Internal (Volume|Channel Volume|Audio Balance|Balance|Audio Panner|Panner)\\b/.test(match)) return true;
+  return !!__INTRINSIC_AUDIO_DISPLAY_NAMES[String(component.displayName)];
+}
+
 // Match names confirmed live (#674). Unlike the guessed entries above, these
 // prove the host language: one of them showing a non-English display name
 // means the built-ins are localized.

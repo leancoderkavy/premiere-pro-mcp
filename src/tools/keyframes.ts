@@ -1,6 +1,7 @@
 import { requiredArgumentError } from "../security/required-arguments.js";
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
+import { annotateEffectPropertiesResult, annotateSetEffectPropertyResult } from "./audio-effect-param-scale.js";
 
 const CLIP_TIME = "Seconds from the clip's start on the timeline (0 is the clip's first frame)";
 
@@ -64,7 +65,8 @@ function keyBaseScript(times: Array<[string, number]>): string {
 export function getKeyframeTools(bridgeOptions: BridgeOptions) {
   return {
     get_effect_properties: {
-      description: "List all properties of a specific effect on a clip, including current values",
+      description:
+        "List all properties of a specific effect on a clip, including current values. Values are what Premiere's scripting API returns, not necessarily the units shown in Effect Controls. Effects on audio clips (anything other than the built-in Volume, Channel Volume, Panner and Balance) use normalized 0-1 values: those properties report valueScale normalized_0_1 and the result carries a warning, because Adobe does not document the mapping to Hz, dB or ms. Calibrate audio effect changes by rendering. Volume > Level also reports displayValue in dB.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -128,16 +130,18 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
           return __result({
             effect: comp.displayName,
             matchName: comp.matchName,
+            trackType: result.trackType,
+            builtInComponent: result.trackType === "audio" ? __isIntrinsicAudioComponent(comp) : __isBuiltInComponent(comp),
             properties: props
           });
         `);
-        return sendCommand(script, bridgeOptions);
+        return annotateEffectPropertiesResult(await sendCommand(script, bridgeOptions));
       },
     },
 
     set_effect_property: {
       description:
-        "Set one effect property. Duplicate names require property_index from get_effect_properties. Colour values use [alpha, red, green, blue] and the lossless colour API; keyframed writes are refused. Readback reports verified, failed or committed_unverified; unreadable values are never reported as applied.",
+        "Set one effect property. Duplicate names require property_index from get_effect_properties. Colour values use [alpha, red, green, blue] and the lossless colour API; keyframed writes are refused. Readback reports verified, failed or committed_unverified; unreadable values are never reported as applied. Audio effect parameters (effects on audio clips other than built-in Volume, Channel Volume, Panner and Balance) take Premiere's normalized 0-1 value, not Hz, dB or ms; a number outside 0-1 is refused before the write when the current value is inside 0-1, unless allow_out_of_range_audio_value is true. Calibrate audio changes by rendering.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -162,14 +166,22 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
             maxItems: 4,
             additionalProperties: true,
             description:
-              "Value to set. Use a number for scalar properties, an array of numbers for vector properties such as Motion > Position or Anchor Point ([x, y]), a boolean for checkbox properties, the exact JSON string reported for a MOGRT text or graphic parameter, or that same JSON object if the client parsed it.",
+              "Value to set. Use a number for scalar properties (for audio effects, the normalized 0-1 value get_effect_properties reports, not Hz, dB or ms), an array of numbers for vector properties such as Motion > Position or Anchor Point ([x, y]), a boolean for checkbox properties, the exact JSON string reported for a MOGRT text or graphic parameter, or that same JSON object if the client parsed it.",
+          },
+          allow_out_of_range_audio_value: {
+            type: "boolean",
+            description:
+              "Default false. Audio effect parameters normally use normalized 0-1 values, so a number outside 0-1 (for example 80 meant as Hz) is refused before the write while the current value is inside 0-1. Set true only when this parameter is known to accept that raw value.",
           },
         },
         required: ["node_id", "effect_name", "property_name", "value"],
       },
-      handler: async (args: { node_id: string; effect_name: string; property_name: string; property_index?: number; value: number | string | boolean | number[] | Record<string, unknown> }) => {
+      handler: async (args: { node_id: string; effect_name: string; property_name: string; property_index?: number; value: number | string | boolean | number[] | Record<string, unknown>; allow_out_of_range_audio_value?: boolean }) => {
         const indexError = propertyIndexError(args.property_index);
         if (indexError) return { success: false, error: indexError };
+        if (args.allow_out_of_range_audio_value !== undefined && typeof args.allow_out_of_range_audio_value !== "boolean") {
+          return { success: false, error: "allow_out_of_range_audio_value must be a boolean." };
+        }
         if (Array.isArray(args.value)) {
           if (!args.value.length || args.value.length > 4) {
             return { success: false, error: "value must be an array of 1 to 4 numbers for a vector property" };
@@ -207,6 +219,12 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
           if (!prop) return __error("Property not found: ${escapeForExtendScript(args.property_name)}");
 
           var requestedValue = ${requestedValue};
+          var builtInComponent = result.trackType === "audio" ? __isIntrinsicAudioComponent(comp) : __isBuiltInComponent(comp);
+          var scaleFields = { trackType: result.trackType, builtInComponent: builtInComponent, effectDisplayName: String(comp.displayName), matchName: __componentMatchName(comp), propertyDisplayName: String(prop.displayName) };
+          function __withScaleFields(data) {
+            for (var scaleKey in scaleFields) if (scaleFields.hasOwnProperty(scaleKey)) data[scaleKey] = scaleFields[scaleKey];
+            return data;
+          }
           var currentColor = __readColorValue(prop);
           if (currentColor) {
             var colorVarying = false;
@@ -229,6 +247,16 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
           if (typeof prop.isTimeVarying === "function") {
             try { if (prop.isTimeVarying()) return __error("Keyframed parameters require a time-specific keyframe tool; nothing was changed."); }
             catch (animationReadError) { return __error("Parameter animation state could not be read; nothing was changed."); }
+          }
+          var allowRawAudioValue = ${args.allow_out_of_range_audio_value === true ? "true" : "false"};
+          // Audio effect parameters use normalized 0-1 values; a number outside
+          // that range is usually Hz, dB or ms, which Premiere would clamp.
+          if (result.trackType === "audio" && !builtInComponent && typeof requestedValue === "number" && (requestedValue < 0 || requestedValue > 1) && !allowRawAudioValue) {
+            var currentAudioValue = null;
+            try { currentAudioValue = prop.getValue(); } catch (currentAudioError) {}
+            if (typeof currentAudioValue === "number" && currentAudioValue >= 0 && currentAudioValue <= 1) {
+              return __error("Audio effect parameters take Premiere's normalized 0-1 value, not Hz, dB or ms; " + requestedValue + " is outside 0-1 and the current value is " + currentAudioValue + ". Nothing was changed. Pass a 0-1 value calibrated by rendering, or allow_out_of_range_audio_value true if this parameter accepts raw values.", __withScaleFields({ set: false, verified: false, outcome: "not_applied", effect: "${escapeForExtendScript(args.effect_name)}", property: "${escapeForExtendScript(args.property_name)}", propertyIndex: resolvedProperty.index, value: currentAudioValue, requestedValue: requestedValue }));
+            }
           }
           try {
             prop.setValue(requestedValue, true);
@@ -280,10 +308,11 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
               ? "Premiere parameter readback only; verify playback or exported frames before delivery."
               : "Premiere accepted the parameter write, but this property did not expose a readback value. Verify playback or exported frames before delivery."
           };
+          __withScaleFields(parameterData);
           if (readbackAvailable && !parameterVerified) return __error("Premiere parameter readback does not match the requested value.", parameterData);
           return __result(parameterData);
         `);
-        return sendCommand(script, bridgeOptions);
+        return annotateSetEffectPropertyResult(await sendCommand(script, bridgeOptions));
       },
     },
 
