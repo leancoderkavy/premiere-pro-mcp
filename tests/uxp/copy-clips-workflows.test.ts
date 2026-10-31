@@ -14,7 +14,7 @@ type Kind = "video" | "audio";
 let counter = 0;
 
 function makeItem(state: ItemState, options: { brokenTrim?: boolean } = {}) {
-  const shiftBy = (field: "start" | "end", ticks: bigint) => { state[field] = String(BigInt(state[field]) + ticks); };
+  const shiftBy = (field: "start" | "end" | "inPoint" | "outPoint", ticks: bigint) => { state[field] = String(BigInt(state[field]) + ticks); };
   return {
     state,
     getProjectItem: vi.fn(async () => ({ getId: vi.fn(async () => state.projectItemId) })),
@@ -26,10 +26,14 @@ function makeItem(state: ItemState, options: { brokenTrim?: boolean } = {}) {
     isSpeedReversed: vi.fn(async () => false),
     getName: vi.fn(async () => state.name),
     isDisabled: vi.fn(async () => state.disabled),
-    createSetInPointAction: vi.fn((time: { ticks: string }) => ({ apply: () => { state.inPoint = time.ticks; } })),
-    createSetOutPointAction: vi.fn((time: { ticks: string }) => ({ apply: () => { state.outPoint = time.ticks; } })),
-    createSetStartAction: vi.fn((time: { ticks: string }) => ({ apply: () => { if (!options.brokenTrim) state.start = time.ticks; } })),
-    createSetEndAction: vi.fn((time: { ticks: string }) => ({ apply: () => { state.end = time.ticks; } })),
+    // Premiere 26.0.2 (measured live): every one of these is an edge trim
+    // that moves the timeline edge and the matching source point together,
+    // by the difference measured when the action is created. Two of them on
+    // one edge in one transaction therefore trim that edge twice.
+    createSetInPointAction: vi.fn((time: { ticks: string }) => { const d = BigInt(time.ticks) - BigInt(state.inPoint); return { apply: () => { shiftBy("inPoint", d); shiftBy("start", d); } }; }),
+    createSetOutPointAction: vi.fn((time: { ticks: string }) => { const d = BigInt(time.ticks) - BigInt(state.outPoint); return { apply: () => { shiftBy("outPoint", d); shiftBy("end", d); } }; }),
+    createSetStartAction: vi.fn((time: { ticks: string }) => { const d = BigInt(time.ticks) - BigInt(state.start); return { apply: () => { if (options.brokenTrim) return; shiftBy("start", d); shiftBy("inPoint", d); } }; }),
+    createSetEndAction: vi.fn((time: { ticks: string }) => { const d = BigInt(time.ticks) - BigInt(state.end); return { apply: () => { shiftBy("end", d); shiftBy("outPoint", d); } }; }),
     createMoveAction: vi.fn((time: { ticks: string }) => ({ apply: () => { shiftBy("start", BigInt(time.ticks)); shiftBy("end", BigInt(time.ticks)); } })),
   };
 }
@@ -43,7 +47,7 @@ function makeSequence(guid: string, name: string, video: Item[][], audio: Item[]
     name,
     tracks,
     getName: vi.fn(async () => name),
-    getTimebase: vi.fn(async () => "10594584000"),
+    getTimebase: vi.fn(async () => "254016000"),
     getVideoTrackCount: vi.fn(async () => video.length),
     getAudioTrackCount: vi.fn(async () => audio.length),
     getVideoTrack: vi.fn(async (index: number) => video[index] ? { getTrackItems: vi.fn(async () => sorted(video[index])) } : null),
@@ -184,6 +188,8 @@ describe("UXP copy clips between sequences", () => {
   it("snaps times given in seconds to the sequence frame", async () => {
     const value = host();
     const frame = 10594584000n;
+    for (const sequence of [value.source, value.destination]) sequence.getTimebase.mockResolvedValue(String(frame));
+    value.source.tracks.video[0][0].state.end = String(frame * 3000n);
     const plan = await value.registry.dispatch("sequence.copyClips.inspect", {
       sourceSequenceId: "seq-backup", destinationSequenceId: "seq-segment", videoTracks: [0], audioTracks: [],
       sourceStartSeconds: 50.0004, sourceEndSeconds: 52.02, destinationStartSeconds: 40,
@@ -192,6 +198,14 @@ describe("UXP copy clips between sequences", () => {
     expect(plan.sourceStartTicks).toBe(String(1199n * frame));
     expect(plan.clips[0].startTicks).toBe(plan.destinationStartTicks);
     await expect(value.registry.dispatch("sequence.copyClips.inspect", { ...request(), sourceStartSeconds: 1 })).rejects.toThrow(/exactly one of sourceStartTicks/);
+  });
+
+  it("refuses sequences with different frame rates and times off the frame grid", async () => {
+    const value = host();
+    value.destination.getTimebase.mockResolvedValue("10160640000");
+    await expect(value.registry.dispatch("sequence.copyClips.inspect", request())).rejects.toThrow(/different frame rates/);
+    const other = host();
+    await expect(other.registry.dispatch("sequence.copyClips.inspect", request({ destinationStartTicks: "1" }))).rejects.toThrow(/not on a frame boundary/);
   });
 
   it("refuses an occupied destination", async () => {

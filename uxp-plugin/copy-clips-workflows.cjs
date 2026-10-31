@@ -106,14 +106,12 @@
             const actions = [];
             for (const clone of clones) {
               const placement = clone.entry.placement, head = BigInt(placement.trimHeadTicks), tail = BigInt(placement.trimTailTicks);
-              if (head > 0n) {
-                actions.push(requiredMethod(clone.item, "createSetInPointAction")(ppro.TickTime.createWithTicks(placement.inTicks)));
-                actions.push(requiredMethod(clone.item, "createSetStartAction")(ppro.TickTime.createWithTicks(String(clone.entry.parkedStart + head))));
-              }
-              if (tail > 0n) {
-                actions.push(requiredMethod(clone.item, "createSetOutPointAction")(ppro.TickTime.createWithTicks(placement.outTicks)));
-                actions.push(requiredMethod(clone.item, "createSetEndAction")(ppro.TickTime.createWithTicks(String(clone.entry.parkedEnd - tail))));
-              }
+              // Each of these is a full edge trim: SetStart moves the start and
+              // the source in together, SetEnd the end and the source out
+              // (live 26.0.2; SetInPoint/SetOutPoint do the same again, so
+              // using both pairs trims twice).
+              if (head > 0n) actions.push(requiredMethod(clone.item, "createSetStartAction")(ppro.TickTime.createWithTicks(String(clone.entry.parkedStart + head))));
+              if (tail > 0n) actions.push(requiredMethod(clone.item, "createSetEndAction")(ppro.TickTime.createWithTicks(String(clone.entry.parkedEnd - tail))));
             }
             checked(actions);
             committed(context.project.executeTransaction(function (compoundAction) {
@@ -191,8 +189,7 @@
       for (const key of TIME_KEYS) {
         if (request[key + "Ticks"] != null) continue;
         const sequence = key === "destinationStart" ? context.destination : context.source;
-        const frame = BigInt(String(await requiredMethod(sequence, "getTimebase")()));
-        if (frame <= 0n) throw commandError("UXP_VERIFICATION_FAILED", "Premiere returned an invalid sequence timebase");
+        const frame = await timebase(sequence);
         const exact = BigInt(Math.round(request[key + "Seconds"] * 1000000)) * TICKS_PER_SECOND;
         const perFrame = frame * 1000000n;
         request[key + "Ticks"] = String((exact + perFrame / 2n) / perFrame * frame);
@@ -202,6 +199,15 @@
 
     async function planCopy(context, request) {
       const { project, source, destination } = context;
+      // Premiere snaps a clone to the destination's frame grid, so every
+      // planned time must already sit on it, and both grids must agree.
+      const frame = await timebase(source);
+      if (await timebase(destination) !== frame) {
+        throw commandError("UXP_TARGET_UNSUPPORTED", "The source and destination sequences have different frame rates; copying between them is not supported");
+      }
+      for (const key of TIME_KEYS) {
+        if (BigInt(request[key + "Ticks"]) % frame !== 0n) throw commandError("UXP_INVALID_ARGUMENT", key + "Ticks is not on a frame boundary of the sequence");
+      }
       const rangeStart = BigInt(request.sourceStartTicks), rangeEnd = BigInt(request.sourceEndTicks);
       const shift = BigInt(request.destinationStartTicks) - rangeStart;
       const entries = [];
@@ -270,12 +276,13 @@
         }
         if (BigInt(placement.endTicks) > lastEnd) lastEnd = BigInt(placement.endTicks);
       }
-      let parking = lastEnd + PARKING_GAP;
+      const gap = (PARKING_GAP + frame - 1n) / frame * frame;
+      let parking = (lastEnd + frame - 1n) / frame * frame + gap;
       for (const entry of entries) {
         if (!entry.trimmed) continue;
         entry.parkedStart = parking;
         entry.parkedEnd = parking + BigInt(entry.placement.endTicks) - BigInt(entry.placement.startTicks) + BigInt(entry.placement.trimHeadTicks) + BigInt(entry.placement.trimTailTicks);
-        parking = entry.parkedEnd + PARKING_GAP;
+        parking = (entry.parkedEnd + frame - 1n) / frame * frame + gap;
       }
 
       return {
@@ -296,12 +303,20 @@
       };
     }
 
+    async function timebase(sequence) {
+      const text = String(await requiredMethod(sequence, "getTimebase")());
+      if (!/^\d{1,20}$/.test(text) || BigInt(text) <= 0n) throw commandError("UXP_VERIFICATION_FAILED", "Premiere returned an invalid sequence timebase");
+      return BigInt(text);
+    }
+
     async function findClone(sequence, entry, startTicks) {
       const placement = entry.placement;
       for (const item of await clipItems(sequence, placement.mediaType, placement.targetTrackIndex)) {
         if (await ticksOf(item, "getStartTime") === String(startTicks) && await projectItemId(item) === placement.projectItemId) return item;
       }
-      throw commandError("UXP_VERIFICATION_FAILED", placement.name + " is not at its parking position on " + placement.mediaType + " track " + placement.targetTrackIndex);
+      const seen = [];
+      for (const item of await clipItems(sequence, placement.mediaType, placement.targetTrackIndex)) seen.push(await ticksOf(item, "getStartTime"));
+      throw commandError("UXP_VERIFICATION_FAILED", placement.name + " is not at its parking position " + startTicks + " on " + placement.mediaType + " track " + placement.targetTrackIndex + " (clip starts there: " + seen.slice(0, 8).join(", ") + ")");
     }
 
     async function readbackProblems(sequence, plan) {
