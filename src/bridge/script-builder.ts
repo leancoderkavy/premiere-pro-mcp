@@ -159,18 +159,22 @@ function __itemAudioSampleRate(item) {
   return 48000;
 }
 
+// Footage interpretation reports NTSC rates rounded (23.976); use the exact
+// 1000/1001 rate so a frame grid lines up with Premiere's tick grid.
+function __exactNtscFrameRate(fps) {
+  if (Math.abs(fps - 23.976) < 0.001) return 24000 / 1001;
+  if (Math.abs(fps - 29.97) < 0.001) return 30000 / 1001;
+  if (Math.abs(fps - 47.952) < 0.001) return 48000 / 1001;
+  if (Math.abs(fps - 59.94) < 0.001) return 60000 / 1001;
+  if (Math.abs(fps - 119.88) < 0.001) return 120000 / 1001;
+  return fps;
+}
+
 function __restoreGridFromItem(item, mediaType) {
   if (mediaType === 2) return TICKS_PER_SECOND / __itemAudioSampleRate(item);
   try {
     var fps = parseFloat(item.getFootageInterpretation().frameRate);
-    if (fps >= 1 && fps <= 240) {
-      if (Math.abs(fps - 23.976) < 0.001) fps = 24000 / 1001;
-      else if (Math.abs(fps - 29.97) < 0.001) fps = 30000 / 1001;
-      else if (Math.abs(fps - 47.952) < 0.001) fps = 48000 / 1001;
-      else if (Math.abs(fps - 59.94) < 0.001) fps = 60000 / 1001;
-      else if (Math.abs(fps - 119.88) < 0.001) fps = 120000 / 1001;
-      return TICKS_PER_SECOND / fps;
-    }
+    if (fps >= 1 && fps <= 240) return TICKS_PER_SECOND / __exactNtscFrameRate(fps);
     // Audio-only items and sequences report about 2.75e-8 fps on 26.5.2;
     // that would make a "frame" of about a year. Use the audio sample grid.
     if (fps > 0 && fps < 1) return TICKS_PER_SECOND / __itemAudioSampleRate(item);
@@ -975,6 +979,127 @@ function __nodeIdOf(item) {
   } catch (e) {
     return "";
   }
+}
+
+// Read the in/out range a subclip (or a marked clip) stores in its project
+// metadata. A soft-boundary subclip's getInPoint/getOutPoint read the whole
+// media on Premiere 26.5, so the range comes from the metadata instead. Each
+// point holds an rdf:value timecode and a frame_rate child in ticks per frame;
+// the Out timecode names the last frame (or sample) and is inclusive. The
+// timecodes are in the media's own timecode space: a file with a start
+// timecode (a BWF time_reference, a camera clip starting at 01:00:00:00)
+// reads that start plus the range, and each point's offset child holds the
+// start in ticks, so it is subtracted to give seconds from the file's start.
+// Returns null when the range cannot be read.
+function __subclipStoredRange(metadata) {
+  if (!metadata) return null;
+  function __subclipOffsetTicks(body) {
+    var offset = body.match(/offset>\\s*(-?\\d+)\\s*</);
+    var ticks = offset ? parseFloat(offset[1]) : 0;
+    return isFinite(ticks) ? ticks : 0;
+  }
+  function __subclipTimecodeFrames(timecode, frameTicks) {
+    var parts = String(timecode).match(/^\\s*(\\d+)[:;.](\\d+)[:;.](\\d+)([:;.])(\\d+)\\s*$/);
+    if (!parts) return NaN;
+    var nominal = Math.round(TICKS_PER_SECOND / frameTicks);
+    var hours = parseInt(parts[1], 10);
+    var minutes = parseInt(parts[2], 10);
+    var frames = ((hours * 60 + minutes) * 60 + parseInt(parts[3], 10)) * nominal + parseInt(parts[5], 10);
+    if (parts[4] === ";" && (nominal === 30 || nominal === 60)) {
+      var totalMinutes = hours * 60 + minutes;
+      frames -= (nominal / 15) * (totalMinutes - Math.floor(totalMinutes / 10));
+    }
+    return frames;
+  }
+  function __subclipPoint(xml, column) {
+    var tagName = "Column.Intrinsic." + column;
+    var openStart = xml.indexOf(tagName);
+    if (openStart < 0) return null;
+    var openEnd = xml.indexOf(">", openStart);
+    if (openEnd < 0 || xml.charAt(openEnd - 1) === "/") return null;
+    var closeStart = xml.indexOf(tagName, openEnd);
+    if (closeStart < 0) return null;
+    var body = xml.substring(openEnd + 1, closeStart);
+    var value = body.match(/<rdf:value>\\s*([^<]*?)\\s*<\\/rdf:value>/);
+    var rate = body.match(/frame_rate>\\s*(\\d+)\\s*</);
+    if (!value || !rate) return null;
+    var frameTicks = parseFloat(rate[1]);
+    if (!isFinite(frameTicks) || frameTicks <= 0) return null;
+    var frames = __subclipTimecodeFrames(value[1], frameTicks);
+    if (!isFinite(frames)) return null;
+    return { frames: frames, frameTicks: frameTicks, timecode: value[1], offsetTicks: __subclipOffsetTicks(body) };
+  }
+  // Audio-only subclips keep empty Video points; their Audio points count
+  // samples in the last field (00:00:04:00191) and the frame_rate child is
+  // only the 25 fps display rate, so the sample rate comes from MediaTimebase.
+  function __subclipAudioPoint(xml, column) {
+    var base = xml.match(/Column\\.Intrinsic\\.MediaTimebase>\\s*([0-9.]+)\\s*Hz\\s*</);
+    var hz = base ? parseFloat(base[1]) : NaN;
+    if (!isFinite(hz) || hz <= 0 || Math.floor(hz) !== hz) return null;
+    var tagName = "Column.Intrinsic." + column;
+    var openStart = xml.indexOf(tagName);
+    if (openStart < 0) return null;
+    var openEnd = xml.indexOf(">", openStart);
+    if (openEnd < 0 || xml.charAt(openEnd - 1) === "/") return null;
+    var closeStart = xml.indexOf(tagName, openEnd);
+    if (closeStart < 0) return null;
+    var body = xml.substring(openEnd + 1, closeStart);
+    var value = body.match(/<rdf:value>\\s*(\\d+):(\\d{2}):(\\d{2}):(\\d+)\\s*<\\/rdf:value>/);
+    if (!value || parseInt(value[4], 10) >= hz) return null;
+    var samples = ((parseInt(value[1], 10) * 60 + parseInt(value[2], 10)) * 60 + parseInt(value[3], 10)) * hz + parseInt(value[4], 10);
+    return { frames: samples, frameTicks: TICKS_PER_SECOND / hz, timecode: value[1] + ":" + value[2] + ":" + value[3] + ":" + value[4], offsetTicks: __subclipOffsetTicks(body) };
+  }
+  var inPoint = __subclipPoint(metadata, "VideoInPoint");
+  var outPoint = __subclipPoint(metadata, "VideoOutPoint");
+  if (!inPoint && !outPoint) {
+    inPoint = __subclipAudioPoint(metadata, "AudioInPoint");
+    outPoint = __subclipAudioPoint(metadata, "AudioOutPoint");
+  }
+  if (!inPoint || !outPoint) return null;
+  return {
+    inSeconds: __ticksToSeconds(inPoint.frames * inPoint.frameTicks - inPoint.offsetTicks),
+    outSeconds: __ticksToSeconds((outPoint.frames + 1) * outPoint.frameTicks - outPoint.offsetTicks),
+    inTimecode: inPoint.timecode,
+    outTimecode: outPoint.timecode,
+    inFrameSeconds: __ticksToSeconds(inPoint.frameTicks),
+    outFrameSeconds: __ticksToSeconds(outPoint.frameTicks),
+    mediaStartSeconds: __ticksToSeconds(inPoint.offsetTicks)
+  };
+}
+
+// Ticks per frame of a project item's own media (per sample for audio-only
+// media), or 0 when the item exposes no usable rate. Unlike
+// __restoreGridFromItem there is no 24 fps or 48 kHz guess: a subclip request
+// is snapped to this grid, and a guessed grid would move it.
+function __subclipSourceGridTicks(item) {
+  var fps = NaN;
+  try { fps = parseFloat(item.getFootageInterpretation().frameRate); } catch (subclipRateError) {}
+  if (fps >= 1 && fps <= 240) return TICKS_PER_SECOND / __exactNtscFrameRate(fps);
+  // Audio-only items report about 2.75e-8 fps on 26.5.2; use the sample rate.
+  if (fps > 0 && fps < 1) {
+    try {
+      var xml = String(item.getProjectMetadata() || "");
+      var base = xml.length <= 1000000 ? /Column\\.Intrinsic\\.MediaTimebase[^>]*>\\s*([0-9]+(?:\\.[0-9]+)?)\\s*Hz\\s*</i.exec(xml) : null;
+      var hz = base ? parseFloat(base[1]) : NaN;
+      if (isFinite(hz) && Math.floor(hz) === hz && hz >= 1 && hz <= 768000) return TICKS_PER_SECOND / hz;
+    } catch (subclipHzError) {}
+  }
+  return 0;
+}
+
+// Ticks to send createSubClip for a requested point. Premiere floors a
+// subclip point to the media's frame (or sample) grid, and on 26.5.2 a point
+// sent exactly on a boundary can land one unit early: a 24 fps In of
+// 1826.8333333 s stored 1826.7916667 s, and a 48 kHz Out stored one sample
+// low. Snap the request to the nearest frame and send a quarter frame past
+// it, so the floor lands on that frame with room for the host's rounding and
+// never reaches the next one. Without a known grid, send 1 microsecond past
+// the request: that absorbs a request rounded to 7 decimals and stays under
+// one sample at any rate up to 768 kHz, so it cannot move an exact sample.
+function __subclipWriteTicks(seconds, gridTicks) {
+  var ticks = parseFloat(seconds) * TICKS_PER_SECOND;
+  if (gridTicks > 0) return Math.round((Math.round(ticks / gridTicks) + 0.25) * gridTicks);
+  return Math.round(ticks) + Math.round(TICKS_PER_SECOND / 1000000);
 }
 
 // Match a project item by node ID or exact name anywhere in the tree. When the
