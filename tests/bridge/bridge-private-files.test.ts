@@ -37,6 +37,7 @@ function harness(plugin: "cep-plugin" | "after-effects-cep-plugin") {
   const context: Record<string, any> = {
     fs, path: { join: (...parts: string[]) => parts.join("/") }, tempDir: "/private/bridge",
     ENGINE_ID: "engine", engineId: "engine", bridgeRunning: true, running: true,
+    IS_HEADLESS_ENGINE: false, HEADLESS_ENGINE_FILE: "headless-engine.json",
     log() {}, setStatus() {}, commandInFlight: false,
     setInterval: (callback: () => void) => { callbacks.push(callback); return 1; },
     clearInterval() {}, cs: { evalScript: vi.fn() },
@@ -83,6 +84,24 @@ describe.each(["cep-plugin", "after-effects-cep-plugin"] as const)("%s private r
   });
 });
 
+it("publishes the headless engine marker through a private stage", () => {
+  const test = harness("cep-plugin");
+  test.context.IS_HEADLESS_ENGINE = true;
+  test.heartbeat();
+  expect(test.fs.writeFileSync.mock.calls).toHaveLength(2);
+  expect(test.fs.writeFileSync.mock.calls.every(call => call[2]?.mode === 0o600 && call[2]?.flag === "wx")).toBe(true);
+  expect(test.files.get("/private/bridge/headless-engine.json")).toEqual({ text: JSON.stringify({ engine: "engine" }), mode: 0o600 });
+});
+it("leaves an unrelated headless engine stage in place when its exclusive create collides", () => {
+  const test = harness("cep-plugin");
+  test.context.IS_HEADLESS_ENGINE = true;
+  const staged = "/private/bridge/headless-engine.json.engine.staged";
+  test.files.set(staged, { text: "unrelated-stage", mode: 0o640 });
+  test.heartbeat();
+  expect(test.files.get(staged)?.text).toBe("unrelated-stage");
+  expect(test.files.has("/private/bridge/headless-engine.json")).toBe(false);
+  expect(test.fs.unlinkSync).not.toHaveBeenCalled();
+});
 it("publishes repeated Premiere busy markers through fresh private stages", () => {
   const test = harness("cep-plugin");
   expect(test.context.writeFile("/private/bridge/busy-test.json", "first")).toBe(true);

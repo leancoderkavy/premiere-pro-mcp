@@ -283,6 +283,16 @@ Publish `premiere-pro-mcp@1.2.0` from `main` with a current npm authenticator OT
 
 ---
 
+### CEP panel runtime (`__adobe_cep__`, not ExtendScript)
+
+A few things exist only in the CEP panel's own runtime, never in ExtendScript, so the connector answers them itself (`cep-plugin/panel-commands.cjs`):
+
+| Call | Used by | Notes |
+|---|---|---|
+| `getExtensions(JSON.stringify([]))` | `list_extensions`, `open_extension` preflight | JSON array of installed extensions: `id`, `name`, `windowType`, `isActive`, and more. Measured in Premiere 26.3 (2026-10-27): `isActive` stayed `false` both for a panel just opened with `requestOpenExtension` and for the running headless connector itself, so it does not indicate visibility. |
+| `requestOpenExtension(id, params)` | `open_extension` | Works from the headless connector; no completion callback and no visibility getter, so the outcome is `committed_unverified` |
+| `closeExtension()` | not exposed | Closes only the calling extension; CEP has no way to close another one |
+
 ## QE DOM (Undocumented but Critical)
 
 **Must call `app.enableQE()` first.**
@@ -561,3 +571,37 @@ Public product research informed five independently implemented local review too
 ## Filmcraft-inspired bounded contracts (2026-10-11)
 
 See `docs/filmcraft-improvements.md` for the 52-item implementation ledger, source boundaries and supported workflow routes. This adaptation adds exact local time/edit algebra, replay/recovery protection, explicit delivery evidence and bounded interchange analysis; it does not replace Adobe codecs or claim unrun licensed-host coverage. Documented UXP OTIO import/export remains format-specific and runtime-probed. FCP 7 xmeml is distinct from modern FCPXML.
+
+
+### Title style boundary (2026-10-23)
+
+Local source review only; no application, network or rendering probe was run.
+`stock-titles.ts` and `mogrt-text.ts` already read AE-authored MGT text controls
+as JSON containing `textEditValue`; existing stock-title fixtures preserve
+`fontName` and `fontSize`. These private keys are conditional template contracts,
+not a general Premiere font API. The title style path modifies only one existing
+top-level key and compares final raw JSON in Node. Missing, nested, duplicated,
+animated or unreadable controls remain unverified. Stored font-name equality
+does not establish installed fonts or rendered glyphs.
+
+The existing `advanced.ts` color setter uses ComponentParam `setColorValue` /
+`getColorValue` with ARGB channels in 0–255 and rejects animation. Title fill
+uses that contract only for exactly one static exposed `Fill Color` control;
+it does not invent a private Source Text color encoding. The existing
+`script-builder.ts` Motion helper records normalized Motion Position (0.5,0.5
+is the center); title position writes that intrinsic whole-graphic point and
+compares both stored components. It does not move internal text anchors.
+
+`mogrt-bake.ts` preserves Premiere-authored Source Text JSON, including opaque
+style structures; it only has a tested text-baking contract. It is not extended
+to guess font runs, fill encodings or alignment enums. Live font/fill styling
+on those templates and every `align` request are refused before bake/import.
+Tracking is unsupported. No CEP 26.5.2 compatibility or font-rendering claim
+is established by these fake-host tests. Templates with suitable exposed
+controls and matching fonts still require an operator-run scratch scenario,
+save/reopen and rendered review. No undocumented fallback or external editor
+is invoked.
+
+## Track transition removal and structural edit boundaries
+
+The recorded Premiere26.5.2 editing finding identifies TrackTransition.remove(false, false) as the working CEP removal shape; calling remove() without its two arguments throws. The removal tool uses that existing DOM surface without a QE fallback and checks the entire surviving span list. This is local fake-host coverage, pending native verification. Structural edits conservatively refuse transitions occupying an edited clip span or the participating ripple suffix, since no documented transition-follow-edge contract is established here. Stored span readback does not prove rendered appearance.

@@ -68,6 +68,8 @@ describe("compute_mask_fit_motion", () => {
     expect(data.position.pixels.x).toBeCloseTo(960, 2);
     expect(data.inputs.mask.interpretation.method).toBe("center_size");
     expect(data.next_steps[0]).toContain("set_clip_scale");
+    expect(data.next_steps[1]).toContain('units: "normalized"');
+    expect(data.position.apply_units).toBe("normalized");
     expect(data.next_steps[2]).toContain("capture_frame");
     expect(data.warnings.some((warning: string) => warning.includes("same clip"))).toBe(true);
 

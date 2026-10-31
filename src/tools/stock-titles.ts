@@ -7,6 +7,8 @@ import { extractMogrtText, MAX_MOGRT_TEXT_LENGTH, MogrtTextCheck, summarizeMogrt
 import { MOGRT_DURATION_HELPER } from "./text.js";
 import { bakePremiereTitle, BakeResult, readTemplateKind, readZipEntry, TemplateKind } from "./mogrt-bake.js";
 
+import { buildTitleStyleScript, compareTitleStyle, TITLE_STYLE_FIELDS, TitleStyleArgs, validateTitleStyle } from "./title-text-style.js";
+
 export { readZipEntry };
 
 /**
@@ -236,7 +238,7 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
 
     add_title: {
       description:
-        "Add an on-screen title from plain text using a stock Essential Graphics template that ships with Premiere (default: Basic Title). Pass text for one line, or lines to fill the template's text fields in order (for example a lower third's name and role). Premiere-built templates (kind 'premiere') get the text baked into a verified copy before import, because Premiere exposes no writable text for them (textVerification 'template_verified'; confirm the render with export_frame). The baked copy path is returned as templateFile and saved under the application support premiere-pro-mcp/titles folder (macOS: ~/Library/Application Support/premiere-pro-mcp/titles). The cache keeps the newest 50 baked copies by modification time; export or copy templates elsewhere if a project needs older copies retained. After Effects-built templates (kind 'after_effects') are imported and their text fields written by position and read back from Premiere (textVerification 'verified', 'mismatch', 'missing_property', or 'committed_unverified'). The graphic is trimmed to duration_seconds and its length read back. Use list_stock_titles to see templates, their kind, and how many lines each takes.",
+        "Add an on-screen title from plain text using a stock Essential Graphics template that ships with Premiere (default: Basic Title). Pass text for one line, or lines to fill the template's text fields in order (for example a lower third's name and role). Premiere-built templates (kind 'premiere') get the text baked into a verified copy before import, because Premiere exposes no writable text for them (textVerification 'template_verified'; confirm the render with export_frame). The baked copy path is returned as templateFile and saved under the application support premiere-pro-mcp/titles folder (macOS: ~/Library/Application Support/premiere-pro-mcp/titles). The cache keeps the newest 50 baked copies by modification time; export or copy templates elsewhere if a project needs older copies retained. After Effects-built templates (kind 'after_effects') are imported and their text fields written by position and read back from Premiere (textVerification 'verified', 'mismatch', 'missing_property', or 'committed_unverified'). The graphic is trimmed to duration_seconds and its length read back. Optional styling: font_family (PostScript name) and font_size write every text run of each AE text control when the template allows font editing (Premiere 26 fontEditValue/fontSizeEditValue runs, or legacy fontName/fontSize keys); fill_color requires one exposed Fill Color control; position moves the whole graphic through intrinsic normalized Motion Position. Each requested field has styleChecks readback. Premiere-authored font/fill styling and align are refused before import: no reliable writable/readable CEP 26.5.2 contract is established. Tracking is unsupported. Font readback confirms the stored name, not installation or rendered glyphs. Use list_stock_titles to see templates, their kind, and how many lines each takes.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -249,6 +251,11 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
             items: { type: "string" },
             description: "Text for each of the template's text fields in order (see list_stock_titles). Specify exactly one of text or lines.",
           },
+          font_family: { type: "string", minLength: 1, maxLength: 256, description: "Optional PostScript font name (for example Metropolis-Regular) for every requested AE text field and every text run in it. Requires a template that allows font editing (Premiere 26 fontEditValue runs, or a legacy fontName key). Stored-name readback does not prove the font is installed or rendered." },
+          font_size: { type: "number", exclusiveMinimum: 0, maximum: 1000, description: "Optional text size in points for every requested AE text field and every text run in it. Requires a template that allows size editing (Premiere 26 fontSizeEditValue runs, or a legacy fontSize key)." },
+          fill_color: { type: "string", pattern: "^#[0-9a-fA-F]{6}$", description: "Optional opaque #RRGGBB fill through exactly one exposed MGT Fill Color control; does not guess private JSON color encodings." },
+          align: { type: "string", enum: ["left", "center", "right"], description: "Alignment request. Currently refused before import because a reliable CEP text-alignment setter/readback contract is unavailable." },
+          position: { type: "object", properties: { x: { type: "number", minimum: 0, maximum: 1, description: "Horizontal normalized sequence position (0–1)." }, y: { type: "number", minimum: 0, maximum: 1, description: "Vertical normalized sequence position (0–1)." } }, required: ["x", "y"], additionalProperties: false, description: "Optional normalized intrinsic Motion Position of the whole graphic, not its internal text-layer anchor." },
           template: {
             type: "string",
             description: `Stock template name such as "Basic Title", "Bold Title", or "Basic Lower Third", or category/name such as "Titles/Bold Title" (default: ${DEFAULT_STOCK_TITLE}).`,
@@ -274,7 +281,9 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
         track_index?: number;
         start_seconds?: number;
         duration_seconds?: number;
-      }) => {
+      } & TitleStyleArgs) => {
+        const styleError = validateTitleStyle(args);
+        if (styleError) return { success: false, error: styleError };
         if ((args.text === undefined) === (args.lines === undefined)) {
           return { success: false, error: "add_title requires exactly one of text or lines." };
         }
@@ -312,6 +321,11 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
             error: `${template.name} has ${template.textFields.length} text field(s) but ${lines.length} line(s) were given. No change was attempted.`,
           };
         }
+
+        const unavailableStyle = args.align !== undefined ? "align has no established CEP text setter/readback contract"
+          : template.kind === "premiere" && (args.font_family !== undefined || args.font_size !== undefined || args.fill_color !== undefined)
+            ? "Premiere-authored templates expose no live font or fill readback; use a compatible AE-authored template with exposed controls" : null;
+        if (unavailableStyle) return { success: false, error: unavailableStyle, data: { code: "TITLE_STYLE_UNSUPPORTED", outcome: "not_applied", styleChecks: TITLE_STYLE_FIELDS.filter(field => args[field] !== undefined).map(field => ({ field, expected: args[field], actual: null, status: "not_applied", reason: unavailableStyle })) } };
 
         // Premiere-built templates expose no writable text to scripting, so their
         // text is baked into a copy of the template before import.
@@ -363,6 +377,8 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
             var textProps = __mogrtTextProps(mgtComp);
             ${writes}
           }
+          var titleStyleReadback = [];
+          ${buildTitleStyleScript(args, lines.length)}
           var durationCheck = __mogrtSetDuration(clip, ${trackIndex}, ${durationSeconds});
           var appliedStartSeconds = null;
           try {
@@ -372,6 +388,7 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
           return __result({
             clipName: clip.name,
             nodeId: clip.nodeId ? String(clip.nodeId) : null,
+            titleStyleReadback: titleStyleReadback,
             textReadback: textReadback,
             textWriteError: textWriteError,
             duration: durationCheck,
@@ -381,7 +398,7 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
 
         const result = await sendCommand(script, bridgeOptions);
         if (!result.success) return result;
-        const { textReadback, textWriteError, duration, appliedStartSeconds, ...data } = (result.data ?? {}) as Record<string, unknown>;
+        const { textReadback, textWriteError, titleStyleReadback, duration, appliedStartSeconds, ...data } = (result.data ?? {}) as Record<string, unknown>;
         // Premiere snaps the placed graphic to the sequence frame grid, so report
         // the start it stored rather than the one requested.
         const appliedStart = typeof appliedStartSeconds === "number" && Number.isFinite(appliedStartSeconds) ? appliedStartSeconds : null;
@@ -434,10 +451,16 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
         const textOk = textVerification === "verified" || textVerification === "template_verified";
         let outcome = textVerification;
         if (textOk) outcome = durationStatus === "verified" ? textVerification : "committed_unverified";
+        const styleChecks = compareTitleStyle(args, lines.length, titleStyleReadback);
+        if (styleChecks.some(check => check.status !== "verified")) {
+          outcome = "committed_unverified";
+          warnings.push("One or more requested style fields were unavailable or did not read back; inspect styleChecks. The title may already exist.");
+        }
         return {
           ...result,
           data: {
             ...base,
+            ...(styleChecks.length ? { styleChecks } : {}),
             outcome,
             textVerification,
             ...(baked

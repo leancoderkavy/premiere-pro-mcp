@@ -261,10 +261,10 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           if (expectedIndex !== null) {
             var currentIndex = __readUndoIndex();
             if (currentIndex === null || typeof currentIndex === "undefined" || isNaN(Number(currentIndex))) {
-              return __jsonStringify({ success: false, error: "Premiere did not expose undoStackIndex; undo was not attempted", data: { expectedUndoStackIndex: expectedIndex } });
+              return __jsonStringify({ success: false, error: "Premiere did not expose undoStackIndex; undo was not attempted", data: { expectedUndoStackIndex: expectedIndex, mutationOutcome: "not_applied", timelineChanged: false } });
             }
             if (currentIndex !== expectedIndex) {
-              return __jsonStringify({ success: false, error: "Premiere's undo stack is at " + currentIndex + ", not the expected " + expectedIndex + ": the undo-stack position changed since that call (actions were undone or recorded), so undo was not attempted.", data: { undoStackIndex: currentIndex, expectedUndoStackIndex: expectedIndex } });
+              return __jsonStringify({ success: false, error: "Premiere's undo stack is at " + currentIndex + ", not the expected " + expectedIndex + ": the undo-stack position changed since that call (actions were undone or recorded), so undo was not attempted.", data: { undoStackIndex: currentIndex, expectedUndoStackIndex: expectedIndex, mutationOutcome: "not_applied", timelineChanged: false } });
             }
           }
           var outcome = __qeUndoSteps("undo", ${count}, ${args.acknowledge_untracked_markers === true ? "true" : "false"});
@@ -369,11 +369,19 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           var requestedPath = "${escapeForExtendScript(requestedPath)}";
           function __normalizedProjectPath(path) {
-            return String(path || "").replace(/\\\\/g, "/").toLowerCase();
+            return __hostPathKey(path);
           }
           var beforePath = app.project ? String(app.project.path || "") : "";
           if (__normalizedProjectPath(beforePath) === __normalizedProjectPath(requestedPath)) {
             return __error("A project is already open at " + requestedPath + "; choose a new .prproj file path instead.");
+          }
+          try {
+            var requestedFolder = new File(requestedPath).parent;
+            if (!requestedFolder || requestedFolder.exists !== true) {
+              return __error("The project directory does not exist or could not be read for " + requestedPath + "; no project creation was attempted.", { mutationOutcome: "not_applied", timelineChanged: false });
+            }
+          } catch (folderReadError) {
+            return __error("The project directory could not be read for " + requestedPath + "; no project creation was attempted.", { mutationOutcome: "not_applied", timelineChanged: false });
           }
           // A new project has its own undo stack; do not report a count across it.
           __undoStart = null;
@@ -435,7 +443,9 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
             documentId: documentId, saved: ${save}, closeAccepted: closed === true ? true : (closed === false ? false : null) } });
         `);
         return withBridgeWorkflow(bridgeOptions, async () => {
-          const result = await sendCommand(script, { ...bridgeOptions, mutating: true, mutationOnTimeout: true });
+          // Closing the last project unloads the visible panel mid-command; the
+          // headless connector engine survives the close and can reply.
+          const result = await sendCommand(script, { ...bridgeOptions, mutating: true, mutationOnTimeout: true, hostEngine: "headless" });
           if (!result.success) return result;
           const data = result.data as { closeRequested?: boolean; path?: string; documentId?: string };
           if (data?.closeRequested !== true || typeof data.path !== "string" || typeof data.documentId !== "string") return result;
@@ -512,10 +522,18 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
             if (!targetBin.children) {
               return __error("The target bin does not expose a children collection, so an After Effects import cannot be verified.");
             }
-            var beforeItems = targetBin.children.numItems;
+            var beforeItems = null;
+            try { beforeItems = targetBin.children.numItems; } catch (countError) {}
+            if (typeof beforeItems !== "number" || !isFinite(beforeItems) || beforeItems < 0 || Math.floor(beforeItems) !== beforeItems) {
+              return __error("The target bin item count could not be read reliably. No compositions were imported.", { verified: false, mutationOutcome: "not_applied", projectChanged: false });
+            }
         `;
         const verify = (importedDescription: string) => `
-            var afterItems = targetBin.children.numItems;
+            var afterItems = null;
+            try { afterItems = targetBin.children.numItems; } catch (countError) {}
+            if (typeof afterItems !== "number" || !isFinite(afterItems) || afterItems < 0 || Math.floor(afterItems) !== afterItems) {
+              return __error("The import ran, but the target bin item count could not be read reliably afterwards. Inspect the bin before retrying.", { imported: null, verified: false, outcome: "committed_unverified", binItemsBefore: beforeItems, binItemsAfter: null });
+            }
             var addedItems = afterItems - beforeItems;
             if (addedItems <= 0) {
               return __error("Premiere reported no error, but the target bin gained no items, so ${importedDescription} were not imported from ${aePath}.");
@@ -541,7 +559,8 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
               addedItems: addedItems,
               binItemsBefore: beforeItems,
               binItemsAfter: afterItems,
-              verification: "Target-bin item-count increase only; composition identity and rendered content are not verified."
+              verification: "Target-bin item-count increase only; composition identity and rendered content are not verified.",
+              verificationScope: "Target-bin item-count increase only; composition identity and rendered content are not verified."
             });
           `);
           return sendCommand(script, bridgeOptions);
@@ -561,7 +580,8 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
               addedItems: addedItems,
               binItemsBefore: beforeItems,
               binItemsAfter: afterItems,
-              verification: "Target-bin item-count increase only; composition identity and rendered content are not verified."
+              verification: "Target-bin item-count increase only; composition identity and rendered content are not verified.",
+              verificationScope: "Target-bin item-count increase only; composition identity and rendered content are not verified."
             });
           `);
           return sendCommand(script, bridgeOptions);

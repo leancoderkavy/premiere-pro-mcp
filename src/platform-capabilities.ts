@@ -299,6 +299,7 @@ export function buildPlatformCapabilityReport(
             contentCredentials: "No documented Premiere automation API for configuring Content Credentials.",
             renderAndReplace: "No documented Premiere ExtendScript or UXP Render and Replace API.",
             captionTrackStyle: "No documented Premiere ExtendScript, QE DOM, or UXP API creates, edits, or applies caption track styles; call get_caption_style_guidance for Properties-panel and Track Style steps to apply in the Premiere UI.",
+            captionGraphicUpgrade: "Graphics and Titles > Upgrade Caption to Graphic and per-word caption colour are UI-only: no documented Premiere ExtendScript or UXP API runs the menu command or reads or edits caption item text or style. get_caption_style_guidance returns the manual steps.",
           },
         },
       },

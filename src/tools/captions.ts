@@ -1,5 +1,5 @@
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
-import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
+import { sendCommand, BridgeOptions, type CommandResult } from "../bridge/file-bridge.js";
 import {
   buildCaptionTimingPlan,
   MAX_CAPTION_ARTIFACT_CHARACTERS,
@@ -30,6 +30,48 @@ function requiredItemId(value: unknown): string {
   return value.trim();
 }
 
+function captionReversal(data: Record<string, unknown>) {
+  const steps = typeof data.undoSteps === "number" && Number.isSafeInteger(data.undoSteps) && data.undoSteps >= 0 ? data.undoSteps : null;
+  const index = typeof data.undoStackIndex === "number" && Number.isSafeInteger(data.undoStackIndex) && data.undoStackIndex >= 0 ? data.undoStackIndex : null;
+  const uncertain = data.recoveryRequired === true || data.stateUnknown === true || data.outcome === "unknown" || data.outcome === "unknown_outcome" || data.outcome === "not_applied" || data.mutationOutcome === "unknown" || data.mutationOutcome === "unknown_outcome" || data.mutationOutcome === "not_applied";
+  const canUndo = !uncertain && steps !== null && steps > 0 && steps <= 100 && index !== null && index >= steps;
+  return {
+    undoSteps: steps,
+    exportWarning: "Caption tracks render in export_sequence by default. CEP cannot remove or hide them; deleting the source caption item does not remove its track.",
+    reversal: {
+      cepRemovalAvailable: false,
+      undo: {
+        tool: "multiple_undo", available: canUndo,
+        arguments: canUndo ? { count: steps, expected_undo_stack_index: index } : null,
+        evidence: "Experimental QE project-wide undo-stack delta only; matching stack position does not prove action identity or caption removal.",
+        instruction: canUndo
+          ? "If reversing this call, inspect its result and use these exact undo arguments immediately, before other edits. Verify the caption track afterwards."
+          : "No usable guarded undo count is available. Do not guess an undo count: it may reverse earlier edits. Inspect the track and use Premiere's UI or the guarded UXP mute route.",
+      },
+      hide: {
+        tool: "manage_track_state_uxp", requires: "A connected UXP panel and supported caption-track mute capability.",
+        instruction: "Identify the new caption track, inspect that exact track with media_type caption and track_indices, then set_mute with muted true, a fresh operation_id and the expected_sequence_id/expected_muted returned by inspect unchanged. Read back the mute state. Muting hides the track; it does not delete it.",
+      },
+    },
+  };
+}
+
+/**
+ * Styling notes attached to a successful import receipt. Premiere imports SRT/VTT
+ * with its default caption look; no documented API styles caption tracks, colours
+ * words, or runs Graphics and Titles > Upgrade Caption to Graphic.
+ */
+export const CAPTION_IMPORT_STYLING_NOTES = [
+  "The track uses Premiere's default caption style; this import does not apply fonts, colours, background, or position.",
+  "Call get_caption_style_guidance for Track Style steps, keyword_highlight per-word steps, and Graphics and Titles > Upgrade Caption to Graphic (manual menu command; the MCP cannot run it).",
+  "Still-frame exports can omit caption tracks. Verify with playback or a short export_sequence burn-in export (see get_caption_style_guidance render_verification).",
+] as const;
+
+function withStylingNotes(result: CommandResult): CommandResult {
+  if (!result.success || !result.data || typeof result.data !== "object" || Array.isArray(result.data)) return result;
+  return { ...result, data: { ...(result.data as Record<string, unknown>), styleApplied: false, styling: [...CAPTION_IMPORT_STYLING_NOTES] } };
+}
+
 function lectureCaptionWorkflow(plan: ReturnType<typeof buildCaptionTimingPlan>) {
   return {
     id: "guided_lecture_caption_workflow",
@@ -54,7 +96,7 @@ function lectureCaptionWorkflow(plan: ReturnType<typeof buildCaptionTimingPlan>)
         id: "import_caption_track",
         mutatesProject: true,
         route: "create_caption_track",
-        instruction: "Import the reviewed artifact into the Premiere project, then call create_caption_track with action import, the imported item_id, and an intentional start_seconds value.",
+        instruction: "Import the reviewed artifact into the Premiere project, then call create_caption_track with action import, the imported item_id, and an intentional start_seconds value. The track renders in exports by default; review the import result reversal guidance before continuing.",
         verification: "CEP reports caption-track count readback when available; accepted requests without readback are not structural verification.",
       },
       {
@@ -67,9 +109,9 @@ function lectureCaptionWorkflow(plan: ReturnType<typeof buildCaptionTimingPlan>)
       {
         id: "review_beginning_middle_end",
         mutatesProject: false,
-        route: "export_sequence_review_frames",
-        instruction: "Review frames around the plan's beginning, middle, and end samples and play the same ranges in Premiere before delivery.",
-        verification: "Review frames and playback establish different evidence levels; rendered output remains a separate delivery check.",
+        route: "export_sequence",
+        instruction: "Play the plan's beginning, middle, and end samples in Premiere. For a rendered check, export a short range around them with export_sequence and a preset that burns captions into video; still-frame exports can omit caption tracks.",
+        verification: "Playback and a burn-in export establish different evidence levels; still frames are not caption evidence, and full rendered output remains a separate delivery check.",
       },
     ],
     verification: {
@@ -85,7 +127,7 @@ export function getCaptionTools(bridgeOptions: BridgeOptions) {
   return {
     create_caption_track: {
       description:
-        "Import an already reviewed caption artifact into the active sequence, or create a local lecture-caption timing and review workflow plan. Import rejects unsupported formats before host dispatch and reports structural success only when valid count readback shows exactly one new caption track. Unreadable or unexpected results preserve committed_unverified diagnostics; inspect before retrying. The planning action never contacts Premiere or changes an artifact.",
+        "Import an already reviewed caption artifact into the active sequence, or create a local lecture-caption timing and review workflow plan. Import rejects unsupported formats before host dispatch and reports structural success only when valid count readback shows exactly one new caption track. Unreadable or unexpected results preserve committed_unverified diagnostics; inspect before retrying. Captions import with Premiere's default style; styling, per-word colour, and Upgrade Caption to Graphic stay manual (get_caption_style_guidance). The planning action never contacts Premiere or changes an artifact. Caption tracks render in export_sequence by default; CEP cannot remove or hide them. Import results include observed undoSteps (null when unavailable) and reversal guidance for guarded experimental QE multiple_undo or caption mute through a capable UXP panel.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
@@ -240,7 +282,11 @@ export function getCaptionTools(bridgeOptions: BridgeOptions) {
           if (hostError || !result) return __error("Caption-track creation did not confirm acceptance and its mutation outcome is unknown. Inspect the sequence before retrying.", receipt);
           return __result(receipt);
         `);
-          return sendCommand(script, bridgeOptions);
+          const response = await sendCommand(script, bridgeOptions);
+          if (!response.data || typeof response.data !== "object" || Array.isArray(response.data)) return response;
+          const data = response.data as Record<string, unknown>;
+          if (!Object.prototype.hasOwnProperty.call(data, "beforeTrackCount")) return withStylingNotes(response);
+          return withStylingNotes({ ...response, data: { ...data, ...captionReversal(data) } });
         } catch (error) {
           return { success: false, error: error instanceof Error ? error.message : String(error) };
         }

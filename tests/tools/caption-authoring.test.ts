@@ -132,14 +132,75 @@ describe("get_caption_style_guidance tool", () => {
     expect(steps).toContain('Track Style dropdown in the Properties panel, choose "+ Create style", and name it "Orange Heavy Captions"');
     expect(steps).toContain('caption track in another sequence and pick "Orange Heavy Captions" from the Track Style dropdown');
     expect(steps).toContain("project item in the Project panel");
-    expect(steps).toContain("export_sequence_review_frames");
+    expect(steps).toContain("burn-in export");
+    expect(steps).not.toContain("export_frame");
     expect(data.premiere_ui_steps.every((step: string, index: number) => step.startsWith(`${index + 1}. `))).toBe(true);
     expect(data.track_style).toMatchObject({ name: "Orange Heavy Captions" });
     expect(data.track_style.scope).toContain("every caption on the caption track");
     expect(data.limitations.join(" ")).toMatch(/no documented ExtendScript, QE DOM, or UXP API/);
     expect(data.limitations.join(" ")).toContain("Premiere Pro 2024");
-    expect(data.routes).toEqual(expect.arrayContaining(["export_frame", "export_sequence_review_frames", "create_caption_track"]));
+    expect(data.routes).toEqual(expect.arrayContaining(["export_sequence", "create_caption_track"]));
+    expect(data.routes).not.toContain("export_frame");
     expect(data.warnings).toEqual([]);
+  });
+
+  it("returns manual Upgrade Caption to Graphic steps and refuses to claim it can run them", async () => {
+    const data = await guidance({});
+    expect(data.graphic_upgrade.menu_path).toBe("Graphics and Titles > Upgrade Caption to Graphic");
+    expect(data.graphic_upgrade.available_through_mcp).toBe(false);
+    expect(data.graphic_upgrade.steps.join(" ")).toContain("top video track");
+    expect(data.graphic_upgrade.steps.join(" ")).toMatch(/Timeline or Properties panel must have focus/);
+    expect(data.graphic_upgrade.limitations.join(" ")).toContain("cannot run Upgrade Caption to Graphic");
+    expect(data.workflow.join("\n")).toContain("the MCP cannot run it");
+    expect(data.mutation_refused).toContain("Upgrade Caption to Graphic are also manual");
+    expect(data).not.toHaveProperty("keyword_highlight_steps");
+  });
+
+  it("does not treat still-frame exports as caption render evidence", async () => {
+    const data = await guidance({ preset: "bold_pop" });
+    expect(data.render_verification.frame_exports_render_caption_tracks).toBe(false);
+    expect(data.render_verification.still_frames).toMatch(/omitted caption tracks/);
+    expect(data.render_verification.burn_in_export).toContain("export_sequence with range in_to_out");
+    expect(data.render_verification.burn_in_export).toContain("Burn Captions Into Video");
+    expect(data.limitations.join(" ")).toContain("not caption render evidence");
+    expect(data.premiere_ui_steps.join(" ")).not.toContain("export_frame");
+  });
+
+  it("turns keyword_highlight into per-word manual steps without applying anything", async () => {
+    const data = await guidance({ preset: "bold_pop", keyword_highlight: { words: ["Launch", "launch", " free "], color: "#ffd400" } });
+    expect(data.keyword_highlight).toEqual({ words: ["Launch", "free"], color: "#FFD400" });
+    const steps = data.keyword_highlight_steps.join("\n");
+    expect(steps).toContain('"Launch", "free"');
+    expect(steps).toContain("set Appearance > Fill to #FFD400 for the selection only");
+    expect(steps).toContain("overwrites per-word colour");
+    expect(data.keyword_highlight_steps.every((step: string, index: number) => step.startsWith(`${index + 1}. `))).toBe(true);
+    expect(data.workflow).toContain("Step 6: Colour the keywords by hand in the Program Monitor (keyword_highlight_steps)");
+    expect(data.applied).toBe(false);
+  });
+
+  it.each([
+    [{ words: [], color: "#FFFFFF" }, "keyword_highlight.words must be an array of 1 to 24 words"],
+    [{ words: Array.from({ length: 25 }, (_, i) => `w${i}`), color: "#FFFFFF" }, "keyword_highlight.words must be an array of 1 to 24 words"],
+    [{ words: ["ok", ""], color: "#FFFFFF" }, "keyword_highlight.words[1] must be a non-empty string"],
+    [{ words: ["x".repeat(65)], color: "#FFFFFF" }, "keyword_highlight.words[0] must be a non-empty string of at most 64"],
+    [{ words: ["tab\there"], color: "#FFFFFF" }, "must not contain control characters"],
+    [{ words: [7], color: "#FFFFFF" }, "keyword_highlight.words[0] must be a non-empty string"],
+    [{ words: ["ok"], color: "yellow" }, "keyword_highlight.color must be a hex colour"],
+    [{ words: ["ok"] }, "keyword_highlight.color must be a hex colour"],
+    [{ words: ["ok"], color: "#FFFFFF", bold: true }, "keyword_highlight has an unknown field: bold"],
+    ["ok", "keyword_highlight must be an object"],
+  ])("rejects invalid keyword_highlight %#", async (keyword_highlight, message) => {
+    expect(await failure({ keyword_highlight })).toContain(message);
+  });
+
+  it("bounds the keyword_highlight schema", () => {
+    const highlight = tools.get_caption_style_guidance.parameters.properties.keyword_highlight;
+    expect(highlight.additionalProperties).toBe(false);
+    expect(highlight.required).toEqual(["words", "color"]);
+    expect(highlight.properties.words).toMatchObject({ minItems: 1, maxItems: 24 });
+    expect(highlight.properties.color.pattern).toBe("^#[0-9A-Fa-f]{6}$");
+    expect(tools.get_caption_style_guidance.description).toMatch(/keyword_highlight/);
+    expect(tools.get_caption_style_guidance.description).toMatch(/Upgrade Caption to Graphic/);
   });
 
   it("combines a preset with a custom style and fills unset fields from the preset", async () => {

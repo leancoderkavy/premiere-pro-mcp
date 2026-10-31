@@ -98,8 +98,8 @@ function host(videoParams: Param[][], audioParams: Param[][] = [[], []]) {
   const seq = {
     sequenceID: "seq",
     timebase: String(FRAME),
-    videoTracks: { numTracks: 1, 0: { clips: collection(video), isLocked: () => false } },
-    audioTracks: { numTracks: 1, 0: { clips: collection(audio), isLocked: () => false } },
+    videoTracks: { numTracks: 1, 0: { transitions: { numItems: 0 }, clips: collection(video), isLocked: () => false } },
+    audioTracks: { numTracks: 1, 0: { transitions: { numItems: 0 }, clips: collection(audio), isLocked: () => false } },
   };
   const context = {
     app: { project: { documentID: "project", activeSequence: seq, sequences: { numSequences: 1, 0: seq } } },

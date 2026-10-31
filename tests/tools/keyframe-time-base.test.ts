@@ -1,3 +1,4 @@
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { runInNewContext } from "node:vm";
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
@@ -83,8 +84,9 @@ const target = { node_id: "clip1", effect_name: "Opacity", property_name: "Opaci
 describe("keyframe times are seconds from the clip's start, stored as media time", () => {
   it("add_keyframe stores the key at the clip's in-point plus the offset", async () => {
     const state = host();
-    await expect(tools.add_keyframe.handler({ ...target, time_seconds: 2, value: 20 }))
-      .resolves.toMatchObject({ success: true, data: { time: 2, mediaSeconds: 32, readBackValue: 20 } });
+    const stored = await tools.add_keyframe.handler({ ...target, time_seconds: 2, value: 20 });
+    expect(stored).toMatchObject({ success: true, data: { time: 2, mediaSeconds: 32, readBackValue: 20 } });
+    expect(mutationReceipt(stored.success, stored.data, { dispatched: true }, "add_keyframe").outcome).toBe("verified");
     expect(state.mediaKeys()).toEqual([[32, 20]]);
   });
 

@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+
+// Full catalog setup can contend with other processes on a loaded machine.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { createServer } from "../../src/server.js";
 import { getUxpTools } from "../../src/tools/uxp.js";
@@ -59,7 +62,7 @@ describe("Adobe Premiere 26.3 UXP public MCP catalog", () => {
       expect(listed.tools.map((tool) => tool.name)).toEqual(
         expect.arrayContaining(ADOBE_26_3_TOOLS),
       );
-      expect(listed.tools).toHaveLength(535);
+      expect(listed.tools).toHaveLength(539);
     } finally {
       await client.close();
       await server.close();

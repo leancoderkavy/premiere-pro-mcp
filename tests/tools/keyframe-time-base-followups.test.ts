@@ -1,3 +1,4 @@
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 import { beforeEach, expect, it, vi } from "vitest";
 import { runInNewContext } from "node:vm";
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
@@ -77,6 +78,7 @@ it("stores setup_ducking keys in media time for a trimmed audio clip", async () 
   const h = host();
   const result = await gapTools.setup_ducking.handler({ node_id: h.clip.nodeId, ducking_windows: [{ start_seconds: 2, end_seconds: 4, ducked_db: -6 }], fade_seconds: 0.2 });
   expect(result).toMatchObject({ success: true, data: { verified: true, duckingWindowCount: 1 } });
+  expect(mutationReceipt(result.success, result.data, { dispatched: true }, "setup_ducking").outcome).toBe("verified");
   expect(h.times()).toEqual([30, 31.8, 32, 34, 34.2, 40]);
   expect(h.levelAtMedia(30)).toBeCloseTo(0.1778279410038923, 12);
   expect(h.levelAtMedia(32)).toBeCloseTo(0.08912509381337455, 12);

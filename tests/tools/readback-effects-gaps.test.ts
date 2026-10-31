@@ -18,6 +18,8 @@ function evaluate(script: string, extras: Record<string, unknown>) {
     __error: (error: string, data?: unknown) => JSON.stringify({ success: false, error, data }),
     __resolveProperty: (component: { properties: unknown[] }) => ({ property: component.properties[0], index: 0 }),
     __readColorValue: () => null,
+    __isBuiltInComponent: () => false,
+    __componentMatchName: () => "",
     ...extras,
   }));
 }

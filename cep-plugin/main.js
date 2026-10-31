@@ -11,6 +11,14 @@ var POLL_MS = 200;
 var HEARTBEAT_MS = 1000;
 var heartbeatInterval = null;
 
+// The visible panel exists only while a project is open: closing the last
+// project unloads it, and any reply it owes is lost. The headless instance
+// survives, so it advertises itself and takes commands named *.headless.jsx.
+var IS_HEADLESS_ENGINE = false;
+try { IS_HEADLESS_ENGINE = /\.headless$/.test(String(window.__adobe_cep__.getExtensionId())); } catch (e) {}
+var HEADLESS_ENGINE_FILE = "headless-engine.json";
+var HEADLESS_ENGINE_FRESH_MS = 3000;
+
 // ---- Logging ----
 function log(msg, cls) {
   var el = document.getElementById("log");
@@ -188,12 +196,25 @@ function ensureDir(dir) {
   return bridgeDirectorySecurity.ensurePrivateBridgeDirectory(dir);
 }
 
+function headlessEngineIsLive() {
+  try {
+    var age = new Date().getTime() - fs.statSync(path.join(tempDir, HEADLESS_ENGINE_FILE)).mtime.getTime();
+    return age >= 0 && age < HEADLESS_ENGINE_FRESH_MS;
+  } catch (e) {
+    return false;
+  }
+}
+
 function listCommandFiles() {
   try {
     if (!fs.existsSync(tempDir)) return [];
     var files = fs.readdirSync(tempDir);
+    // Leave headless-routed commands to a live headless engine; without one,
+    // run them here as older connectors do.
+    var leaveHeadless = !IS_HEADLESS_ENGINE && headlessEngineIsLive();
     return files
       .filter(function (f) { return f.indexOf("cmd_") === 0 && f.slice(-4) === ".jsx"; })
+      .filter(function (f) { return !(leaveHeadless && f.slice(-13) === ".headless.jsx"); })
       .sort(); // process in order
   } catch (e) {
     return [];
@@ -253,6 +274,18 @@ function writeBridgeHeartbeat() {
     fs.renameSync(stagedPath, heartbeatPath);
   } catch (e) {
     if (stagedOwned) deleteFile(stagedPath);
+  }
+  if (IS_HEADLESS_ENGINE && bridgeRunning) {
+    var enginePath = path.join(tempDir, HEADLESS_ENGINE_FILE);
+    var engineStaged = enginePath + "." + ENGINE_ID + ".staged";
+    var engineStagedOwned = false;
+    try {
+      fs.writeFileSync(engineStaged, JSON.stringify({ engine: ENGINE_ID }), { encoding: "utf-8", mode: 384, flag: "wx" });
+      engineStagedOwned = true;
+      fs.renameSync(engineStaged, enginePath);
+    } catch (engineError) {
+      if (engineStagedOwned) deleteFile(engineStaged);
+    }
   }
 }
 
@@ -316,6 +349,26 @@ function processOneCommand(cmdFileName) {
   // Derive response filename: cmd_12345.jsx -> res_12345.json
   var id = cmdFileName.replace("cmd_", "").replace(".jsx", "");
   var resFilePath = path.join(tempDir, "res_" + id + ".json");
+
+  // Panel-side commands (list/open extensions) need this panel's CEP runtime, not
+  // ExtendScript. They are answered here, synchronously, with the same reply file.
+  if (typeof MCPPanelCommands !== "undefined" && MCPPanelCommands.isPanelCommand(script)) {
+    log("Panel command: " + cmdFileName, "cmd");
+    var panelResult = MCPPanelCommands.run(script, typeof window !== "undefined" ? window.__adobe_cep__ : null);
+    commandCount++;
+    try {
+      writeResponseFile(resFilePath, JSON.stringify(panelResult));
+    } finally {
+      commandInFlight = false;
+    }
+    try {
+      var panelCount = document.getElementById("cmdCount");
+      if (panelCount) panelCount.textContent = commandCount;
+      log(panelResult.success ? "Result received" : "Command failed", panelResult.success ? "ok" : "err");
+    } catch (panelUiError) {}
+    if (bridgeRunning) processCommands();
+    return;
+  }
 
   log("Executing: " + cmdFileName + " (" + script.length + " chars)", "cmd");
 
@@ -535,7 +588,7 @@ function checkForUpdates() {
     MCPBridgeUpdater.LATEST_PACKAGE_API,
     {
       headers: {
-        Accept: "application/vnd.npm.install-v1+json",
+        Accept: MCPBridgeUpdater.LATEST_PACKAGE_ACCEPT,
         "User-Agent": "premiere-pro-mcp-connector/" + MCPBridgeUpdater.CURRENT_VERSION,
       },
     },

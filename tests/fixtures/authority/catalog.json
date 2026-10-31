@@ -2491,6 +2491,13 @@
     ]
   },
   {
+    "tool": "list_extensions",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
     "tool": "list_markers",
     "args": {},
     "required": [
@@ -3586,6 +3593,13 @@
     ]
   },
   {
+    "tool": "open_extension",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
     "tool": "open_in_source",
     "args": {},
     "required": [
@@ -4160,6 +4174,13 @@
   },
   {
     "tool": "remove_selected_clips",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "remove_transition",
     "args": {},
     "required": [
       "edit"
@@ -4995,6 +5016,24 @@
   {
     "tool": "unnest_sequence",
     "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "unnest_sequence_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "unnest_sequence_uxp",
+    "args": {
+      "action": "apply"
+    },
     "required": [
       "edit"
     ]

@@ -368,6 +368,10 @@ const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, reado
     inspect: ["inspect"],
     apply: ["edit"],
   },
+  unnest_sequence_uxp: {
+    inspect: ["inspect"],
+    apply: ["edit"],
+  },
   manage_source_clip_uxp: {
     inspect: ["inspect"],
     update: ["edit"],

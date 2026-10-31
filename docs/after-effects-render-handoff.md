@@ -33,6 +33,10 @@ on a timeline.
    check duration, audio, color and representative frames before using it in an
    edit. Timeline placement uses separate editing tools and their approvals.
 
+Premiere's Dynamic Link starts a windowless After Effects (`aerendercore`) that
+loads CEP extensions too. The After Effects connector stays idle there, so
+commands always reach the After Effects you see.
+
 ## Boundaries and recovery
 
 - Preview requires `inspect,filesystem`; apply requires

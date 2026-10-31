@@ -356,6 +356,7 @@ export function getMaskFitTools(bridgeOptions: BridgeOptions) {
               normalized: fit.position_normalized,
               host_units: positionUnits,
               apply_value: positionUnits === "unknown" ? null : applyPosition,
+              apply_units: positionUnits === "unknown" ? null : positionUnits,
             },
             fit: {
               axis: fit.fit_axis,
@@ -396,8 +397,8 @@ export function getMaskFitTools(bridgeOptions: BridgeOptions) {
             next_steps: [
               `set_clip_scale { node_id, scale: ${fit.scale_percent} }`,
               positionUnits === "unknown"
-                ? "set_clip_position with position.normalized if the host reports Motion Position as 0..1 fractions, otherwise position.pixels"
-                : `set_clip_position { node_id, x: ${applyPosition.x}, y: ${applyPosition.y} } (Premiere reported Motion Position in ${positionUnits} units)`,
+                ? "set_clip_position with units: pixels and position.pixels, or units: normalized and position.normalized; specify the coordinate space explicitly"
+                : `set_clip_position { node_id, x: ${applyPosition.x}, y: ${applyPosition.y}, units: "${positionUnits}" } (Premiere reported Motion Position in ${positionUnits} units)`,
               "capture_frame to verify the framing inside the mask",
             ],
           },

@@ -5,8 +5,10 @@
 import { createHash } from "node:crypto";
 import { expectedProjectPath, expectedHostTarget } from "./project-guard.js";
 import { undoTrackingEnabled } from "./undo-tracking.js";
+import { HOST_PATH_HELPERS } from "./host-paths.js";
 
 const HELPERS = `
+${HOST_PATH_HELPERS}
 // === MCP Bridge Helpers (auto-prepended) ===
 
 // ExtendScript (ES3) has no native JSON object. Tool scripts use __jsonStringify
@@ -143,21 +145,39 @@ function __restoreSecondsFromTicks(ticks, gridTicks) {
   return (parseFloat(ticks) + grid / 4) / TICKS_PER_SECOND;
 }
 
+function __itemAudioSampleRate(item) {
+  try {
+    var xml = String(item.getProjectMetadata() || "");
+    if (xml.length <= 1000000) {
+      var field = /Column\\.Intrinsic\\.MediaTimebase[^>]*>([\\s\\S]*?)<\\/[A-Za-z0-9_:.-]*Column\\.Intrinsic\\.MediaTimebase>/.exec(xml);
+      var value = field ? field[1].replace(/<[^>]*>/g, "") : "";
+      var match = /^\\s*([0-9]+(?:\\.[0-9]+)?)\\s*Hz\\s*$/i.exec(value);
+      var hz = match ? Number(match[1]) : NaN;
+      if (isFinite(hz) && Math.floor(hz) === hz && hz >= 1 && hz <= 768000) return hz;
+    }
+  } catch (audioRateError) {}
+  return 48000;
+}
+
+// Footage interpretation reports NTSC rates rounded (23.976); use the exact
+// 1000/1001 rate so a frame grid lines up with Premiere's tick grid.
+function __exactNtscFrameRate(fps) {
+  if (Math.abs(fps - 23.976) < 0.001) return 24000 / 1001;
+  if (Math.abs(fps - 29.97) < 0.001) return 30000 / 1001;
+  if (Math.abs(fps - 47.952) < 0.001) return 48000 / 1001;
+  if (Math.abs(fps - 59.94) < 0.001) return 60000 / 1001;
+  if (Math.abs(fps - 119.88) < 0.001) return 120000 / 1001;
+  return fps;
+}
+
 function __restoreGridFromItem(item, mediaType) {
-  if (mediaType === 2) return TICKS_PER_SECOND / 48000;
+  if (mediaType === 2) return TICKS_PER_SECOND / __itemAudioSampleRate(item);
   try {
     var fps = parseFloat(item.getFootageInterpretation().frameRate);
-    if (fps >= 1 && fps <= 240) {
-      if (Math.abs(fps - 23.976) < 0.001) fps = 24000 / 1001;
-      else if (Math.abs(fps - 29.97) < 0.001) fps = 30000 / 1001;
-      else if (Math.abs(fps - 47.952) < 0.001) fps = 48000 / 1001;
-      else if (Math.abs(fps - 59.94) < 0.001) fps = 60000 / 1001;
-      else if (Math.abs(fps - 119.88) < 0.001) fps = 120000 / 1001;
-      return TICKS_PER_SECOND / fps;
-    }
+    if (fps >= 1 && fps <= 240) return TICKS_PER_SECOND / __exactNtscFrameRate(fps);
     // Audio-only items and sequences report about 2.75e-8 fps on 26.5.2;
     // that would make a "frame" of about a year. Use the audio sample grid.
-    if (fps > 0 && fps < 1) return TICKS_PER_SECOND / 48000;
+    if (fps > 0 && fps < 1) return TICKS_PER_SECOND / __itemAudioSampleRate(item);
   } catch (eGrid) {}
   return TICKS_PER_SECOND / 24;
 }
@@ -210,7 +230,7 @@ function __itemMarksForRestore(item, mediaType) {
     var hz = audio && timebase && (/Hz/i.test(timebase) || parseFloat(timebase) > 240) ? parseFloat(timebase) : NaN;
     if (audio && isFinite(hz) && hz > 0) {
       if (match[6] === ";" || last >= hz || Math.floor(hz) !== hz) return null;
-      return { ticks: Math.round(((hours * 3600 + minutes * 60 + seconds) * hz + last) * TICKS_PER_SECOND / hz), frameTicks: TICKS_PER_SECOND / hz };
+      return { ticks: Math.round(((hours * 3600 + minutes * 60 + seconds) * hz + last) * TICKS_PER_SECOND / hz), frameTicks: TICKS_PER_SECOND / hz, dayTicks: 86400 * TICKS_PER_SECOND };
     }
     var frameTicks = rateText !== null ? Number(rateText) : NaN;
     if (rateText !== null && (!isFinite(frameTicks) || frameTicks <= 0)) return null;
@@ -228,6 +248,7 @@ function __itemMarksForRestore(item, mediaType) {
     var actualRate = TICKS_PER_SECOND / frameTicks, nominal = Math.round(actualRate);
     if (nominal < 1 || nominal > 240 || last >= nominal) return null;
     var frames = (hours * 3600 + minutes * 60 + seconds) * nominal + last;
+    var framesPerDay = 86400 * nominal;
     if (match[6] === ";") {
       var dropped = 0;
       if (nominal === 30) dropped = 2;
@@ -235,8 +256,9 @@ function __itemMarksForRestore(item, mediaType) {
       if (!dropped || Math.abs(actualRate - nominal * 1000 / 1001) > 0.01 || (minutes % 10 !== 0 && seconds === 0 && last < dropped)) return null;
       var totalMinutes = hours * 60 + minutes;
       frames -= dropped * (totalMinutes - Math.floor(totalMinutes / 10));
+      framesPerDay -= dropped * (1440 - 144);
     }
-    return { ticks: Math.round(frames * frameTicks), frameTicks: frameTicks };
+    return { ticks: Math.round(frames * frameTicks), frameTicks: frameTicks, dayTicks: Math.round(framesPerDay * frameTicks) };
   }
   var kind = mediaType === 2 ? "Audio" : "Video";
   var inBlock = field("Column.Intrinsic." + kind + "InPoint", xml), outBlock = field("Column.Intrinsic." + kind + "OutPoint", xml);
@@ -267,6 +289,10 @@ function __itemMarksForRestore(item, mediaType) {
     }
     left.ticks -= mediaStart.ticks;
     right.ticks -= mediaStart.ticks;
+    // Time-of-day timecode wraps at midnight: a camera started at 22:52:31:00
+    // that ran two hours has a private Out of 00:51:07:23 (live 26.0.2).
+    if (left.ticks < 0) left.ticks += left.dayTicks;
+    if (right.ticks < left.ticks) right.ticks += right.dayTicks;
   }
   // The private Out names the last frame or sample (inclusive): a subclip made
   // with an exclusive Out at frame 719 shows 00:00:29:22 (frame 718) on 26.5.2,
@@ -303,11 +329,11 @@ function __mediaGridTicks(item, mediaType) {
       var fps = parseFloat(item.getFootageInterpretation().frameRate);
       if (fps >= 1 && fps <= 240) return TICKS_PER_SECOND / fps;
       // Audio-only items report about 2.75e-8 fps; use the sample grid.
-      if (fps > 0 && fps < 1) return TICKS_PER_SECOND / 48000;
+      if (fps > 0 && fps < 1) return TICKS_PER_SECOND / __itemAudioSampleRate(item);
     } catch (eInterp) {}
     return TICKS_PER_SECOND / 24;
   }
-  return TICKS_PER_SECOND / 48000;
+  return TICKS_PER_SECOND / __itemAudioSampleRate(item);
 }
 
 // Media type to use for a caller's "all" (4) marks. On 26.5.2 an audio-only
@@ -373,7 +399,7 @@ function __requestedMarkWriteSeconds(item, mediaType, seconds) {
   var frameTicks = __requestedMarkFrameTicks(item, mediaType);
   // Audio marks floor an exact sample boundary one sample early the same way
   // (1.001 s reads back as sample 48047 on a 48 kHz item).
-  if (!(frameTicks > 0) && mediaType === 2) frameTicks = TICKS_PER_SECOND / 48000;
+  if (!(frameTicks > 0) && mediaType === 2) frameTicks = TICKS_PER_SECOND / __itemAudioSampleRate(item);
   if (!(frameTicks > 0)) return seconds;
   var frames = seconds * TICKS_PER_SECOND / frameTicks;
   var nearest = Math.round(frames);
@@ -627,13 +653,19 @@ function __clipSourceFrameSize(clip, seq) {
 }
 
 // Premiere's scripting API stores Motion Position and Anchor Point normalized
-// to the frame (0.5, 0.5 is the centre; verified on 25.2). Tools take pixels,
-// so scale before writing. Writing pixels directly threw clips ~1000 frame
+// to the frame (0.5, 0.5 is the centre; verified on 25.2). Tools default to pixels,
+// with explicit normalized fractions also accepted. Writing pixels directly threw clips ~1000 frame
 // widths off screen. The current value is not used to guess the space: a clip
 // already damaged that way reads back in the thousands.
-function __motionPointScale(prop, frame) {
+function __motionPointScale(prop, frame, units) {
   if (!(frame.width > 0 && frame.height > 0)) return null;
-  return { x: 1 / frame.width, y: 1 / frame.height, normalized: true };
+  return { x: units === "normalized" ? 1 : 1 / frame.width, y: units === "normalized" ? 1 : 1 / frame.height, normalized: true };
+}
+
+function __pointUnitsWarning(x, y, unitsProvided, seq) {
+  var frame = __sequenceFrameSize(seq);
+  if (!unitsProvided && x !== null && y !== null && x >= 0 && x <= 1 && y >= 0 && y <= 1 && frame.width > 2) return "These values look normalized, but omitted units means pixels. Pass units: normalized to use fractions of the frame.";
+  return null;
 }
 
 // Premiere renames Motion "Scale" to "Scale Height" once a clip has been set
@@ -949,7 +981,135 @@ function __nodeIdOf(item) {
   }
 }
 
+// Read the in/out range a subclip (or a marked clip) stores in its project
+// metadata. A soft-boundary subclip's getInPoint/getOutPoint read the whole
+// media on Premiere 26.5, so the range comes from the metadata instead. Each
+// point holds an rdf:value timecode and a frame_rate child in ticks per frame;
+// the Out timecode names the last frame (or sample) and is inclusive. The
+// timecodes are in the media's own timecode space: a file with a start
+// timecode (a BWF time_reference, a camera clip starting at 01:00:00:00)
+// reads that start plus the range, and each point's offset child holds the
+// start in ticks, so it is subtracted to give seconds from the file's start.
+// Returns null when the range cannot be read.
+function __subclipStoredRange(metadata) {
+  if (!metadata) return null;
+  function __subclipOffsetTicks(body) {
+    var offset = body.match(/offset>\\s*(-?\\d+)\\s*</);
+    var ticks = offset ? parseFloat(offset[1]) : 0;
+    return isFinite(ticks) ? ticks : 0;
+  }
+  function __subclipTimecodeFrames(timecode, frameTicks) {
+    var parts = String(timecode).match(/^\\s*(\\d+)[:;.](\\d+)[:;.](\\d+)([:;.])(\\d+)\\s*$/);
+    if (!parts) return NaN;
+    var nominal = Math.round(TICKS_PER_SECOND / frameTicks);
+    var hours = parseInt(parts[1], 10);
+    var minutes = parseInt(parts[2], 10);
+    var frames = ((hours * 60 + minutes) * 60 + parseInt(parts[3], 10)) * nominal + parseInt(parts[5], 10);
+    if (parts[4] === ";" && (nominal === 30 || nominal === 60)) {
+      var totalMinutes = hours * 60 + minutes;
+      frames -= (nominal / 15) * (totalMinutes - Math.floor(totalMinutes / 10));
+    }
+    return frames;
+  }
+  function __subclipPoint(xml, column) {
+    var tagName = "Column.Intrinsic." + column;
+    var openStart = xml.indexOf(tagName);
+    if (openStart < 0) return null;
+    var openEnd = xml.indexOf(">", openStart);
+    if (openEnd < 0 || xml.charAt(openEnd - 1) === "/") return null;
+    var closeStart = xml.indexOf(tagName, openEnd);
+    if (closeStart < 0) return null;
+    var body = xml.substring(openEnd + 1, closeStart);
+    var value = body.match(/<rdf:value>\\s*([^<]*?)\\s*<\\/rdf:value>/);
+    var rate = body.match(/frame_rate>\\s*(\\d+)\\s*</);
+    if (!value || !rate) return null;
+    var frameTicks = parseFloat(rate[1]);
+    if (!isFinite(frameTicks) || frameTicks <= 0) return null;
+    var frames = __subclipTimecodeFrames(value[1], frameTicks);
+    if (!isFinite(frames)) return null;
+    return { frames: frames, frameTicks: frameTicks, timecode: value[1], offsetTicks: __subclipOffsetTicks(body) };
+  }
+  // Audio-only subclips keep empty Video points; their Audio points count
+  // samples in the last field (00:00:04:00191) and the frame_rate child is
+  // only the 25 fps display rate, so the sample rate comes from MediaTimebase.
+  function __subclipAudioPoint(xml, column) {
+    var base = xml.match(/Column\\.Intrinsic\\.MediaTimebase>\\s*([0-9.]+)\\s*Hz\\s*</);
+    var hz = base ? parseFloat(base[1]) : NaN;
+    if (!isFinite(hz) || hz <= 0 || Math.floor(hz) !== hz) return null;
+    var tagName = "Column.Intrinsic." + column;
+    var openStart = xml.indexOf(tagName);
+    if (openStart < 0) return null;
+    var openEnd = xml.indexOf(">", openStart);
+    if (openEnd < 0 || xml.charAt(openEnd - 1) === "/") return null;
+    var closeStart = xml.indexOf(tagName, openEnd);
+    if (closeStart < 0) return null;
+    var body = xml.substring(openEnd + 1, closeStart);
+    var value = body.match(/<rdf:value>\\s*(\\d+):(\\d{2}):(\\d{2}):(\\d+)\\s*<\\/rdf:value>/);
+    if (!value || parseInt(value[4], 10) >= hz) return null;
+    var samples = ((parseInt(value[1], 10) * 60 + parseInt(value[2], 10)) * 60 + parseInt(value[3], 10)) * hz + parseInt(value[4], 10);
+    return { frames: samples, frameTicks: TICKS_PER_SECOND / hz, timecode: value[1] + ":" + value[2] + ":" + value[3] + ":" + value[4], offsetTicks: __subclipOffsetTicks(body) };
+  }
+  var inPoint = __subclipPoint(metadata, "VideoInPoint");
+  var outPoint = __subclipPoint(metadata, "VideoOutPoint");
+  if (!inPoint && !outPoint) {
+    inPoint = __subclipAudioPoint(metadata, "AudioInPoint");
+    outPoint = __subclipAudioPoint(metadata, "AudioOutPoint");
+  }
+  if (!inPoint || !outPoint) return null;
+  return {
+    inSeconds: __ticksToSeconds(inPoint.frames * inPoint.frameTicks - inPoint.offsetTicks),
+    outSeconds: __ticksToSeconds((outPoint.frames + 1) * outPoint.frameTicks - outPoint.offsetTicks),
+    inTimecode: inPoint.timecode,
+    outTimecode: outPoint.timecode,
+    inFrameSeconds: __ticksToSeconds(inPoint.frameTicks),
+    outFrameSeconds: __ticksToSeconds(outPoint.frameTicks),
+    mediaStartSeconds: __ticksToSeconds(inPoint.offsetTicks)
+  };
+}
+
+// Ticks per frame of a project item's own media (per sample for audio-only
+// media), or 0 when the item exposes no usable rate. Unlike
+// __restoreGridFromItem there is no 24 fps or 48 kHz guess: a subclip request
+// is snapped to this grid, and a guessed grid would move it.
+function __subclipSourceGridTicks(item) {
+  var fps = NaN;
+  try { fps = parseFloat(item.getFootageInterpretation().frameRate); } catch (subclipRateError) {}
+  if (fps >= 1 && fps <= 240) return TICKS_PER_SECOND / __exactNtscFrameRate(fps);
+  // Audio-only items report about 2.75e-8 fps on 26.5.2; use the sample rate.
+  if (fps > 0 && fps < 1) {
+    try {
+      var xml = String(item.getProjectMetadata() || "");
+      var base = xml.length <= 1000000 ? /Column\\.Intrinsic\\.MediaTimebase[^>]*>\\s*([0-9]+(?:\\.[0-9]+)?)\\s*Hz\\s*</i.exec(xml) : null;
+      var hz = base ? parseFloat(base[1]) : NaN;
+      if (isFinite(hz) && Math.floor(hz) === hz && hz >= 1 && hz <= 768000) return TICKS_PER_SECOND / hz;
+    } catch (subclipHzError) {}
+  }
+  return 0;
+}
+
+// Ticks to send createSubClip for a requested point. Premiere floors a
+// subclip point to the media's frame (or sample) grid, and on 26.5.2 a point
+// sent exactly on a boundary can land one unit early: a 24 fps In of
+// 1826.8333333 s stored 1826.7916667 s, and a 48 kHz Out stored one sample
+// low. Snap the request to the nearest frame and send a quarter frame past
+// it, so the floor lands on that frame with room for the host's rounding and
+// never reaches the next one. Without a known grid, send 1 microsecond past
+// the request: that absorbs a request rounded to 7 decimals and stays under
+// one sample at any rate up to 768 kHz, so it cannot move an exact sample.
+function __subclipWriteTicks(seconds, gridTicks) {
+  var ticks = parseFloat(seconds) * TICKS_PER_SECOND;
+  if (gridTicks > 0) return Math.round((Math.round(ticks / gridTicks) + 0.25) * gridTicks);
+  return Math.round(ticks) + Math.round(TICKS_PER_SECOND / 1000000);
+}
+
+// Match a project item by node ID or exact name anywhere in the tree. When the
+// whole project is searched and nothing matches, a sequence ID (the GUID that
+// create_sequence, duplicate_sequence and list_sequences report) resolves to
+// that sequence's project item. A sequence's project item has its own node ID,
+// so without this fallback the ID a sequence tool just returned was "not found"
+// by every project-item tool.
 function __findProjectItem(nodeIdOrName, rootItem) {
+  var wholeProject = !rootItem;
   if (!rootItem) rootItem = app.project.rootItem;
   var wantedId = String(nodeIdOrName);
   var count = __childCount(rootItem);
@@ -963,6 +1123,34 @@ function __findProjectItem(nodeIdOrName, rootItem) {
       var found = __findProjectItem(nodeIdOrName, item);
       if (found) return found;
     }
+  }
+  return wholeProject ? __findSequenceProjectItem(wantedId) : null;
+}
+
+// Resolve an exact sequence ID to the project item Premiere shows in the
+// Project panel. Returns the tree item (found again by its node ID) so callers
+// get the same object a node-ID lookup would; null when the ID matches no
+// sequence or its project item cannot be read.
+function __findSequenceProjectItem(sequenceId) {
+  var wanted = String(sequenceId);
+  if (!wanted) return null;
+  var sequences = null;
+  var total = 0;
+  try {
+    sequences = app.project.sequences;
+    total = sequences ? Number(sequences.numSequences) || 0 : 0;
+  } catch (eSequences) {
+    return null;
+  }
+  for (var i = 0; i < total; i++) {
+    var seq = null;
+    var seqId = "";
+    try { seq = sequences[i]; seqId = seq ? String(seq.sequenceID) : ""; } catch (eSeq) { continue; }
+    if (seqId !== wanted) continue;
+    var seqItem = null;
+    try { seqItem = seq.projectItem; } catch (eItem) { return null; }
+    var itemId = __nodeIdOf(seqItem);
+    return itemId ? __findProjectItemByNodeId(itemId) : null;
   }
   return null;
 }
@@ -1201,6 +1389,31 @@ function __isBuiltInComponent(component) {
   return !!__BUILT_IN_COMPONENTS[String(component.displayName)];
 }
 
+// Audio components every audio clip carries, as opposed to audio effects.
+// __isBuiltInComponent treats every "Internal ..." match name as built in,
+// so audio removal and parameter checks use this narrower helper. Premiere 26.5.2 also
+// names effects that way ("Internal Highpass", "Internal Parameteric EQ"),
+// while others use GUIDs (DeEsser, Single-band Compressor, Hard Limiter).
+// Live intrinsics: "Internal Volume Mono|Stereo|5.1", "Internal Channel
+// Volume Stereo|5.1", "Internal Audio Balance". Panner's match name is not
+// confirmed, so "Internal (Audio) Panner" and the English/Spanish display
+// names also count; Balance and Pan take raw values (set_clip_pan writes
+// -100..100), so misreading them as normalized effects must be avoided.
+var __INTRINSIC_AUDIO_DISPLAY_NAMES = { "Volume": true, "Channel Volume": true, "Panner": true, "Balance": true, "Volumen": true, "Volumen del canal": true, "Equilibrio": true, "Paneo de balance": true };
+function __isIntrinsicAudioComponent(component) {
+  var match = __componentMatchName(component);
+  if (/^Internal (Volume|Channel Volume|Audio Balance|Balance|Audio Panner|Panner)\\b/.test(match)) return true;
+  return !!__INTRINSIC_AUDIO_DISPLAY_NAMES[String(component.displayName)];
+}
+
+function __isBuiltInComponentForClip(component, trackType) {
+  if (trackType === "audio") {
+    if (__isIntrinsicAudioComponent(component)) return true;
+    if (/^Internal /.test(__componentMatchName(component))) return !!__BUILT_IN_COMPONENTS[String(component.displayName)];
+  }
+  return __isBuiltInComponent(component);
+}
+
 // Match names confirmed live (#674). Unlike the guessed entries above, these
 // prove the host language: one of them showing a non-English display name
 // means the built-ins are localized.
@@ -1213,7 +1426,7 @@ function __isConfirmedBuiltInMatchName(match) {
 // built-in's English name. On a localized host, the match names of Time
 // Remapping, Panner and shape layers are not confirmed, so an unknown match
 // name could be one of them: refuse rather than risk removing it (#674).
-function __componentClassificationProblem(clip) {
+function __componentClassificationProblem(clip, trackType) {
   var localized = null;
   for (var i = 0; i < clip.components.numItems; i++) {
     var component = clip.components[i];
@@ -1222,7 +1435,9 @@ function __componentClassificationProblem(clip) {
     if (!match && !__BUILT_IN_COMPONENTS[name]) {
       return "Premiere reports no match name for the component " + name + ", so it cannot be told apart from a built-in component reliably.";
     }
-    if (__isConfirmedBuiltInMatchName(match) && !__BUILT_IN_COMPONENTS[name]) localized = name;
+    var confirmedBuiltIn = __isConfirmedBuiltInMatchName(match);
+    if (trackType === "audio" && /^Internal /.test(match)) confirmedBuiltIn = __isIntrinsicAudioComponent(component);
+    if (confirmedBuiltIn && !__BUILT_IN_COMPONENTS[name]) localized = name;
   }
   if (localized !== null) {
     return "This Premiere host shows built-in components under localized names (" + localized + "). The match names of Time Remapping and Panner are not confirmed yet, so an effect cannot be told apart from them reliably (#674).";
@@ -1241,9 +1456,9 @@ function __componentClassificationProblem(clip) {
 // unsupported } where unsupported explains a refusal made before any removal.
 function __removeClipComponents(result, wanted) {
   var clip = result.clip;
-  var out = { removed: [], failures: [], before: [], remaining: [], verified: false, nothingRemoved: true, unsupported: null };
+  var out = { removed: [], failures: [], before: [], remaining: [], verified: false, nothingRemoved: true, unsupported: null, mutationAttempted: false };
   var targets = [];
-  out.unsupported = __componentClassificationProblem(clip);
+  out.unsupported = __componentClassificationProblem(clip, result.trackType);
   if (out.unsupported) {
     for (var u = 0; u < clip.components.numItems; u++) out.remaining.push(String(clip.components[u].displayName));
     out.before = out.remaining.slice();
@@ -1252,7 +1467,7 @@ function __removeClipComponents(result, wanted) {
   for (var b = 0; b < clip.components.numItems; b++) out.before.push(String(clip.components[b].displayName));
   for (var i = clip.components.numItems - 1; i >= 0; i--) {
     var name = String(clip.components[i].displayName);
-    if (__isBuiltInComponent(clip.components[i])) continue;
+    if (__isBuiltInComponentForClip(clip.components[i], result.trackType)) continue;
     if (wanted(name, i)) targets.push({ index: i, name: name, component: clip.components[i] });
   }
   var qeClip = null;
@@ -1286,10 +1501,10 @@ function __removeClipComponents(result, wanted) {
     var target = targets[t];
     var done = false;
     try {
-      if (target.path === "dom") { target.component.remove(); done = true; }
+      if (target.path === "dom") { out.mutationAttempted = true; target.component.remove(); done = true; }
       else {
         var qeComponent = qeClip.getComponentAt(target.index);
-        if (qeComponent && String(qeComponent.name) === target.name) { qeComponent.remove(); done = true; }
+        if (qeComponent && String(qeComponent.name) === target.name) { out.mutationAttempted = true; qeComponent.remove(); done = true; }
       }
     } catch (eRemove) {}
     if (done) { out.removed.push(target.name); out.nothingRemoved = false; expected.splice(target.index, 1); }
@@ -1668,6 +1883,15 @@ function __qeTimecodeForTicks(seq, ticks) {
 // (they append .png / .jpg themselves). The playhead is never moved: the timecode
 // argument alone selects the frame. We verify against the filesystem rather than the
 // return value, and fall back to a one-frame Media Encoder export.
+function __sequenceMarkWriteSeconds(seq, ticks, restoring) {
+  var seconds = __ticksToSeconds(ticks);
+  if (seconds < 0) return seconds;
+  var hz = 48000;
+  try { var observedRate = __sampleRateHz(seq.getSettings().audioSampleRate); if (observedRate) hz = observedRate; } catch (sampleRateError) {}
+  var samples = seconds * hz;
+  return ((restoring ? Math.round(samples) : Math.ceil(samples)) + 0.25) / hz;
+}
+
 function __exportStillFrame(outputPath, ticks) {
   var seq = app.project.activeSequence;
   if (!seq) return { ok: false, error: "No active sequence", notes: [] };
@@ -1679,10 +1903,16 @@ function __exportStillFrame(outputPath, ticks) {
     try { atTicks = seq.getPlayerPosition().ticks; } catch (e) { atTicks = "0"; }
   }
 
+  if (!isFinite(Number(atTicks)) || Number(atTicks) < 0) return { ok: false, error: "Still-frame export requires finite non-negative ticks", notes: notes };
+
   var dot = outputPath.lastIndexOf(".");
   var slash = Math.max(outputPath.lastIndexOf("/"), outputPath.lastIndexOf("\\\\"));
   var ext = dot > slash ? outputPath.substring(dot).toLowerCase() : "";
   if (ext === "") { outputPath = outputPath + ".png"; ext = ".png"; }
+  // QE and Media Encoder report a missing folder only as an empty result after the
+  // export ran, so check it before anything is attempted.
+  var outputFolder = new File(outputPath).parent;
+  if (outputFolder && !outputFolder.exists) return { ok: false, notApplied: true, error: "Output folder does not exist: " + outputFolder.fsName + "; nothing was exported. Create the folder or choose an existing one.", notes: [] };
   var basePath = outputPath.substring(0, outputPath.length - ext.length);
   var wantJpeg = ext === ".jpg" || ext === ".jpeg";
   var qeCanWrite = wantJpeg || ext === ".png";
@@ -1824,17 +2054,20 @@ function __exportStillFrame(outputPath, ticks) {
         // interval and the still export produces no file.
         var frameTicks = parseFloat(seq.timebase);
         var startTicks = parseFloat(atTicks);
-        if (!isFinite(frameTicks) || frameTicks <= 0 || !isFinite(startTicks)) return { ok: false, error: "Still-frame export requires a readable finite sequence frame grid and requested ticks", notes: notes };
+        if (!isFinite(frameTicks) || frameTicks <= 0 || !isFinite(startTicks) || startTicks < 0) return { ok: false, error: "Still-frame export requires a readable finite sequence frame grid and requested ticks", notes: notes };
         var ameMutatedMarks = false;
         var temporaryIn = String(savedIn), temporaryOut = String(savedOut);
         var guardedSequenceId = String(seq.sequenceID);
         if (destinationExisted || new File(outputPath).exists) amePath = qeBase + "-ame" + ext;
         try {
-          seq.setInPoint(__ticksToSeconds(startTicks));
+          seq.setInPoint(__sequenceMarkWriteSeconds(seq, startTicks, false));
           ameMutatedMarks = true;
           temporaryIn = String(seq.getInPointAsTime().ticks);
-          seq.setOutPoint(__ticksToSeconds(startTicks + frameTicks));
+          seq.setOutPoint(__sequenceMarkWriteSeconds(seq, startTicks + frameTicks, false));
           temporaryOut = String(seq.getOutPointAsTime().ticks);
+          var sampleTicks = TICKS_PER_SECOND / 48000;
+          try { var captureRate = __sampleRateHz(seq.getSettings().audioSampleRate); if (captureRate) sampleTicks = TICKS_PER_SECOND / captureRate; } catch (captureRateError) {}
+          if (parseFloat(temporaryIn) < startTicks - __TICK_MATCH_TOL || parseFloat(temporaryIn) - startTicks > sampleTicks + __TICK_MATCH_TOL || parseFloat(temporaryOut) < startTicks + frameTicks - __TICK_MATCH_TOL || parseFloat(temporaryOut) - (startTicks + frameTicks) > sampleTicks + __TICK_MATCH_TOL) throw new Error("Premiere did not retain the requested one-frame export range");
           seq.exportAsMediaDirect(amePath, preset, app.encoder.ENCODE_IN_TO_OUT);
           notes.push("AME preset: " + preset);
         } finally {
@@ -1846,11 +2079,11 @@ function __exportStillFrame(outputPath, ticks) {
           if (!currentSequence || String(currentSequence.sequenceID) !== guardedSequenceId || currentIn !== temporaryIn || currentOut !== temporaryOut) {
             restorationFailure = "Media Encoder still export observed a concurrent sequence/mark change; automatic restoration was refused. Inspect current sequence marks before continuing.";
           } else {
-            try { seq.setInPoint(__ticksToSeconds(savedIn)); } catch (eIn) { restorationFailure = "Media Encoder still export could not restore sequence In point."; }
-            try { seq.setOutPoint(__ticksToSeconds(savedOut)); } catch (eOut) { restorationFailure = "Media Encoder still export could not restore sequence Out point."; }
+            try { seq.setInPoint(__sequenceMarkWriteSeconds(seq, savedIn, true)); } catch (eIn) { restorationFailure = "Media Encoder still export could not restore sequence In point."; }
+            try { seq.setOutPoint(__sequenceMarkWriteSeconds(seq, savedOut, true)); } catch (eOut) { restorationFailure = "Media Encoder still export could not restore sequence Out point."; }
             var finallyIn = null, finallyOut = null;
             try { finallyIn = String(seq.getInPointAsTime().ticks); finallyOut = String(seq.getOutPointAsTime().ticks); } catch (eFinally) {}
-            if (finallyIn === null || finallyOut === null || isNaN(parseFloat(finallyIn)) || isNaN(parseFloat(finallyOut)) || Math.abs(parseFloat(finallyIn) - parseFloat(savedIn)) > frameTicks / 1000 || Math.abs(parseFloat(finallyOut) - parseFloat(savedOut)) > frameTicks / 1000) restorationFailure = "Media Encoder still export left sequence in/out points unrestored; inspect marks or Undo before continuing.";
+            if (finallyIn === null || finallyOut === null || isNaN(parseFloat(finallyIn)) || isNaN(parseFloat(finallyOut)) || Math.abs(parseFloat(finallyIn) - parseFloat(savedIn)) > __TICK_MATCH_TOL || Math.abs(parseFloat(finallyOut) - parseFloat(savedOut)) > __TICK_MATCH_TOL) restorationFailure = "Media Encoder still export left sequence in/out points unrestored; inspect marks or Undo before continuing.";
           }
         }
         // Premiere 26.x setters can throw or silently no-op. A still file is
@@ -2069,7 +2302,7 @@ function __isDirectory(path) {
 // Open projects (Premiere keeps several open; app.project is the active one).
 // Paths compare case-insensitively with forward slashes.
 function __normProjectPath(path) {
-  return String(path || "").split(String.fromCharCode(92)).join("/").toLowerCase();
+  return __hostPathKey(path);
 }
 function __openProjects() {
   var list = [];
@@ -2388,6 +2621,12 @@ function __runLinkedEdit(target, nodeId, includeLinked, edit, label, validatedPa
       } catch (eLinkedRead) { return __error("Linked membership could not be verified; nothing was changed. " + String(eLinkedRead)); }
     }
   }
+  if (label === "trim" || label === "duration change") {
+    var transitionScopes = [{ type: target.trackType, index: target.trackIndex, start: Number(target.clip.start.ticks), end: Number(target.clip.end.ticks) }];
+    for (var tpi = 0; tpi < partners.length; tpi++) transitionScopes.push({ type: partners[tpi].trackType, index: partners[tpi].trackIndex, start: Number(partners[tpi].clip.start.ticks), end: Number(partners[tpi].clip.end.ticks) });
+    var transitionFailure = __transitionEditGuard(app.project.activeSequence, transitionScopes);
+    if (transitionFailure) return transitionFailure;
+  }
   // Each clip's position when it was checked. A partner is edited only if it is
   // still there when its turn comes: if Premiere moved it while writing the
   // main clip, applying the offset again would double it and still read back
@@ -2482,12 +2721,45 @@ function __runLinkedEdit(target, nodeId, includeLinked, edit, label, validatedPa
     edited.push({ nodeId: String(partner.clip.nodeId), trackType: partner.trackType, trackIndex: partner.trackIndex, verified: partnerVerified });
   }
   main.data.linkedPartnersEdited = edited;
+  if (label === "trim" || label === "duration change") main.data.transitionsAffected = [];
   if (!verified) {
     main.data.verified = false;
     main.data.outcome = "committed_unverified";
     if (!main.data.warning) main.data.warning = "The " + label + " was applied, but not every linked clip's result could be verified; inspect them.";
   }
   return __result(main.data);
+}
+
+// Structural edits refuse rather than guessing how a transition follows an edge.
+function __transitionSnapshot(track) {
+  var list = track && track.transitions;
+  if (!list || typeof list.numItems !== "number" || !isFinite(list.numItems) || list.numItems < 0 || Math.floor(list.numItems) !== list.numItems || list.numItems > 10000) throw new Error("Transition collection is unreadable or exceeds 10000 entries");
+  var result = [];
+  for (var i = 0; i < list.numItems; i++) {
+    var item = list[i], start = item && item.start ? Number(item.start.ticks) : NaN, end = item && item.end ? Number(item.end.ticks) : NaN;
+    if (!item || !item.start || !item.end || !/^\\d+$/.test(String(item.start.ticks)) || !/^\\d+$/.test(String(item.end.ticks)) || !isFinite(start) || !isFinite(end) || start < 0 || end <= start) throw new Error("Transition " + i + " has unreadable start/end ticks");
+    result.push({ index: i, startTicks: String(item.start.ticks), endTicks: String(item.end.ticks), nodeId: item.nodeId ? String(item.nodeId) : null });
+  }
+  return result;
+}
+function __transitionEditGuard(seq, scopes) {
+  var affected = [], seen = {};
+  try {
+    for (var si = 0; si < scopes.length; si++) {
+      var scope = scopes[si], tracks = scope.type === "video" ? seq.videoTracks : seq.audioTracks;
+      if (!tracks || !tracks[scope.index] || !isFinite(scope.start) || !(scope.end >= scope.start)) throw new Error("Edited track or span is unreadable");
+      var entries = __transitionSnapshot(tracks[scope.index]);
+      for (var ti = 0; ti < entries.length; ti++) {
+        var entry = entries[ti], key = scope.type + ":" + scope.index + ":" + ti;
+        if (Number(entry.endTicks) < scope.start || Number(entry.startTicks) > scope.end || seen[key]) continue;
+        seen[key] = true; entry.trackType = scope.type; entry.trackIndex = scope.index; affected.push(entry);
+      }
+    }
+  } catch (transitionReadError) {
+    return __error("Transition safety could not be inspected; no edit was attempted. Inspect the track in Premiere before retrying. " + String(transitionReadError), { mutationOutcome: "not_applied", timelineChanged: false, mutationAttempted: false, transitionsAffected: null });
+  }
+  if (affected.length) return __error("The edit could strand an attached transition. Use remove_transition for the listed indices, or edit the transition in Premiere, then inspect and retry; nothing changed.", { mutationOutcome: "not_applied", timelineChanged: false, mutationAttempted: false, transitionsAffected: affected });
+  return null;
 }
 
 // Start/end keys of a track's transitions, so readback can tell a transition

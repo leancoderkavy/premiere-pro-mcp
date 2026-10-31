@@ -150,10 +150,46 @@
     setStatus("Stopped", false);
   }
 
+  // Premiere's Dynamic Link starts a windowless After Effects (aerendercore,
+  // under dynamiclinkmanager) that loads CEP extensions too. A connector there
+  // claims commands meant for the user's After Effects, answers for a different
+  // project and hangs on anything that needs a window, so it stays idle.
+  function ancestorNames() {
+    var names = [];
+    var pid = nodeProcess.pid;
+    for (var depth = 0; depth < 6 && pid > 1; depth++) {
+      var line = "";
+      try {
+        if (os.platform() === "win32") {
+          line = String(childProcess.execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command",
+            "$p = Get-CimInstance Win32_Process -Filter 'ProcessId=" + pid + "'; if ($p) { \"$($p.ParentProcessId) $($p.Name)\" }"], { timeout: 4000, windowsHide: true }));
+        } else {
+          line = String(childProcess.execFileSync("ps", ["-o", "ppid=,comm=", "-p", String(pid)], { timeout: 2000 }));
+        }
+      } catch (ignored) { break; }
+      var match = /^\s*(\d+)\s+(.+?)\s*$/.exec(line);
+      if (!match) break;
+      names.push(match[2]);
+      pid = Number(match[1]);
+    }
+    return names;
+  }
+
+  function insideRenderEngine(done) {
+    var names = ancestorNames();
+    for (var i = 0; i < names.length; i++) if (/aerendercore|aerender(\.exe)?$/i.test(names[i])) return done(true);
+    cs.evalScript("(function(){try{return String(app.isRenderEngine===true);}catch(e){return 'false';}}())", function (result) {
+      done(String(result) === "true");
+    });
+  }
+
   var field = document.getElementById("tempDir");
   try { field.value = localStorage.getItem("after_effects_mcp_temp_dir") || tempDir; } catch (ignored) { field.value = tempDir; }
   document.getElementById("toggle").onclick = function () { if (running) stop(); else start(); };
   // Start automatically: the headless instance (StartOn ApplicationActivate) has
   // no one to click Start, so without this the connector never ran unattended.
-  setTimeout(start, 500);
+  insideRenderEngine(function (renderEngine) {
+    if (renderEngine) { setStatus("Idle in the Dynamic Link render engine", false); return; }
+    setTimeout(start, 500);
+  });
 }());

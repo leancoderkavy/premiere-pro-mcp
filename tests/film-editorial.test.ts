@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// Full catalog setup can contend with other processes on a loaded machine.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { buildFilmEditorialPacket, type FilmEditorialInput } from "../src/ai/film-editorial.js";
 import { ProjectContextRepository, type ProjectContextDocument } from "../src/context/project-context-store.js";

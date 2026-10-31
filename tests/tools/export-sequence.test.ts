@@ -27,7 +27,7 @@ type Result = { success: boolean; error?: string; data?: Record<string, unknown>
 beforeEach(() => vi.clearAllMocks());
 
 /** QuickTime-folder preset: Premiere reports ".mov" and writes a MOV whatever the path says (live 25.2). */
-function host(options: { writes?: boolean; marks?: [number, number]; workArea?: [number | string, number | string] | "disabled" | "missing"; enabledState?: unknown; missingEnabled?: boolean; enabledThrows?: boolean; sequenceEnd?: string; returns?: unknown; existing?: string[] } = {}) {
+function host(options: { writes?: boolean; marks?: [number, number]; workArea?: [number | string, number | string] | "disabled" | "missing"; enabledState?: unknown; missingEnabled?: boolean; enabledThrows?: boolean; sequenceEnd?: string; returns?: unknown; existing?: string[]; missingFolder?: boolean } = {}) {
   vi.mocked(probeMediaDurationSeconds).mockImplementation(async () => options.marks ? options.marks[1] - options.marks[0] : Array.isArray(options.workArea) ? Number(options.workArea[1])-Number(options.workArea[0]) : 121.6);
   const written: string[] = [];
   const modes: number[] = [];
@@ -53,8 +53,9 @@ function host(options: { writes?: boolean; marks?: [number, number]; workArea?: 
     seq.getWorkAreaInPoint = () => bounds[0];
     seq.getWorkAreaOutPoint = () => bounds[1];
   }
-  function File(this: { fsName: string; exists: boolean; length: number; modified: { getTime: () => number } | null }, path: string) {
+  function File(this: { fsName: string; exists: boolean; length: number; modified: { getTime: () => number } | null; parent: { exists: boolean; fsName: string } | null }, path: string) {
     this.fsName = path;
+    this.parent = options.missingFolder ? { exists: false, fsName: path.substring(0, path.lastIndexOf("/")) } : null;
     const entry = disk.get(path);
     this.exists = !!entry;
     this.length = entry ? entry[0] : 0;
@@ -112,6 +113,19 @@ describe("export_sequence", () => {
       success: true,
       data: { outputPath: "/out/full.mov", extension: "mov", verified: true, sizeBytes: 4096 },
     });
+  });
+
+  it("refuses a missing output folder as not applied before rendering", async () => {
+    // Live 26.5.2: exportAsMediaDirect failed with "OutputFilePath is in a folder that doesn't exist!",
+    // after dispatch, so the outcome was unknown and further edits were locked.
+    const written = host({ missingFolder: true });
+    await expect(tools.export_sequence.handler({ output_path: "/missing/full.mov", preset_path: preset })).resolves.toMatchObject({
+      success: false,
+      error: expect.stringContaining("Output folder does not exist: /missing"),
+      data: { mutationOutcome: "not_applied", timelineChanged: false },
+    });
+    expect(written).toHaveLength(0);
+    expect(written.modes).toEqual([]);
   });
 
   it("fails when Premiere writes nothing", async () => {

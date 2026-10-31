@@ -383,6 +383,12 @@ export function createSourceFreezeFrameTool(bridgeOptions: BridgeOptions, depend
           if (durationVerified) completed.push("duration"); else unverified.push("duration");
 
           if (!${place ? "true" : "false"}) return __sffDone(null);
+          // overwriteClip uses the still's actual In/Out. If the Out mark did not
+          // take, Premiere keeps the default still length (often 5s). Occupancy
+          // checked against the requested duration would then smash the next clip.
+          if (!durationVerified) {
+            return __sffDone("The still was imported but its Out mark did not verify (Premiere may have kept the default still duration). It was not placed. create_source_freeze_frame never overwrites, so placement needs a verified duration. Inspect the imported still before retrying.");
+          }
 
           var seq = app.project.activeSequence;
           if (!seq) return __sffDone("The still was imported but the active sequence is gone; it was not placed.");
@@ -392,7 +398,7 @@ export function createSourceFreezeFrameTool(bridgeOptions: BridgeOptions, depend
           var track = seq.videoTracks[${trackIndex}];
           if (__isTrackLocked(track)) return __sffDone("The still was imported but video track ${trackIndex} is now locked; it was not placed.");
           var startTicks = __sffSnap(${startSeconds}, frameTicks);
-          var spanSeconds = durationVerified ? appliedDuration : requestedDuration;
+          var spanSeconds = appliedDuration;
           var expectedTicks = Math.max(frameTicks, __sffSnap(spanSeconds, frameTicks));
           // Re-check right before the edit: the timeline may have changed since preflight.
           var occupant = __sffOccupant(track, startTicks, startTicks + expectedTicks);
