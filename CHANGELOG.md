@@ -12,10 +12,71 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
-- `import_ae_comps` returns each new item's node ID and name, and reports `outcome: verified` only when every requested composition is read back by name and source `.aep`, so the receipt no longer contradicts `verified: true`.
+- `import_ae_comps` returns each new item's node ID and name. A named import reports `verified` only when every requested composition is read back by name and source `.aep`, and refuses before importing when the target bin's items cannot be read. Importing all comps keeps the target-bin count check; its item list is informational and is omitted when the bin's items cannot be read.
 - `inspect_after_effects_render_templates` can read template names on an empty render queue: with `allow_temporary_queue_item: true` (requires edit) it queues one composition briefly, reads the names, removes it and checks the queue length.
 - `apply_after_effects_render_handoff` names `replace_clip` with the imported item as the next step for putting a render in place of an existing timeline clip.
 - `export_frame` notes that Premiere can return a cached frame after a linked After Effects composition changes.
+
+## [1.27.0] - 2026-10-31
+
+### Added
+
+- `unnest_sequence_uxp` unnests a nested sequence clip by cloning its clips into the parent with documented UXP SequenceEditor actions, keeping each clip's effects, keyframes, enabled state and source range. Inspect returns the full plan; apply runs one undoable transaction with per-clone readback (#937).
+
+### Fixed
+
+- `ripple_remove_timeline_ranges` and `multiple_undo` no longer hit "InternalError: Stack overrun" on long range lists: QE razor and undo calls now run in bounded batches (default 8 per bridge call, `batch_size` or `PREMIERE_MCP_QE_BATCH_SIZE`, clamped 1-32) with timeline-fingerprint checks between batches (#925, #926).
+- Project-item mark restore handles time-of-day timecode that passes midnight, so media from a camera started late in the evening keeps its marks (#938).
+- Dependency audit: `@hono/node-server` 2.1.5 (GHSA-rmxm-3fg6-px4f) and a `minimatch` 11.0.3 override for the dev-only eslint chain (GHSA-g3hv-75wg-m249) (#932, #939).
+- Full-server registration and catalog test files allow 60 seconds for tests and setup hooks on loaded machines, while retaining the global 10-second default and existing longer explicit test limits.
+- Project-item tools resolve a sequence ID (the GUID returned by `create_sequence`, `duplicate_sequence` and `list_sequences`) to that sequence's project item after node-ID and name matches fail, so `rename_project_item`, `move_item_to_bin`, `delete_project_item` and similar tools accept the ID a sequence tool just reported. `duplicate_sequence` also reports the copy's `projectItemNodeId`.
+- Audio effect removal distinguishes applied `Internal Highpass` and `Internal Parameteric EQ` components from audio intrinsics. Targeted and remove-all paths retain Volume, Channel Volume, Panner and video intrinsics, with unchanged localization refusals and removal readback.
+- `get_effect_properties` and `set_effect_property` say when an audio effect's parameters are Premiere's normalized 0-1 values rather than Hz, dB or ms. Effects on audio clips (other than the built-in Volume, Channel Volume, Panner and Balance) report `valueScale`, a `parameterScale` summary and a warning to calibrate by rendering, because Adobe does not document the mapping. Highpass Cutoff carries measured guidance from Premiere 26.5.2 (the 0.25 default measured near 1.2 kHz), presented as measurements, not a formula. Volume Level also reports its value in dB using the mapping `set_clip_volume` already writes with.
+- `set_effect_property` refuses, before writing, a number outside 0-1 for an audio effect parameter whose current value is inside 0-1 (such as 80 meant as Hz, which Premiere would clamp). `allow_out_of_range_audio_value: true` permits a deliberate raw write.
+- Undo and redo stack-guard refusals report `not_applied` before any step. Project creation checks its parent directory before calling the host, so a missing folder cannot set a recovery lock; uncertain post-call failures remain guarded.
+- Caption-track import reports captured undo steps and guarded reversal guidance without guessing an undo count. Descriptions and workflow guidance warn that caption tracks render in exports by default, cannot be removed or hidden through CEP, and can be muted through a capable UXP panel.
+- Sequence source-alignment reads report offsets for unlinked separate picture/sound files at matching starts and flag inconsistent offsets within each media-pair group. Constant offsets remain observations; bounded group context and diagnostic truncation are disclosed without exposing source paths.
+- Paged sequence reads expose audio source In/Out and bounded source-alignment warnings for linked or unambiguous same-media pairs. Checks use the exact sequence frame duration, account for timeline offsets and retain paging and payload limits; warnings are not playback verification.
+- Additional effect-removal preflight refusals beyond #901 report `not_applied` when no removal was attempted. An explicit attempt flag keeps thrown or unverified removals recovery-required, including host calls that change a component and then throw.
+- `create_subclip` reads a subclip's stored range relative to the start of the file, so subclips of media with a start timecode (a BWF WAV's `time_reference`, a camera clip at 01:00:00:00) verify instead of reporting a range off by the start timecode. The receipt reports `mediaStartSeconds` when the media has one.
+- `create_subclip` snaps each point to the nearest media frame (or audio sample) and sends it a quarter frame past that boundary, so Premiere stores the intended frame instead of flooring one frame early on long media. The readback now verifies each point to half a media frame, so a whole-frame miss reports `committed_unverified` instead of `verified`.
+- `overwrite_clip` reports `sourceInShift` and a note when Premiere moves the placed clip's source In to a sequence frame, for example an audio subclip cut between frames that lands up to one frame early against its picture.
+### Changed
+
+- `get_caption_style_guidance` accepts `keyword_highlight` and returns per-word colour steps, manual Graphics and Titles > Upgrade Caption to Graphic steps, and render-verification guidance. Premiere exposes no documented API for caption styles, per-word caption colour, or the upgrade command, so nothing is applied.
+- `create_caption_track` import receipts report `styleApplied: false` and point to the manual styling steps.
+- The platform capability report lists Upgrade Caption to Graphic and per-word caption colour as UI-only.
+
+### Fixed
+
+- Caption style guidance no longer names `export_frame` or review-frame exports as caption render evidence. Export Frame omits caption tracks on recent Premiere releases; guidance now routes to playback or a short burn-in `export_sequence`.
+- Edit receipts honor audited handler readback for placement, properties, audio curves, effects, sequence settings, tracks, imports, keyframes and removals. Unreadable batch properties, import counts and deletion collections cannot verify a write; effect-copy wrappers preserve uncertainty and explicit partial or unknown outcomes remain unchanged.
+
+## [1.26.0] - 2026-10-27
+
+### Added
+
+- `list_extensions` and `open_extension` list installed CEP panels and request opening a panel by its exact ID. Opening reports `committed_unverified` because CEP cannot read panel visibility (#917).
+- `remove_transition` removes one CEP transition by exact index or an unambiguous contained cut, then verifies the complete remaining span list (#907).
+- `add_title` accepts optional PostScript font, size, exposed fill color and normalized whole-graphic position, with per-field readback for compatible AE-authored templates. Stored font names do not establish font availability or rendered appearance (#902).
+- Effect keyframes accept host-validated numeric pairs with per-component readback. Motion Position and Anchor Point use normalized coordinates; unsupported color-key writes refuse before mutation (#903).
+- Motion Position and Anchor Point tools accept explicit pixel or normalized units. Omitted units retain pixel behavior and warn about fractional-looking values; mask-fit guidance names its units (#904).
+
+### Fixed
+
+- Cooperating processes retry host-lease acquisition after a failed owner read only when a fresh filesystem check confirms the owner record disappeared. Existing unreadable or malformed records still block dispatch.
+- Required tool arguments refuse before handler dispatch, preserving capability checks and reporting the missing field (#905).
+- `close_project` routes through the connector's headless engine so closing the last project does not unload the panel before its response is written (#906).
+- Structural edits refuse attached transitions or unreadable transition collections before changing clip edges or ripple suffixes (#907).
+- High-rate audio duplication reuses matching source marks and refuses unconfirmed temporary mark rewrites. Duplication restores saved marks in a safe order, corrects audio source In within half a media sample, and reports surviving copies if restoration fails. Still-export fallback verifies its temporary range and restores sample-exact sequence marks (#908).
+- Project and workspace path identity preserves POSIX case and literal backslashes while retaining Windows aliases. Export-preset fallback resolves the actual preset file; native workspace paths preserve UNC roots and encoded filename characters (#909).
+- `create_source_freeze_frame` skips placement unless the imported still's Out mark verifies, preventing the default still length from overwriting a neighboring clip (#912).
+- The After Effects connector stays idle inside Premiere's windowless Dynamic Link render engine so it cannot claim commands intended for the visible After Effects application (#913).
+- `ripple_remove_timeline_ranges` relinks kept audio/video pieces after the ripple and reads their membership back; failed relinking reports `committed_unverified` (#915).
+- Still and sequence exports refuse missing destination folders before dispatching an export (#916).
+- The CEP updater requests plain JSON from npm's `/latest` endpoint, avoiding HTTP 406 responses to the abbreviated package type (#918).
+
+Connector changes require reinstalling the Premiere and After Effects CEP panels. Automated checks verify package behavior; live host behavior and rendered appearance remain separate validation boundaries.
 
 ## [1.25.0] - 2026-10-24
 

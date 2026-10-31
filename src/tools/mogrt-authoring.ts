@@ -416,14 +416,7 @@ export function buildMogrtRecipeScript(plan: MogrtPlan): string {
     : "";
 
   return buildAfterEffectsScript(`
-    function normalizedPath(value) {
-      return String(value).replace(/\\\\/g, "/").replace(/\\/+$/, "").toLowerCase();
-    }
-    function isInside(root, candidate) {
-      var normalizedRoot = normalizedPath(root);
-      var normalizedCandidate = normalizedPath(candidate);
-      return normalizedCandidate === normalizedRoot || normalizedCandidate.indexOf(normalizedRoot + "/") === 0;
-    }
+    function isInside(root, candidate) { return __hostPathIsInside(root, candidate); }
     function expose(property, comp, controlName) {
       try {
         if (!property || typeof property.addToMotionGraphicsTemplate !== "function") return false;

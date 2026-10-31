@@ -36,6 +36,10 @@ interface HostOptions {
   noPlacement?: boolean;
   mediaPath?: string;
   locked?: boolean;
+  /** Premiere still default Out (seconds) when setOutPoint is a no-op. */
+  ignoreSetOutPoint?: boolean;
+  neighborStartSeconds?: number;
+  neighborEndSeconds?: number;
 }
 
 let dir: string;
@@ -58,7 +62,11 @@ function host(options: HostOptions = {}) {
     isSequence: () => false, isOffline: () => false,
     getFootageInterpretation: () => ({ frameRate: options.interpretedFps ?? 25 }),
   }];
-  const trackClips: Record<string, any>[] = options.occupied ? [{ name: "Existing", start: time(0), end: time(10 * TICKS) }] : [];
+  const trackClips: Record<string, any>[] = options.occupied
+    ? [{ name: "Existing", start: time(0), end: time(10 * TICKS) }]
+    : options.neighborStartSeconds !== undefined
+      ? [{ name: "Neighbor", start: time((options.neighborStartSeconds ?? 0) * TICKS), end: time((options.neighborEndSeconds ?? 10) * TICKS) }]
+      : [];
   function makeProp(name: string, value: unknown) {
     const keys = new Map<string, unknown>();
     let varying = false;
@@ -103,7 +111,7 @@ function host(options: HostOptions = {}) {
           getFootageInterpretation: () => ({ frameRate: 25 }),
           getInPoint: () => ({ seconds: 0 }),
           getOutPoint: () => ({ seconds: still.__out }),
-          setOutPoint: (seconds: number) => { still.__out = Math.floor(seconds * 25 + 1e-9) / 25; },
+          setOutPoint: (seconds: number) => { if (!options.ignoreSetOutPoint) still.__out = Math.floor(seconds * 25 + 1e-9) / 25; },
         };
         root.push(still);
         return true;
@@ -237,6 +245,20 @@ describe("create_source_freeze_frame", () => {
     host({ occupyAfterPreflight: true });
     const { run } = tool();
     await expect(run({ source_item_id: "src-1", source_time_seconds: 1, output_path: join(dir, "f.png"), place: { track_index: 0, start_seconds: 0 } })).resolves.toMatchObject({ success: false, error: expect.stringContaining("no longer empty"), data: { outcome: "committed_unverified", imported: true, nodeId: "still-1", completed: ["exported", "imported", "duration"] } });
+  });
+
+  it("does not place when the still Out mark stays at Premiere's default duration", async () => {
+    const { trackClips } = host({ ignoreSetOutPoint: true, neighborStartSeconds: 2.5, neighborEndSeconds: 10 });
+    const { run } = tool();
+    const result = await run({ source_item_id: "src-1", source_time_seconds: 1, output_path: join(dir, "f.png"), duration_seconds: 2, place: { track_index: 0, start_seconds: 0 } });
+    expect(result).toMatchObject({
+      success: false,
+      error: expect.stringContaining("Out mark did not verify"),
+      data: { outcome: "committed_unverified", imported: true, nodeId: "still-1", completed: ["exported", "imported"], unverified: ["duration"], appliedDurationSeconds: 5 },
+    });
+    expect(trackClips.map((clip) => clip.name)).toEqual(["Neighbor"]);
+    expect(trackClips[0].start.seconds).toBe(2.5);
+    expect(trackClips[0].end.seconds).toBe(10);
   });
 
   it("places the still and verifies Scale and Position zoom keyframes", async () => {

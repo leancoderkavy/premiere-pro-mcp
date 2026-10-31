@@ -163,6 +163,11 @@
     if (cloneWorkflowApi && typeof cloneWorkflowApi.createCloneWorkflowDefinitions === "function") {
       Object.assign(definitions, cloneWorkflowApi.createCloneWorkflowDefinitions({ ppro, locks: trackItemLocks }));
     }
+    let unnestWorkflowApi = deps.UnnestWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpUnnestWorkflows);
+    if (!unnestWorkflowApi && typeof require === "function") unnestWorkflowApi = require("./unnest-workflows.cjs");
+    if (unnestWorkflowApi && typeof unnestWorkflowApi.createUnnestWorkflowDefinitions === "function") {
+      Object.assign(definitions, unnestWorkflowApi.createUnnestWorkflowDefinitions({ ppro }));
+    }
     let rippleDeleteWorkflowApi = deps.RippleDeleteWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpRippleDeleteWorkflows);
     if (!rippleDeleteWorkflowApi && typeof require === "function") rippleDeleteWorkflowApi = require("./ripple-delete-workflows.cjs");
     if (rippleDeleteWorkflowApi && typeof rippleDeleteWorkflowApi.createRippleDeleteWorkflowDefinitions === "function") {

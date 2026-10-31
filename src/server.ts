@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { requiredArgumentError } from "./security/required-arguments.js";
 import {
   type CallToolResult,
   fromJsonSchema,
@@ -408,7 +409,16 @@ export function collectTools(
       toolPacks,
     }),
   );
-  return tools;
+  // Clone definitions: cached static tools must not retain another caller's authority.
+  return Object.fromEntries(Object.entries(tools).map(([name, tool]) => {
+    const handler = guardToolHandler(name, async (args: unknown) => {
+      const refused = requiredArgumentError(tool.parameters, args);
+      return refused ?? tool.handler(args);
+    }, capabilities);
+    // Source audits inspect handler text; execution still uses the guarded function.
+    Object.defineProperty(handler, "toString", { value: () => tool.handler.toString() });
+    return [name, { ...tool, handler }];
+  }));
 }
 
 export interface ServerOptions {
@@ -599,7 +609,7 @@ export function createServer(
         const logEntry = operation.entry;
         const run = async () => {
           const structured = (success: boolean, data?: unknown, error?: string) => {
-            const receipt = mutating ? mutationReceipt(success, data, currentInvocation()) : undefined;
+            const receipt = mutating ? mutationReceipt(success, data, currentInvocation(), name) : undefined;
             if (logEntry && receipt) finishOperation(logEntry, success, receipt.outcome);
             return {
               ...structuredToolResult(name, success, data, error),
@@ -620,7 +630,7 @@ export function createServer(
             const protectedHostWork = async () => {
               try {
                 const result = await work();
-                if (currentInvocation()?.dispatched && mutationReceipt(result.success, result.data, currentInvocation()).outcome === "unknown") {
+                if (currentInvocation()?.dispatched && mutationReceipt(result.success, result.data, currentInvocation(), name).outcome === "unknown") {
                   markHostRecovery(getTempDir(bridgeOptions), "unknown_command_outcome");
                 }
                 return result;

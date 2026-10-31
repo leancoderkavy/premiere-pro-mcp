@@ -565,16 +565,28 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
           apply_missing_effects: true,
         });
         if (!pasted.success) return pasted;
-        const data = pasted.data as { status?: string; summary?: Record<string, number>; components?: unknown[] };
+        const data = pasted.data as {
+          status?: string; summary?: Record<string, number>; components?: unknown[];
+          verified?: boolean; outcome?: string; mutationOutcome?: string;
+          recoveryRequired?: boolean; stateUnknown?: boolean;
+        };
+        const verified = data.status === "verified" && data.verified !== false &&
+          data.recoveryRequired !== true && data.stateUnknown !== true &&
+          (data.outcome === undefined || data.outcome === "verified") &&
+          (data.mutationOutcome === undefined || data.mutationOutcome === "verified");
         return {
           success: true,
           data: {
             status: data.status,
-            verified: data.status === "verified",
+            ...(data.outcome === undefined ? {} : { outcome: data.outcome }),
+            ...(data.mutationOutcome === undefined ? {} : { mutationOutcome: data.mutationOutcome }),
+            ...(data.recoveryRequired === undefined ? {} : { recoveryRequired: data.recoveryRequired }),
+            ...(data.stateUnknown === undefined ? {} : { stateUnknown: data.stateUnknown }),
+            verified,
             requestedEffects: found.names.length,
-            copiedEffects: data.status === "verified" ? found.names.length : 0,
-            copied: data.status === "verified" ? found.names : [],
-            valuesCopied: data.status === "verified",
+            copiedEffects: verified ? found.names.length : 0,
+            copied: verified ? found.names : [],
+            valuesCopied: verified,
             source: found.source,
             target: found.target,
             summary: data.summary,
@@ -648,7 +660,7 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
 
     copy_effect_values: {
       description:
-        "Copy verified scalar and colour effect-property values from one effect to the matching effect on another clip. Both clips must already have the same effect applied. Properties are matched by position, then by unique display name, because effects such as Lumetri Color repeat names across sections. Legacy CEP deliberately refuses Blend Mode because Premiere can corrupt its enum value on cross-clip writes.",
+        "Copy verified scalar, numeric-array and colour effect-property values from one effect to the matching effect on another clip. Both clips must already have the same effect applied. Properties are matched by position, then by unique display name, because effects such as Lumetri Color repeat names across sections. Legacy CEP deliberately refuses Blend Mode because Premiere can corrupt its enum value on cross-clip writes.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -694,7 +706,12 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
 
           function valuesMatch(left, right) {
             if (typeof left === "number" && typeof right === "number") return Math.abs(left - right) < 0.000001;
-            return String(left) === String(right);
+            if (left instanceof Array || right instanceof Array) {
+              if (!(left instanceof Array) || !(right instanceof Array) || left.length !== right.length) return false;
+              for (var component = 0; component < left.length; component++) if (typeof left[component] !== "number" || typeof right[component] !== "number" || !isFinite(left[component]) || !isFinite(right[component]) || Math.abs(left[component] - right[component]) >= 0.000001) return false;
+              return true;
+            }
+            return typeof left === typeof right && left === right;
           }
           var copied = 0;
           var skipped = [];
@@ -767,7 +784,12 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
                 // Section headers and opaque data (curves, blobs) are not readable values.
                 continue;
               }
-              if (valuesMatch(tgtProp.getValue(0, 0), val)) {
+              var targetValue = tgtProp.getValue(0, 0);
+              if ((val instanceof Array || targetValue instanceof Array) && (!(val instanceof Array) || !(targetValue instanceof Array) || targetValue.length !== val.length || !isCopyable(targetValue))) {
+                skipped.push({ property: srcProp.displayName, reason: "The target numeric-array shape does not match the source; no write was attempted." });
+                continue;
+              }
+              if (valuesMatch(targetValue, val)) {
                 copied++;
                 continue;
               }
@@ -1013,13 +1035,16 @@ export function getClipboardTools(bridgeOptions: BridgeOptions) {
           var builtIn = 0;
           for (var i = 0; i < result.clip.components.numItems; i++) {
             if (result.clip.components[i].displayName !== effectName) continue;
-            if (__isBuiltInComponent(result.clip.components[i])) builtIn++; else found++;
+            if (__isBuiltInComponentForClip(result.clip.components[i], result.trackType)) builtIn++; else found++;
           }
-          if (!found && builtIn) return __error(effectName + " is a built-in clip component, not an effect, and cannot be removed.");
-          if (!found) return __error("Effect not found: " + effectName);
+          if (!found && builtIn) return __error(effectName + " is a built-in clip component, not an effect, and cannot be removed.", { mutationOutcome: "not_applied", timelineChanged: false });
+          if (!found) return __error("Effect not found: " + effectName, { mutationOutcome: "not_applied", timelineChanged: false });
           var removal = __removeClipComponents(result, function (name) { return name === effectName; });
-          if (removal.unsupported) return __error("Capability error: " + removal.unsupported + " Nothing was removed; remove effects in Effect Controls.");
-          if (removal.failures.length && removal.nothingRemoved) return __error("Capability error: Premiere exposes neither Component.remove() nor a matching QE component for every " + effectName + " instance. No matching components were removed; remove them in Effect Controls.");
+          var failureReceipt = removal.mutationAttempted === false
+            ? { mutationOutcome: "not_applied", timelineChanged: false }
+            : { mutationOutcome: "unknown", timelineChanged: null };
+          if (removal.unsupported) return __error("Capability error: " + removal.unsupported + " Nothing was removed; remove effects in Effect Controls.", failureReceipt);
+          if (removal.failures.length && removal.nothingRemoved) return __error(removal.mutationAttempted === false ? "Capability error: Premiere exposes neither Component.remove() nor a matching QE component for every " + effectName + " instance. No matching components were removed; remove them in Effect Controls." : "A removal was attempted, but Premiere did not confirm completion. Inspect the component stack before any retry.", failureReceipt);
           if (removal.failures.length) return __error("The clip changed: Premiere removed " + removal.removed.length + " of " + found + " " + effectName + " instance(s); " + removal.failures.length + " remain. Inspect Effect Controls.");
           if (!removal.verified) return __error((removal.remaining.join("|") === removal.before.join("|") ? "Premiere's removal did not take effect: the clip still has " : "Premiere's removal did not take effect as expected: the clip's components read back as ") + removal.remaining.join(", ") + ". Inspect Effect Controls.");
           return __result({ removed: removal.removed.length, verified: true, effect: effectName, remaining: removal.remaining });

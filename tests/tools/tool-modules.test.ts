@@ -6,14 +6,16 @@ import { BridgeOptions } from "../../src/bridge/file-bridge.js";
 vi.mock("../../src/bridge/file-bridge.js", () => ({
   sendCommand: vi.fn().mockResolvedValue({ success: true, data: {} }),
   sendRawCommand: vi.fn().mockResolvedValue({ success: true, data: {} }),
+  sendPanelCommand: vi.fn().mockResolvedValue({ success: true, data: {} }),
   getTempDir: vi.fn().mockReturnValue("/tmp/test"),
   cleanupTempDir: vi.fn(),
 }));
 
-import { sendCommand, sendRawCommand } from "../../src/bridge/file-bridge.js";
+import { sendCommand, sendRawCommand, sendPanelCommand } from "../../src/bridge/file-bridge.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const mockedSendRawCommand = vi.mocked(sendRawCommand);
+const mockedSendPanelCommand = vi.mocked(sendPanelCommand);
 
 const bridgeOptions: BridgeOptions = { tempDir: "/tmp/test-bridge", timeoutMs: 5000 };
 
@@ -128,7 +130,7 @@ const ALL_MODULES: Array<{
   { name: "track-targeting", getter: getTrackTargetingTools, minTools: 20 },
   { name: "utility", getter: getUtilityTools, minTools: 15 },
   { name: "health", getter: getHealthTools, minTools: 3 },
-  { name: "workspace", getter: getWorkspaceTools, minTools: 2 },
+  { name: "workspace", getter: getWorkspaceTools, minTools: 4 },
   { name: "captions", getter: getCaptionTools, minTools: 1 },
   { name: "playback", getter: getPlaybackTools, minTools: 3 },
   { name: "project-manager", getter: getProjectManagerTools, minTools: 1 },
@@ -237,12 +239,12 @@ describe("Tool Module Structure", () => {
 });
 
 describe("Total Tool Count", () => {
-  it("all modules together have 429 tools", () => {
+  it("all modules together have 432 tools", () => {
     let total = 0;
     for (const mod of ALL_MODULES) {
       total += Object.keys(mod.getter(bridgeOptions)).length;
     }
-    expect(total).toBe(429);
+    expect(total).toBe(432);
   });
 
   it("there are 59 directly enumerated modules", () => {
@@ -539,6 +541,26 @@ describe("Tool Handler Behavior", () => {
       const script = mockedSendCommand.mock.calls[0][0];
       expect(script).toContain('My \\"Custom\\" Workspace');
       expect(script).toContain("app.setWorkspace");
+    });
+
+    it("list_extensions is a panel command, not ExtendScript", async () => {
+      const tools = getWorkspaceTools(bridgeOptions);
+      await (tools.list_extensions.handler as any)({});
+      expect(mockedSendPanelCommand.mock.calls.at(-1)).toEqual([{ action: "list_extensions" }, bridgeOptions]);
+      expect(mockedSendCommand).not.toHaveBeenCalled();
+    });
+
+    it("open_extension sends the trimmed id and refuses an empty one", async () => {
+      const tools = getWorkspaceTools(bridgeOptions);
+      await (tools.open_extension.handler as any)({ extension_id: " com.example.panel " });
+      expect(mockedSendPanelCommand.mock.calls.at(-1)).toEqual([
+        { action: "open_extension", extensionId: "com.example.panel", params: "" },
+        bridgeOptions,
+      ]);
+      const calls = mockedSendPanelCommand.mock.calls.length;
+      const refused = await (tools.open_extension.handler as any)({ extension_id: "  " });
+      expect(refused.success).toBe(false);
+      expect(mockedSendPanelCommand.mock.calls.length).toBe(calls);
     });
   });
 

@@ -59,6 +59,10 @@ After changing a linked composition in AE, Premiere can return its cached frame
 for a time it already rendered; export a time not exported since the change to
 check it.
 
+Premiere's Dynamic Link starts a windowless After Effects (`aerendercore`) that
+loads CEP extensions too. The After Effects connector stays idle there, so
+commands always reach the After Effects you see.
+
 ## Boundaries and recovery
 
 - Preview requires `inspect,filesystem`; apply requires

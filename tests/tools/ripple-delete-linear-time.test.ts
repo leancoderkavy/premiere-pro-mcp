@@ -11,7 +11,7 @@ describe("ripple delete linear lookups", () => {
     let indexedReads = 0;
     let moveCalls = 0;
     let edgeWrites = 0;
-    const tracks: Array<{ clips: { numItems: number; [index: number]: any }; _items: any[] }> = [];
+    const tracks: Array<{ transitions: { numItems: number }; clips: { numItems: number; [index: number]: any }; _items: any[] }> = [];
     for (let t = 0; t < 6; t++) {
       const items: any[] = [];
       for (let c = 0; c < 250; c++) {
@@ -23,7 +23,7 @@ describe("ripple delete linear lookups", () => {
         items.push(clip);
       }
       const clips: any = new Proxy({ get numItems() { return items.length; } }, { get(target, key, receiver) { if (typeof key === "string" && /^\d+$/.test(key)) indexedReads++; const at = typeof key === "string" && /^\d+$/.test(key) ? Number(key) : -1; return at >= 0 ? items[at] : Reflect.get(target, key, receiver); } });
-      tracks.push({ clips, isLocked: () => false, _items: items });
+      tracks.push({ transitions: { numItems: 0 }, clips, isLocked: () => false, _items: items });
     }
     const seq: any = { videoTracks: { numTracks: 6, ...tracks }, audioTracks: { numTracks: 0 }, timebase: String(TICKS / 24) };
     const qe: any = { project: { getActiveSequence: () => ({ getVideoTrackAt: (i: number) => ({ isSyncLocked: () => true }), getAudioTrackAt: () => null }) } };

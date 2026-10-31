@@ -368,9 +368,11 @@ describe("capability profiles", () => {
   it("declares the CEP areas Premiere exposes no automation API for", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities("inspect"), "darwin");
     const unsupported = report.backends.cep.delivery.unsupported;
-    expect(Object.keys(unsupported).sort()).toEqual(["captionTrackStyle", "cloudPublish", "contentCredentials", "edl", "otio", "renderAndReplace"]);
+    expect(Object.keys(unsupported).sort()).toEqual(["captionGraphicUpgrade", "captionTrackStyle", "cloudPublish", "contentCredentials", "edl", "otio", "renderAndReplace"]);
     expect(unsupported.captionTrackStyle).toMatch(/No documented Premiere ExtendScript, QE DOM, or UXP API/);
     expect(unsupported.captionTrackStyle).toContain("get_caption_style_guidance");
+    expect(unsupported.captionGraphicUpgrade).toMatch(/Upgrade Caption to Graphic/);
+    expect(unsupported.captionGraphicUpgrade).toContain("get_caption_style_guidance");
   });
 
   it("does not claim Premiere host support on Linux", () => {

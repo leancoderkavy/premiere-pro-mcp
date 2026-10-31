@@ -178,7 +178,7 @@ describe("issue #464 — import_ae_comps verifies the file and the bin", () => {
 
     expect(script).toContain('var aeFile = new File("/tmp/titles.aep");');
     expect(script).toContain("if (!aeFile.exists)");
-    expect(script).toContain("var beforeItems = targetBin.children.numItems;");
+    expect(script).toContain("beforeItems = targetBin.children.numItems;");
     expect(script).toContain("if (addedItems <= 0)");
     expect(script).toContain("app.project.importAllAEComps(");
   });

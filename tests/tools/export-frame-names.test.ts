@@ -12,15 +12,16 @@ const TICKS = 254016000000;
  * exporter that mimics Premiere 25.2: it cuts the output name at the first
  * dot, so "shot-12.5s" is written as "shot-12.png".
  */
-function run(requestedPath: string) {
+function run(requestedPath: string, options: { missingFolder?: boolean } = {}) {
   const files = new Map<string, number>();
+  const qeCalls: string[] = [];
   class File {
     fsName: string;
     constructor(path: string) { this.fsName = path; }
     get name() { return encodeURI(this.fsName.substring(this.fsName.lastIndexOf("/") + 1)); }
     get exists() { return files.has(this.fsName); }
     get length() { return files.get(this.fsName) ?? 0; }
-    get parent() { return null; }
+    get parent() { return options.missingFolder ? { exists: false, fsName: this.fsName.substring(0, this.fsName.lastIndexOf("/")) } : null; }
     remove() { files.delete(this.fsName); return true; }
     rename(name: string) {
       const target = this.fsName.substring(0, this.fsName.lastIndexOf("/") + 1) + name;
@@ -33,6 +34,7 @@ function run(requestedPath: string) {
   const qeSeq = {
     name: "Sweep",
     exportFramePNG(_timecode: string, base: string) {
+      qeCalls.push(base);
       const slash = base.lastIndexOf("/");
       const name = base.substring(slash + 1);
       const cut = name.indexOf(".") >= 0 ? name.substring(0, name.indexOf(".")) : name;
@@ -51,7 +53,7 @@ function run(requestedPath: string) {
   };
   const context = { app: { enableQE: () => {}, project: { activeSequence: seq } }, qe: { project: { getActiveSequence: () => qeSeq } }, File, Time };
   const result = runInNewContext(`${getHelpersSource()}\n__exportStillFrame(${JSON.stringify(requestedPath)}, "${Math.round(12.5 * TICKS)}")`, context);
-  return { result, files: [...files.keys()] };
+  return { result, files: [...files.keys()], qeCalls };
 }
 
 describe("export_frame file names", () => {
@@ -70,6 +72,24 @@ describe("export_frame file names", () => {
     expect(result).toMatchObject({ success: true, data: { exported: true, method: "qe", renderVerified: false,
       verificationScope: expect.stringContaining("does not establish motion over time") } });
   });
+  it("refuses a missing output folder before QE or Media Encoder runs", () => {
+    // Live 26.5.2: QE returned false and AME wrote nothing, so the failure came back
+    // after dispatch with an unknown outcome and locked further edits.
+    const { result, files, qeCalls } = run("/Users/me/missing/shot.png", { missingFolder: true });
+    expect(result).toMatchObject({ ok: false, notApplied: true, error: expect.stringContaining("Output folder does not exist: /Users/me/missing") });
+    expect(qeCalls).toEqual([]);
+    expect(files).toEqual([]);
+  });
+
+  it("reports a missing-folder refusal from export_frame as not applied", async () => {
+    vi.mocked(sendCommand).mockImplementation(async (script) => JSON.parse(String(runInNewContext(String(script), {
+      __exportStillFrame: () => ({ ok: false, notApplied: true, error: "Output folder does not exist: /missing", notes: [] }),
+      __error: (error: string, data: unknown) => JSON.stringify({ success: false, error, data }),
+    }))));
+    const result = await getExportTools({}).export_frame.handler({ output_path: "/missing/frame.png" });
+    expect(result).toMatchObject({ success: false, error: "Output folder does not exist: /missing", data: { mutationOutcome: "not_applied", timelineChanged: false } });
+  });
+
   it("still works for plain names", () => {
     const { result, files } = run("/Users/me/frames/plain.png");
     expect(result).toMatchObject({ ok: true, method: "qe" });
@@ -206,14 +226,15 @@ describe("__exportStillFrame does not steal a sibling still as the capture", () 
       },
     };
     const Time = function (this: { ticks: string; getFormatted: () => string }) { this.ticks = "0"; this.getFormatted = () => "00:00:00:00"; };
+    let inTicks = 0, outTicks = TICKS;
     const seq = {
       timebase: String(TICKS / 24),
       sequenceID: "seq",
       getPlayerPosition: () => ({ ticks: "0" }),
-      getInPointAsTime: () => ({ ticks: "0" }),
-      getOutPointAsTime: () => ({ ticks: String(TICKS) }),
-      setInPoint() {},
-      setOutPoint() {},
+      getInPointAsTime: () => ({ ticks: String(inTicks) }),
+      getOutPointAsTime: () => ({ ticks: String(outTicks) }),
+      setInPoint(seconds: number) { inTicks = Math.floor(seconds * 48000) * (TICKS / 48000); },
+      setOutPoint(seconds: number) { outTicks = Math.floor(seconds * 48000) * (TICKS / 48000); },
       exportAsMediaDirect(path: string) { if (options.ameWrites) files.set(path.replace(dest, options.ameWrites), 2048); },
     };
     const result = runInNewContext(`${getHelpersSource()}

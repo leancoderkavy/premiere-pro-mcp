@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+
+// Full catalog setup can contend with other processes on a loaded machine.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 import { getUxpTools } from "../../src/tools/uxp.js";
 import type { UxpWebSocketBridge } from "../../src/bridge/uxp-websocket-bridge.js";
 import { createServer } from "../../src/server.js";
@@ -660,6 +663,7 @@ describe("UXP MCP tools", () => {
           "inspect_project_panel_metadata_uxp",
           "slide_track_item_uxp",
           "duplicate_track_item_uxp",
+          "unnest_sequence_uxp",
           "ripple_delete_track_item_uxp",
           "manage_timeline_source_label_uxp",
           "apply_editorial_organization_plan",
@@ -685,7 +689,8 @@ describe("UXP MCP tools", () => {
       // Guarded Speech-to-Text start (transcribe_clip_uxp, is_language_pack_available_uxp)
       // and caption style guidance (get_caption_style_guidance) add three more tools; paste_clip_attributes, set_clip_duration, and compute_mask_fit_motion each add one core tool.
       // Premiere 26.5 WorkAreaUtils adds manage_work_area_uxp.
-        expect(tools.tools).toHaveLength(537);
+      // Clone-based unnest adds unnest_sequence_uxp.
+        expect(tools.tools).toHaveLength(541);
     } finally {
       await client.close();
       await server.close();

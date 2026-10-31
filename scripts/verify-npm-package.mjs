@@ -18,6 +18,7 @@ const requiredFiles = [
   "package/dist/index.d.ts",
   "package/cep-plugin/CSXS/manifest.xml",
   "package/cep-plugin/bridge-directory-security.cjs",
+  "package/cep-plugin/panel-commands.cjs",
   "package/after-effects-cep-plugin/CSXS/manifest.xml",
   "package/after-effects-cep-plugin/bridge-directory-security.cjs",
   "package/uxp-plugin/manifest.json",

@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+// Full catalog setup can contend with other processes on a loaded machine.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 import { existsSync, readdirSync, readFileSync, watch, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";

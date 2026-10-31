@@ -10,7 +10,7 @@
     "name": "MCP for Adobe Premiere Pro",
     "mcpName": "io.github.leancoderkavy/premiere-pro",
     "npmPackage": "premiere-pro-mcp",
-    "version": "1.25.0",
+    "version": "1.27.0",
     "repository": "https://github.com/leancoderkavy/premiere-pro-mcp",
     "homepage": "https://premiere-pro-mcp.com/",
     "license": "MIT",
@@ -27,10 +27,10 @@
     ]
   },
   "capabilitySurface": {
-    "registeredCoreTools": 443,
-    "defaultProfileTools": 441,
-    "authenticatedUxpAdditions": 96,
-    "defaultProfileWithUxp": 537,
+    "registeredCoreTools": 446,
+    "defaultProfileTools": 444,
+    "authenticatedUxpAdditions": 97,
+    "defaultProfileWithUxp": 541,
     "toolModules": 68,
     "guidedWorkflows": 29
   },

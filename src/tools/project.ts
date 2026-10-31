@@ -259,10 +259,10 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           if (expectedIndex !== null) {
             var currentIndex = __readUndoIndex();
             if (currentIndex === null || typeof currentIndex === "undefined" || isNaN(Number(currentIndex))) {
-              return __jsonStringify({ success: false, error: "Premiere did not expose undoStackIndex; undo was not attempted", data: { expectedUndoStackIndex: expectedIndex } });
+              return __jsonStringify({ success: false, error: "Premiere did not expose undoStackIndex; undo was not attempted", data: { expectedUndoStackIndex: expectedIndex, mutationOutcome: "not_applied", timelineChanged: false } });
             }
             if (currentIndex !== expectedIndex) {
-              return __jsonStringify({ success: false, error: "Premiere's undo stack is at " + currentIndex + ", not the expected " + expectedIndex + ": the undo-stack position changed since that call (actions were undone or recorded), so undo was not attempted.", data: { undoStackIndex: currentIndex, expectedUndoStackIndex: expectedIndex } });
+              return __jsonStringify({ success: false, error: "Premiere's undo stack is at " + currentIndex + ", not the expected " + expectedIndex + ": the undo-stack position changed since that call (actions were undone or recorded), so undo was not attempted.", data: { undoStackIndex: currentIndex, expectedUndoStackIndex: expectedIndex, mutationOutcome: "not_applied", timelineChanged: false } });
             }
           }
           var outcome = __qeUndoSteps("undo", ${count}, ${args.acknowledge_untracked_markers === true ? "true" : "false"});
@@ -367,11 +367,19 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           var requestedPath = "${escapeForExtendScript(requestedPath)}";
           function __normalizedProjectPath(path) {
-            return String(path || "").replace(/\\\\/g, "/").toLowerCase();
+            return __hostPathKey(path);
           }
           var beforePath = app.project ? String(app.project.path || "") : "";
           if (__normalizedProjectPath(beforePath) === __normalizedProjectPath(requestedPath)) {
             return __error("A project is already open at " + requestedPath + "; choose a new .prproj file path instead.");
+          }
+          try {
+            var requestedFolder = new File(requestedPath).parent;
+            if (!requestedFolder || requestedFolder.exists !== true) {
+              return __error("The project directory does not exist or could not be read for " + requestedPath + "; no project creation was attempted.", { mutationOutcome: "not_applied", timelineChanged: false });
+            }
+          } catch (folderReadError) {
+            return __error("The project directory could not be read for " + requestedPath + "; no project creation was attempted.", { mutationOutcome: "not_applied", timelineChanged: false });
           }
           // A new project has its own undo stack; do not report a count across it.
           __undoStart = null;
@@ -433,7 +441,9 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
             documentId: documentId, saved: ${save}, closeAccepted: closed === true ? true : (closed === false ? false : null) } });
         `);
         return withBridgeWorkflow(bridgeOptions, async () => {
-          const result = await sendCommand(script, { ...bridgeOptions, mutating: true, mutationOnTimeout: true });
+          // Closing the last project unloads the visible panel mid-command; the
+          // headless connector engine survives the close and can reply.
+          const result = await sendCommand(script, { ...bridgeOptions, mutating: true, mutationOnTimeout: true, hostEngine: "headless" });
           if (!result.success) return result;
           const data = result.data as { closeRequested?: boolean; path?: string; documentId?: string };
           if (data?.closeRequested !== true || typeof data.path !== "string" || typeof data.documentId !== "string") return result;
@@ -466,7 +476,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
 
     import_ae_comps: {
       description:
-        "Import After Effects compositions from an .aep file as Dynamic Link clips, failing closed when the file does not exist or when the target bin gains no items. Returns each new item's nodeId and name for placement (add_to_timeline, replace_clip). With comp_names the result is verified when every requested composition is read back by name and source .aep; importing all comps stays committed_unverified because the expected set is unknown.",
+        "Import After Effects compositions from an .aep file as Dynamic Link clips, failing closed when the file does not exist or when the target bin gains no items. Returns each new item's nodeId and name for placement (add_to_timeline, replace_clip). With comp_names the result is verified only when every requested composition is read back by name and source .aep. Importing all comps verifies the target-bin item-count increase only, because the expected set is unknown; its items list is informational and is omitted when the bin's items cannot be read.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -510,24 +520,40 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
             if (!targetBin.children) {
               return __error("The target bin does not expose a children collection, so an After Effects import cannot be verified.");
             }
-            var beforeItems = targetBin.children.numItems;
+            var beforeItems = null;
+            try { beforeItems = targetBin.children.numItems; } catch (countError) {}
+            if (typeof beforeItems !== "number" || !isFinite(beforeItems) || beforeItems < 0 || Math.floor(beforeItems) !== beforeItems) {
+              return __error("The target bin item count could not be read reliably. No compositions were imported.", { verified: false, mutationOutcome: "not_applied", projectChanged: false });
+            }
+            // Item identities let callers place the new comps; null when the bin's items cannot be read.
             var beforeIds = {};
-            for (var bi = 0; bi < beforeItems; bi++) beforeIds[String(targetBin.children[bi].nodeId)] = true;
+            try {
+              for (var bi = 0; bi < beforeItems; bi++) beforeIds[String(targetBin.children[bi].nodeId)] = true;
+            } catch (childReadError) { beforeIds = null; }
         `;
         const verify = (importedDescription: string) => `
-            var afterItems = targetBin.children.numItems;
+            var afterItems = null;
+            try { afterItems = targetBin.children.numItems; } catch (countError) {}
+            if (typeof afterItems !== "number" || !isFinite(afterItems) || afterItems < 0 || Math.floor(afterItems) !== afterItems) {
+              return __error("The import ran, but the target bin item count could not be read reliably afterwards. Inspect the bin before retrying.", { imported: null, verified: false, outcome: "committed_unverified", binItemsBefore: beforeItems, binItemsAfter: null });
+            }
             var addedItems = afterItems - beforeItems;
             if (addedItems <= 0) {
               return __error("Premiere reported no error, but the target bin gained no items, so ${importedDescription} were not imported from ${aePath}.");
             }
             // Return the new items so callers can place them without searching the bin.
-            var items = [];
-            for (var ai = 0; ai < afterItems; ai++) {
-              var addedItem = targetBin.children[ai];
-              if (beforeIds[String(addedItem.nodeId)]) continue;
-              var addedPath = "";
-              try { addedPath = addedItem.getMediaPath ? String(addedItem.getMediaPath()) : ""; } catch (mediaPathError) {}
-              items.push({ nodeId: String(addedItem.nodeId), name: String(addedItem.name), fromProject: addedPath !== "" && new File(addedPath).fsName === aeFile.fsName });
+            var items = null;
+            if (beforeIds) {
+              try {
+                items = [];
+                for (var ai = 0; ai < afterItems; ai++) {
+                  var addedItem = targetBin.children[ai];
+                  if (beforeIds[String(addedItem.nodeId)]) continue;
+                  var addedPath = "";
+                  try { addedPath = addedItem.getMediaPath ? String(addedItem.getMediaPath()) : ""; } catch (mediaPathError) {}
+                  items.push({ nodeId: String(addedItem.nodeId), name: String(addedItem.name), fromProject: addedPath !== "" && new File(addedPath).fsName === aeFile.fsName });
+                }
+              } catch (itemReadError) { items = null; }
             }
         `;
 
@@ -537,6 +563,9 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
             .join(", ");
           const script = buildToolScript(`
             ${preflight}
+            if (!beforeIds) {
+              return __error("The target bin's items could not be read, so the requested compositions could not be verified by name. No compositions were imported.", { verified: false, mutationOutcome: "not_applied", projectChanged: false });
+            }
             try {
               app.project.importAEComps("${aePath}", [${comps}], targetBin);
             } catch (importError) {
@@ -544,26 +573,28 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
             }
             ${verify("the requested compositions")}
             var requested = [${comps}];
-            var verified = true;
-            for (var ri = 0; ri < requested.length; ri++) {
+            var verified = items !== null;
+            for (var ri = 0; verified && ri < requested.length; ri++) {
               var found = false;
               for (var ii = 0; ii < items.length; ii++) {
                 if (items[ii].fromProject && items[ii].name.indexOf(requested[ri] + "/") === 0) found = true;
               }
               if (!found) verified = false;
             }
+            var verificationText = verified
+              ? "Each requested composition was read back as a new bin item from this .aep (by name and media path); rendered content is not verified."
+              : "The bin gained items, but not every requested composition could be matched by name and media path; inspect items before relying on them.";
             return __result({
               imported: true,
               verified: verified,
               outcome: verified ? "verified" : "committed_unverified",
               comps: requested,
-              items: items,
+              items: items || [],
               addedItems: addedItems,
               binItemsBefore: beforeItems,
               binItemsAfter: afterItems,
-              verification: verified
-                ? "Each requested composition was read back as a new bin item from this .aep (by name and media path); rendered content is not verified."
-                : "The bin gained items, but not every requested composition could be matched by name and media path; inspect items before relying on them."
+              verification: verificationText,
+              verificationScope: verificationText
             });
           `);
           return sendCommand(script, bridgeOptions);
@@ -579,13 +610,13 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
             return __result({
               imported: true,
               verified: true,
-              outcome: "committed_unverified",
               allComps: true,
-              items: items,
+              items: items || undefined,
               addedItems: addedItems,
               binItemsBefore: beforeItems,
               binItemsAfter: afterItems,
-              verification: "Target-bin item-count increase only; composition identity and rendered content are not verified."
+              verification: "Target-bin item-count increase only; composition identity and rendered content are not verified.",
+              verificationScope: "Target-bin item-count increase only; composition identity and rendered content are not verified."
             });
           `);
           return sendCommand(script, bridgeOptions);

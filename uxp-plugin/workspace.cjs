@@ -21,7 +21,7 @@
     // trailing spaces are legal POSIX filename characters and must survive
     // normalization unchanged.
     const original = value;
-    const windowsInput = /^[A-Za-z]:[\\/]/.test(original) || /^\\\\/.test(original);
+    const windowsInput = /^[A-Za-z]:[\\/]/.test(original) || /^\\\\/.test(original) || /^\/\/[^/]+\/[^/]+/.test(original);
     const slashed = windowsInput ? original.replace(/\\/g, "/") : original;
     const drive = /^([A-Za-z]):\/(.*)$/.exec(slashed);
     const unc = windowsInput && /^\/\/([^/]+)\/([^/]+)(?:\/(.*))?$/.exec(slashed);
@@ -46,7 +46,7 @@
     }
     const normalized = prefix + "/" + parts.join("/");
     return {
-      normalized: normalized.length > 1 && normalized.endsWith("/") ? normalized.slice(0, -1) : normalized,
+      normalized: normalized,
       comparison: (drive || unc ? normalized.toLowerCase() : normalized),
       kind: drive ? "windows" : unc ? "unc" : "posix",
       depth: parts.length
@@ -58,7 +58,17 @@
     const candidate = parseAbsolutePath(candidatePath, "path");
     if (root.kind !== candidate.kind) return false;
     if (candidate.comparison === root.comparison) return !!allowRoot;
-    return candidate.comparison.indexOf(root.comparison + "/") === 0;
+    const prefix = root.comparison.endsWith("/") ? root.comparison : root.comparison + "/";
+    return candidate.comparison.indexOf(prefix) === 0;
+  }
+
+  function isUnicodeAliasCandidate(rootPath, candidatePath, allowRoot) {
+    const root = parseAbsolutePath(rootPath, "workspace root");
+    const candidate = parseAbsolutePath(candidatePath, "path");
+    if (root.kind !== candidate.kind || typeof root.comparison.normalize !== "function") return false;
+    const rootKey = root.comparison.normalize("NFC"), candidateKey = candidate.comparison.normalize("NFC");
+    const prefix = rootKey.endsWith("/") ? rootKey : rootKey + "/";
+    return candidateKey === rootKey ? !!allowRoot : candidateKey.indexOf(prefix) === 0;
   }
 
   function validateLoopbackBridgeUrl(value) {
@@ -82,8 +92,9 @@
 
   function toFileUrl(nativePath) {
     const parsed = parseAbsolutePath(nativePath, "path");
-    if (parsed.kind === "windows") return "file:/" + parsed.normalized;
-    return "file:" + parsed.normalized;
+    const encoded = parsed.normalized.split("/").map((part, index) => parsed.kind === "windows" && index === 0 ? part : encodeURIComponent(part)).join("/");
+    if (parsed.kind === "windows") return "file:/" + encoded;
+    return "file:" + encoded;
   }
 
   function createCanonicalPathResolver(deps) {
@@ -224,7 +235,8 @@
       const root = parseAbsolutePath(rootPath, "workspace root");
       const candidate = parseAbsolutePath(candidatePath, label);
       if (candidate.comparison === root.comparison) return [];
-      if (candidate.comparison.indexOf(root.comparison + "/") !== 0) {
+      const prefix = root.comparison.endsWith("/") ? root.comparison : root.comparison + "/";
+      if (candidate.comparison.indexOf(prefix) !== 0) {
         throw workspaceError("UXP_PATH_OUTSIDE_WORKSPACE", label + " must stay inside the approved workspace folder");
       }
       return candidate.normalized.slice(root.normalized.length).replace(/^\//, "").split("/").filter(Boolean);
@@ -264,17 +276,25 @@
         throw workspaceError("UXP_WORKSPACE_REQUIRED", "Choose an approved workspace folder in the MCP for Adobe Premiere Pro panel before using " + label);
       }
       const candidate = parseAbsolutePath(value, label);
-      if (!isContained(rootPath, candidate.normalized, kind === "directory")) {
+      const lexicallyContained = isContained(rootPath, candidate.normalized, kind === "directory");
+      if (!lexicallyContained && !isUnicodeAliasCandidate(rootPath, candidate.normalized, kind === "directory")) {
         throw workspaceError("UXP_PATH_OUTSIDE_WORKSPACE", label + " must stay inside the approved workspace folder");
+      }
+      // Unicode equivalence is only a preliminary check. Distinct filesystems
+      // can store both spellings, so the final canonical containment stays exact.
+      const canonicalResolver = typeof resolveCanonicalPath === "function" ? resolveCanonicalPath
+        : !lexicallyContained || !canWalkGrantedFolder() ? createCanonicalPathResolver({ fs }) : undefined;
+      if (!lexicallyContained && typeof canonicalResolver !== "function") {
+        throw workspaceError("UXP_CANONICAL_PATH_UNAVAILABLE", label + " uses a different Unicode spelling from the approved folder. An independent canonical resolver is required; use the selected folder's native spelling until that identity can be checked. Nothing was changed.");
       }
       // Lexical containment cannot detect symlink, junction, or reparse-point
       // escapes. Prefer an embedder-supplied resolver; otherwise walk from the
       // granted folder Entry so nativePath reflects the host's resolved target.
       let canonicalRootValue, canonicalCandidateValue;
       try {
-        if (typeof resolveCanonicalPath === "function") {
-          canonicalRootValue = await resolveCanonicalPath(rootPath, { label: "workspace root", kind: "directory" });
-          canonicalCandidateValue = await resolveCanonicalPath(candidate.normalized, { label, kind });
+        if (typeof canonicalResolver === "function") {
+          canonicalRootValue = await canonicalResolver(rootPath, { label: "workspace root", kind: "directory" });
+          canonicalCandidateValue = await canonicalResolver(candidate.normalized, { label, kind });
         } else {
           canonicalRootValue = await resolveThroughGrantedFolder(rootPath, { label: "workspace root", kind: "directory" });
           canonicalCandidateValue = await resolveThroughGrantedFolder(candidate.normalized, { label, kind });

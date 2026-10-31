@@ -575,6 +575,20 @@ describe("sendCommand", () => {
     expect(writeCall?.[2]).toBe("utf-8");
   });
 
+  it("names a headless-routed command so its reply file matches", async () => {
+    mockedExistsSync.mockImplementation(() => true);
+    mockedReadFileSync.mockReturnValue('{"success":true,"data":{"closed":true}}');
+
+    const promise = sendCommand("var x = 1;", { tempDir: "/tmp/test-bridge", hostEngine: "headless" });
+    await vi.advanceTimersByTimeAsync(200);
+    await expect(promise).resolves.toMatchObject({ success: true, data: { closed: true } });
+
+    const publishedPath = String(mockedRenameSync.mock.calls[0]?.[1]);
+    expect(publishedPath).toMatch(/cmd_[0-9a-f-]{36}\.headless\.jsx$/);
+    const id = publishedPath.replace(/.*cmd_/, "").replace(/\.jsx$/, "");
+    expect(mockedReadFileSync.mock.calls.some(([path]) => String(path).endsWith(`res_${id}.json`))).toBe(true);
+  });
+
   it("returns parsed JSON response", async () => {
     mockedExistsSync.mockImplementation((path) => {
       if (String(path).includes("res_")) return true;

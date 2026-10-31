@@ -26,6 +26,32 @@ describe("cooperating-process Premiere execution lease", () => {
     expect(work).toHaveBeenCalledOnce();
     expect(inspectHostRecovery(path).recoveryRequired).toBe(false);
   });
+  it.each(["EACCES", "EPERM", "INVALID_JSON"])("retries a %s owner read only after confirming the record disappeared", async code => {
+    const path = directory(), lock = join(path, ".host-owner-lease"), owner = join(lock, "owner.json");
+    mkdirSync(lock, { mode: 0o700 });
+    writeFileSync(owner, JSON.stringify({ version: 1, pid: process.pid, token: "finishing" }), { mode: 0o600 });
+    vi.mocked(readFileSync).mockImplementationOnce(() => {
+      rmSync(lock, { recursive: true });
+      if (code === "INVALID_JSON") throw new SyntaxError("owner contents unavailable during release");
+      throw Object.assign(new Error("owner deletion in progress"), { code });
+    });
+    const work = vi.fn(async () => "acquired");
+    await expect(withHostLease(path, 1000, work)).resolves.toBe("acquired");
+    expect(work).toHaveBeenCalledOnce();
+    expect(inspectHostRecovery(path).recoveryRequired).toBe(false);
+  });
+  it.each(["EACCES", "EPERM"])("refuses an unreadable %s owner record that still exists", async code => {
+    const path = directory(), lock = join(path, ".host-owner-lease"), owner = join(lock, "owner.json");
+    mkdirSync(lock, { mode: 0o700 });
+    writeFileSync(owner, JSON.stringify({ version: 1, pid: process.pid, token: "other" }), { mode: 0o600 });
+    vi.mocked(readFileSync).mockImplementationOnce(() => {
+      throw Object.assign(new Error("owner remains unreadable"), { code });
+    });
+    const work = vi.fn();
+    await expect(withHostLease(path, 1000, work)).rejects.toMatchObject({ code: "HOST_LEASE_UNSAFE" });
+    expect(work).not.toHaveBeenCalled();
+    expect(JSON.parse(readFileSync(owner, "utf8")).token).toBe("other");
+  });
   it("holds inspect/apply/readback ownership across nested work", async () => {
     const path = directory(), events: string[] = [];
     await withHostLease(path, 200, async () => {

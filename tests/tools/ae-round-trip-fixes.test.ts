@@ -15,34 +15,63 @@ beforeEach(() => vi.clearAllMocks());
 
 // Live (Premiere 26.5.2): a Dynamic Link import names the item "<comp>/<file>.aep".
 describe("import_ae_comps returns the new items", () => {
-  function host(names: string[]) {
+  function host(names: string[], options: { unreadableItems?: boolean } = {}) {
     const aep = "/work/motion.aep";
     const children: Array<{ nodeId: string; name: string; getMediaPath: () => string }> = [{ nodeId: "old-1", name: "Existing", getMediaPath: () => "/media/a.mp4" }];
-    const bin = { children: new Proxy(children, { get: (array, key) => key === "numItems" ? array.length : Reflect.get(array, key) }) };
+    const bin = { children: new Proxy(children, { get: (array, key) => {
+      if (key === "numItems") return array.length;
+      if (options.unreadableItems && typeof key === "string" && /^\d+$/.test(key)) throw new Error("item unreadable");
+      return Reflect.get(array, key);
+    } }) };
     function File(this: { fsName: string; exists: boolean }, name: string) { this.fsName = name; this.exists = true; }
+    const importAll = vi.fn(() => { names.forEach((name, i) => children.push({ nodeId: `new-${i}`, name, getMediaPath: () => aep })); });
     mockedSendCommand.mockImplementation(async (script) => {
       parse(script, { ecmaVersion: 3, allowReserved: "never", allowReturnOutsideFunction: true });
       return JSON.parse(String(vm.runInNewContext(script, {
         File, __findProjectItem: () => bin,
         __result: (data: unknown) => JSON.stringify({ success: true, data }),
         __error: (error: string) => JSON.stringify({ success: false, error }),
-        app: { project: { rootItem: bin, importAEComps: () => { names.forEach((name, i) => children.push({ nodeId: `new-${i}`, name, getMediaPath: () => aep })); } } },
+        app: { project: { rootItem: bin, importAEComps: importAll, importAllAEComps: importAll } },
       })));
     });
-    return getProjectTools({ tempDir: "/tmp/ae-import", timeoutMs: 1000 });
+    return { tools: getProjectTools({ tempDir: "/tmp/ae-import", timeoutMs: 1000 }), importAll };
   }
 
   it("returns each new item's node ID and verifies requested comps by name and source", async () => {
-    const tools = host(["Lower Third/motion.aep"]);
+    const { tools } = host(["Lower Third/motion.aep"]);
     const result = await tools.import_ae_comps.handler({ ae_project_path: "/work/motion.aep", comp_names: ["Lower Third"] }) as any;
     expect(result).toMatchObject({ success: true, data: { verified: true, outcome: "verified", items: [{ nodeId: "new-0", name: "Lower Third/motion.aep", fromProject: true }] } });
   });
 
   it("stays committed_unverified when a requested comp is not among the new items", async () => {
-    const tools = host(["Something Else/motion.aep"]);
+    const { tools } = host(["Something Else/motion.aep"]);
     const result = await tools.import_ae_comps.handler({ ae_project_path: "/work/motion.aep", comp_names: ["Lower Third"] }) as any;
     expect(result).toMatchObject({ success: true, data: { verified: false, outcome: "committed_unverified" } });
     expect(result.data.items).toHaveLength(1);
+  });
+
+  it("refuses a named import before calling Premiere when the bin's items cannot be read", async () => {
+    const { tools, importAll } = host(["Lower Third/motion.aep"], { unreadableItems: true });
+    const result = await tools.import_ae_comps.handler({ ae_project_path: "/work/motion.aep", comp_names: ["Lower Third"] }) as any;
+    expect(result).toMatchObject({ success: false });
+    expect(result.error).toContain("No compositions were imported");
+    expect(importAll).not.toHaveBeenCalled();
+  });
+
+  it("keeps an all-comps import on the count check without items when the bin's items cannot be read", async () => {
+    const { tools, importAll } = host(["Lower Third/motion.aep"], { unreadableItems: true });
+    const result = await tools.import_ae_comps.handler({ ae_project_path: "/work/motion.aep" }) as any;
+    expect(importAll).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({ success: true, data: { verified: true, allComps: true, addedItems: 1 } });
+    expect(result.data.outcome).toBeUndefined();
+    expect(result.data.items).toBeUndefined();
+  });
+
+  it("lists the new items as information on an all-comps import", async () => {
+    const { tools } = host(["Lower Third/motion.aep", "Title/motion.aep"]);
+    const result = await tools.import_ae_comps.handler({ ae_project_path: "/work/motion.aep" }) as any;
+    expect(result).toMatchObject({ success: true, data: { verified: true, allComps: true, addedItems: 2, verificationScope: "Target-bin item-count increase only; composition identity and rendered content are not verified." } });
+    expect(result.data.items.map((item: { name: string }) => item.name)).toEqual(["Lower Third/motion.aep", "Title/motion.aep"]);
   });
 });
 

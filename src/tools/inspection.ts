@@ -244,7 +244,7 @@ export function getInspectionTools(bridgeOptions: BridgeOptions) {
     },
 
     get_full_sequence_info: {
-      description: "Get bounded information about a sequence (50 clips by default; follow pagination.nextOffset; markers and transitions capped at 50 per collection): settings, all tracks with lock/mute/target state, paged clips with positions/effects/speed/enabled state, bounded markers, transitions, in/out points, and work area.",
+      description: "Get bounded information about a sequence (50 clips by default; follow pagination.nextOffset; markers and transitions capped at 50 per collection): settings, all tracks with lock/mute/target state, paged clips with positions/effects/speed/enabled state, bounded markers, transitions, in/out points, and work area. Bounded source-alignment diagnostics include separate picture/sound offsets and media-pair group inconsistencies, with limited group context outside this page; they do not verify playback sync.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -260,7 +260,7 @@ export function getInspectionTools(bridgeOptions: BridgeOptions) {
           ? `var seq = __findSequence("${escapeForExtendScript(args.sequence_id)}"); if (!seq) return __error("Sequence not found");`
           : `var seq = app.project.activeSequence; if (!seq) return __error("No active sequence");`;
 
-        const bounds = sequenceReadScript(args);
+        const bounds = sequenceReadScript(args, true);
         const script = buildToolScript(`
           ${bounds}
           ${seqLookup}

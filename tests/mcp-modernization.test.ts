@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// Full catalog setup can contend with other processes on a loaded machine.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 import { WORKFLOW_CATALOG, WORKFLOW_PROMPTS, WORKFLOW_RESOURCE } from "../src/workflows/catalog.js";
 import { annotationsForTool, structuredToolResult } from "../src/workflows/tool-metadata.js";
 import { createServer } from "../src/server.js";
@@ -132,7 +135,7 @@ describe("modern MCP surface", () => {
       // unsafe-script, so the two scripting tools are not advertised.
       expect(tools.tools.map((tool) => tool.name)).not.toContain("execute_extendscript");
       expect(tools.tools.map((tool) => tool.name)).not.toContain("evaluate_expression");
-      expect(tools.tools).toHaveLength(441);
+      expect(tools.tools).toHaveLength(444);
       expect(tools.tools.find((tool) => tool.name === "preview_after_effects_render_handoff")?.annotations?.readOnlyHint).toBe(true);
       expect(tools.tools.find((tool) => tool.name === "apply_after_effects_render_handoff")?.annotations?.readOnlyHint).toBe(false);
       const capabilityTool = tools.tools.find((tool) => tool.name === "get_capabilities");

@@ -23,7 +23,7 @@ function fixture() {
   const clip = { nodeId: "clip-A", name: "Clip", projectItem: media, start: { ticks: "0" }, end: { ticks: "254016000000" }, inPoint: { ticks: "0" }, outPoint: { ticks: "254016000000" }, getLinkedItems: () => null, remove };
   list.push(clip);
   const clips = new Proxy({}, { get: (_target, key) => key === "numItems" ? list.length : list[Number(key)] });
-  const sequence = { sequenceID: "sequence-A", name: "Target", videoTracks: { numTracks: 1, 0: { clips, isLocked: () => false } }, audioTracks: { numTracks: 1, 0: { clips: { numItems: 0 } } } };
+  const sequence = { sequenceID: "sequence-A", name: "Target", videoTracks: { numTracks: 1, 0: { transitions: { numItems: 0 }, clips, isLocked: () => false } }, audioTracks: { numTracks: 1, 0: { transitions: { numItems: 0 }, clips: { numItems: 0 } } } };
   const other = { ...sequence, sequenceID: "sequence-B", name: "Other" };
   let active = sequence;
   const activation = vi.fn((value: typeof sequence) => { active = value; });
@@ -223,7 +223,7 @@ describe("persisted preview host-target binding", () => {
     else if (change === "range") f.partner.inPoint = { ticks: "100" };
     else {
       const tracks = f.sequence.audioTracks as typeof f.sequence.audioTracks & Record<number, typeof f.sequence.audioTracks[0]>;
-      tracks[1] = tracks[0]; tracks[0] = { clips: { numItems: 0 } }; tracks.numTracks = 2;
+      tracks[1] = tracks[0]; tracks[0] = { transitions: { numItems: 0 }, clips: { numItems: 0 } }; tracks.numTracks = 2;
     }
     expect(await f.tools.apply_edit_plan.handler({ plan: removal, confirmation_token: token })).toMatchObject({ success: false, error: expect.stringContaining("host targets changed") });
     expect(f.remove).not.toHaveBeenCalled(); expect(f.partnerRemove).not.toHaveBeenCalled(); expect(f.activation).not.toHaveBeenCalled();

@@ -457,6 +457,19 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "Project.lockedAccess",
       "Project.executeTransaction",
     ]));
+    expect(entries.find((entry) => entry.id === "guarded-sequence-unnest-by-clone")).toMatchObject({
+      uxpCommand: "sequence.unnest",
+      mcpTools: ["unnest_sequence_uxp"],
+      verificationBoundary: "guarded_clone_placement_and_reference_removal_readback",
+      liveHostVerificationStatus: "not_run",
+    });
+    expect(entries.find((entry) => entry.id === "guarded-sequence-unnest-by-clone")?.adobeApi).toEqual(expect.arrayContaining([
+      "ClipProjectItem.isSequence",
+      "ClipProjectItem.getSequence",
+      "SequenceEditor.createCloneTrackItemAction",
+      "SequenceEditor.createRemoveItemsAction",
+      "Project.executeTransaction",
+    ]));
     expect(entries.find((entry) => entry.id === "guarded-track-item-contiguous-ripple-delete")).toMatchObject({
       uxpCommand: "trackItem.rippleDelete",
       mcpTools: ["ripple_delete_track_item_uxp"],
@@ -549,12 +562,12 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("keeps unimplemented 26.3 work visibly planned", () => {
     const report = buildAdobeUxpCoverageReport();
     expect(report.summary).toEqual({
-      total: 90,
-      current: 87,
+      total: 91,
+      current: 88,
       planned: 3,
-      implemented: 87,
+      implemented: 88,
       committedUnverified: 8,
-      automatedContractVerified: 79,
+      automatedContractVerified: 80,
       liveHostVerified: 0,
     });
     expect(report.entries.find((entry) => entry.id === "aaf-export")).toMatchObject({
@@ -586,7 +599,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("surfaces the baseline in the platform capability report", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities("inspect"), "win32");
     expect(report.backends.uxp.apiCoverage.summary).toMatchObject({
-      current: 87,
+      current: 88,
       planned: 3,
       committedUnverified: 8,
     });

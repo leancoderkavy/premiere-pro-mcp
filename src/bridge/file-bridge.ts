@@ -195,6 +195,13 @@ export interface BridgeOptions {
   requireHeartbeat?: boolean;
   /** Mark a command as mutating so a queued-behind-busy timeout can prove it was not applied. */
   mutating?: boolean;
+  /**
+   * Ask the CEP connector to run this command in its headless engine. Closing
+   * the last project unloads Premiere's workspace panels, so a reply owed by
+   * the visible panel is lost. The name suffix keeps older connectors running
+   * the command as before.
+   */
+  hostEngine?: "headless";
 }
 
 export interface BridgeHelpers {
@@ -621,9 +628,29 @@ async function executeOwnedCommand(tempDir: string, options: BridgeOptions | und
   return (nested ? run() : scheduleBridgeCommand(tempDir, run)).finally(finishQueue);
 }
 
+/** First line of a panel-side command file (cep-plugin/panel-commands.cjs). */
+export const PANEL_COMMAND_MARKER = "/* @panel-command */";
+
+/**
+ * Send a command that the CEP panel answers itself, in its own CEP runtime, instead of
+ * running ExtendScript: listing and opening extensions. Same queue, lease, reply file and
+ * timeout as sendCommand. The file holds only the marker and the JSON payload (no helper
+ * bootstrap), which is how the panel tells it apart from an ExtendScript command.
+ */
+export async function sendPanelCommand(
+  payload: { action: string } & Record<string, unknown>,
+  options?: BridgeOptions,
+): Promise<CommandResult> {
+  const body = `${PANEL_COMMAND_MARKER}${JSON.stringify(payload)}`;
+  validateBridgeScriptSize(body);
+  const tempDir = getTempDir(options);
+  return executeOwnedCommand(tempDir, options, () => sendCommandUnchecked(body, options, false));
+}
+
 async function sendCommandUnchecked(
   script: string,
   options?: BridgeOptions,
+  withHelpers = true,
 ): Promise<CommandResult> {
   const tempDir = getTempDir(options);
   const timeoutMs = options?.timeoutMs || DEFAULT_TIMEOUT_MS;
@@ -634,7 +661,7 @@ async function sendCommandUnchecked(
     if (failure) return failure;
   }
 
-  const id = randomUUID();
+  const id = randomUUID() + (options?.hostEngine === "headless" ? ".headless" : "");
   const cmdFile = join(tempDir, `cmd_${id}.jsx`);
   const stagedCmdFile = `${cmdFile}.staged`;
   const resFile = join(tempDir, `res_${id}.json`);
@@ -644,8 +671,8 @@ async function sendCommandUnchecked(
     // Write a complete command before its .jsx name makes it visible to CEP.
     // renameSync is atomic when both paths are in the bridge directory.
     measureStageSync("dispatch", () => {
-    writeFileSync(stagedCmdFile, `${ensureHelpers(tempDir, options?.helpers)}
-${script}`, "utf-8");
+    writeFileSync(stagedCmdFile, withHelpers ? `${ensureHelpers(tempDir, options?.helpers)}
+${script}` : script, "utf-8");
     assertInvocationNotCancelled();
     renameSync(stagedCmdFile, cmdFile);
     if (options?.mutating ?? (options?.mutationOnTimeout === true || undoTrackingEnabled())) markHostDispatch();
