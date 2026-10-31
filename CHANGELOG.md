@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Full-server registration and catalog test files allow 60 seconds for tests and setup hooks on loaded machines, while retaining the global 10-second default and existing longer explicit test limits.
+
 ## [1.26.0] - 2026-10-27
 
 ### Added

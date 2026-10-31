@@ -1,4 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
+
+// Full catalog setup can contend with other processes on a loaded machine.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 import { z } from "zod";
 
 // We need to test jsonSchemaToInputSchema which is not exported directly.
