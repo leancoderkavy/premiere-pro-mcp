@@ -7,6 +7,7 @@ vi.mock("../../src/bridge/file-bridge.js", () => ({ sendCommand: vi.fn() }));
 import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { getKeyframeTools } from "../../src/tools/keyframes.js";
 import {
+  AUDIO_EFFECT_RAW_SCALE_WARNING,
   AUDIO_EFFECT_SCALE_WARNING,
   HIGHPASS_CUTOFF_MEASUREMENTS,
   HIGHPASS_DEFAULT_WARNING,
@@ -105,7 +106,20 @@ describe("audio effect parameter scale on get_effect_properties", () => {
     expect(result.data.properties[0]).toMatchObject({ valueScale: "normalized_0_1" });
     expect(result.data.properties[0]).not.toHaveProperty("measuredGuidance");
     expect(result.data.properties[1]).toMatchObject({ value: 440, valueScale: "host_raw_unknown" });
-    expect(result.data.warnings).toEqual([AUDIO_EFFECT_SCALE_WARNING]);
+    // A raw value means the normalized scale is not established for this plug-in.
+    expect(result.data.parameterScale).toMatchObject({ kind: "mixed" });
+    expect(result.data.warnings).toEqual([AUDIO_EFFECT_RAW_SCALE_WARNING]);
+  });
+
+  it("summarises an all-raw plug-in as host_raw_unknown and one without numbers as unknown", async () => {
+    host("audio", [{ displayName: "Third Party EQ", matchName: "VST3 Third Party EQ", properties: [parameter("Frequency", 440), parameter("Gain", -6)] }]);
+    const raw = await keyframes.get_effect_properties.handler({ node_id: "clip", effect_name: "Third Party EQ" }) as any;
+    expect(raw.data.parameterScale).toMatchObject({ kind: "host_raw_unknown" });
+    expect(raw.data.warnings).toEqual([AUDIO_EFFECT_RAW_SCALE_WARNING]);
+    host("audio", [{ displayName: "Switches", matchName: "VST3 Switches", properties: [parameter("Bypass", false)] }]);
+    const none = await keyframes.get_effect_properties.handler({ node_id: "clip", effect_name: "Switches" }) as any;
+    expect(none.data.parameterScale).toMatchObject({ kind: "unknown" });
+    expect(none.data.warnings).toEqual([AUDIO_EFFECT_RAW_SCALE_WARNING]);
   });
 
   it("leaves video effects and built-in audio components unlabelled, and converts Volume Level to dB", async () => {
@@ -210,7 +224,8 @@ describe("audio effect parameter scale on set_effect_property", () => {
     const result = await keyframes.set_effect_property.handler({ node_id: "clip", effect_name: "Highpass", property_name: "Cutoff", value: 80 }) as any;
     expect(result).toMatchObject({ success: false, error: expect.stringContaining("normalized 0-1 value, not Hz, dB or ms") });
     expect(result.error).toContain("Nothing was changed");
-    expect(result.data).toMatchObject({ outcome: "not_applied", set: false, value: 0.25, requestedValue: 80, valueScale: "host_raw_unknown", measuredGuidance: HIGHPASS_CUTOFF_MEASUREMENTS });
+    // valueScale describes the returned (unchanged) value; the request's scale is reported separately.
+    expect(result.data).toMatchObject({ outcome: "not_applied", set: false, value: 0.25, requestedValue: 80, valueScale: "normalized_0_1", requestedValueScale: "host_raw_unknown", measuredGuidance: HIGHPASS_CUTOFF_MEASUREMENTS, parameterScale: { kind: "normalized_0_1" } });
     expect(result.data.warnings).toEqual([AUDIO_EFFECT_SCALE_WARNING]);
     expect(cutoffParam.setValue).not.toHaveBeenCalled();
   });
@@ -220,6 +235,7 @@ describe("audio effect parameter scale on set_effect_property", () => {
     host("audio", [component]);
     const result = await keyframes.set_effect_property.handler({ node_id: "clip", effect_name: "Internal Highpass", property_name: "Cutoff", value: 0.047 }) as any;
     expect(result).toMatchObject({ success: true, data: { outcome: "verified", value: 0.047, valueScale: "normalized_0_1", effectDisplayName: "Highpass", propertyDisplayName: "Cutoff", trackType: "audio", builtInComponent: false } });
+    expect(result.data).not.toHaveProperty("requestedValueScale");
     expect(result.data.measuredGuidance).toEqual(HIGHPASS_CUTOFF_MEASUREMENTS);
     expect(result.data.warnings).toEqual([AUDIO_EFFECT_SCALE_WARNING]);
     expect(cutoffParam.setValue).toHaveBeenCalledWith(0.047, true);
@@ -230,7 +246,7 @@ describe("audio effect parameter scale on set_effect_property", () => {
     host("audio", [component]);
     const result = await keyframes.set_effect_property.handler({ node_id: "clip", effect_name: "Highpass", property_name: "Cutoff", value: 80, allow_out_of_range_audio_value: true }) as any;
     expect(cutoffParam.setValue).toHaveBeenCalledWith(80, true);
-    expect(result).toMatchObject({ success: false, error: expect.stringContaining("readback does not match"), data: { outcome: "failed", value: 1, valueScale: "host_raw_unknown" } });
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("readback does not match"), data: { outcome: "failed", value: 1, valueScale: "normalized_0_1", requestedValueScale: "host_raw_unknown" } });
     expect(result.data.warnings).toEqual([AUDIO_EFFECT_SCALE_WARNING]);
   });
 
@@ -238,7 +254,8 @@ describe("audio effect parameter scale on set_effect_property", () => {
     const raw = parameter("Frequency", 440);
     host("audio", [{ displayName: "Third Party EQ", matchName: "VST3 Third Party EQ", properties: [raw] }]);
     const result = await keyframes.set_effect_property.handler({ node_id: "clip", effect_name: "Third Party EQ", property_name: "Frequency", value: 1000 }) as any;
-    expect(result).toMatchObject({ success: true, data: { outcome: "verified", value: 1000, valueScale: "host_raw_unknown" } });
+    expect(result).toMatchObject({ success: true, data: { outcome: "verified", value: 1000, valueScale: "host_raw_unknown", parameterScale: { kind: "host_raw_unknown" } } });
+    expect(result.data.warnings).toEqual([AUDIO_EFFECT_RAW_SCALE_WARNING]);
     expect(raw.setValue).toHaveBeenCalledWith(1000, true);
   });
 
@@ -268,6 +285,51 @@ describe("audio effect parameter scale on set_effect_property", () => {
     expect(script).toContain('property: "Cut\\"off"');
     expect(script).toContain("var allowRawAudioValue = false;");
     expect(script).not.toMatch(/\blet |\bconst |=>/);
+  });
+});
+
+describe("existing intrinsic match names and Volume aliases", () => {
+  it.each(["audioPanner", "AE.ADBE Panner"])("keeps a localized Panner with match name %s built in, so a raw pan is not guarded", async (matchName) => {
+    const pan = parameter("Panoramique", 0);
+    host("audio", [{ displayName: "Panoramique", matchName, properties: [pan] }]);
+    const read = await keyframes.get_effect_properties.handler({ node_id: "clip", effect_name: "Panoramique" }) as any;
+    expect(read.data).toMatchObject({ builtInComponent: true });
+    expect(read.data).not.toHaveProperty("parameterScale");
+    const write = await keyframes.set_effect_property.handler({ node_id: "clip", effect_name: matchName, property_name: "Panoramique", value: -40 }) as any;
+    expect(write).toMatchObject({ success: true, data: { outcome: "verified", value: -40, builtInComponent: true } });
+    expect(pan.setValue).toHaveBeenCalledWith(-40, true);
+  });
+
+  it.each(["audioVolume", "AE.ADBE Volume", "audioChannelVolume", "AE.ADBE Channel Volume"])("treats %s as an intrinsic in the emitted helper", (matchName) => {
+    const context = createContext({});
+    runInContext(getHelpersSource(), context);
+    expect(runInContext(`__isIntrinsicAudioComponent({ matchName: ${JSON.stringify(matchName)}, displayName: "Lautstärke" })`, context)).toBe(true);
+    expect(runInContext(`__isIntrinsicAudioComponent({ matchName: "toString", displayName: "Effekt" })`, context)).toBe(false);
+  });
+
+  it.each([
+    ["Internal Volume Stereo", "Nivel"],
+    ["audioVolume", "Level"],
+    ["AE.ADBE Volume", "Nivel"],
+  ])("converts Volume Level to dB for match name %s and property %s", async (matchName, propertyName) => {
+    host("audio", [{ displayName: "Volumen", matchName, properties: [parameter("Bypass", false), parameter(propertyName, 0.17782794100389226)] }]);
+    const read = await keyframes.get_effect_properties.handler({ node_id: "clip", effect_name: "Volumen" }) as any;
+    expect(read.data.properties[1]).toMatchObject({ displayValue: 0, displayUnits: "dB" });
+    const write = await keyframes.set_effect_property.handler({ node_id: "clip", effect_name: "Volumen", property_name: propertyName, value: 1 }) as any;
+    expect(write).toMatchObject({ success: true, data: { outcome: "verified", value: 1, displayValue: 15, displayUnits: "dB" } });
+  });
+
+  it("does not convert Channel Volume levels or other properties to dB", () => {
+    const result = annotateEffectPropertiesResult({
+      success: true,
+      data: { trackType: "audio", builtInComponent: true, matchName: "AE.ADBE Channel Volume", properties: [{ displayName: "Nivel", value: 0.5 }] },
+    }) as any;
+    expect(result.data.properties[0]).not.toHaveProperty("displayValue");
+    const other = annotateEffectPropertiesResult({
+      success: true,
+      data: { trackType: "audio", builtInComponent: true, matchName: "audioVolume", properties: [{ displayName: "Bypass", value: 0.5 }] },
+    }) as any;
+    expect(other.data.properties[0]).not.toHaveProperty("displayValue");
   });
 });
 

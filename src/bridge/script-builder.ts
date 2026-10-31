@@ -1437,13 +1437,16 @@ function __isBuiltInComponent(component) {
 // while others use GUIDs (DeEsser, Single-band Compressor, Hard Limiter).
 // Live intrinsics: "Internal Volume Mono|Stereo|5.1", "Internal Channel
 // Volume Stereo|5.1", "Internal Audio Balance". Panner's match name is not
-// confirmed, so "Internal (Audio) Panner" and the English/Spanish display
-// names also count; Balance and Pan take raw values (set_clip_pan writes
-// -100..100), so misreading them as normalized effects must be avoided.
+// confirmed, so "Internal (Audio) Panner", the audio* / AE.ADBE intrinsic
+// match names copy_effects_between_clips already skips, and the
+// English/Spanish display names also count; Balance and Pan take raw values
+// (set_clip_pan writes -100..100), so misreading them as normalized effects
+// must be avoided.
 var __INTRINSIC_AUDIO_DISPLAY_NAMES = { "Volume": true, "Channel Volume": true, "Panner": true, "Balance": true, "Volumen": true, "Volumen del canal": true, "Equilibrio": true, "Paneo de balance": true };
+var __INTRINSIC_AUDIO_MATCH_NAMES = { "audioVolume": true, "audioChannelVolume": true, "audioPanner": true, "AE.ADBE Volume": true, "AE.ADBE Channel Volume": true, "AE.ADBE Panner": true };
 function __isIntrinsicAudioComponent(component) {
   var match = __componentMatchName(component);
-  if (/^Internal (Volume|Channel Volume|Audio Balance|Balance|Audio Panner|Panner)\\b/.test(match)) return true;
+  if (/^Internal (Volume|Channel Volume|Audio Balance|Balance|Audio Panner|Panner)\\b/.test(match) || __INTRINSIC_AUDIO_MATCH_NAMES[match] === true) return true;
   return !!__INTRINSIC_AUDIO_DISPLAY_NAMES[String(component.displayName)];
 }
 
