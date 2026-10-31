@@ -16,6 +16,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `set_effect_property` refuses, before writing, a number outside 0-1 for an audio effect parameter whose current value is inside 0-1 (such as 80 meant as Hz, which Premiere would clamp). `allow_out_of_range_audio_value: true` permits a deliberate raw write.
 - Undo and redo stack-guard refusals report `not_applied` before any step. Project creation checks its parent directory before calling the host, so a missing folder cannot set a recovery lock; uncertain post-call failures remain guarded.
 - Caption-track import reports captured undo steps and guarded reversal guidance without guessing an undo count. Descriptions and workflow guidance warn that caption tracks render in exports by default, cannot be removed or hidden through CEP, and can be muted through a capable UXP panel.
+- Sequence source-alignment reads report offsets for unlinked separate picture/sound files at matching starts and flag inconsistent offsets within each media-pair group. Constant offsets remain observations; bounded group context and diagnostic truncation are disclosed without exposing source paths.
+
+- Paged sequence reads expose audio source In/Out and bounded source-alignment warnings for linked or unambiguous same-media pairs. Checks use the exact sequence frame duration, account for timeline offsets and retain paging and payload limits; warnings are not playback verification.
 
 ## [1.26.0] - 2026-10-27
 
