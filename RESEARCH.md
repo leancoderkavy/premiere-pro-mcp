@@ -572,6 +572,18 @@ Public product research informed five independently implemented local review too
 
 See `docs/filmcraft-improvements.md` for the 52-item implementation ledger, source boundaries and supported workflow routes. This adaptation adds exact local time/edit algebra, replay/recovery protection, explicit delivery evidence and bounded interchange analysis; it does not replace Adobe codecs or claim unrun licensed-host coverage. Documented UXP OTIO import/export remains format-specific and runtime-probed. FCP 7 xmeml is distinct from modern FCPXML.
 
+### After Effects round trip (2026-10-26)
+
+Live on Premiere Pro 26.5.2 and After Effects 26.5 (macOS), scratch projects only.
+`importAEComps` creates a Dynamic Link item named `<comp>/<file>.aep` with codec
+`DLYM`; changing the comp in AE shows up in Premiere without any Premiere call, but
+`exportFramePNG` at a time it already rendered returns the cached frame. A comp whose
+footage layer has `audioEnabled = false` imports as a video-only item (audio marks
+0-0), so `Track.overwriteClip` through `replace_clip` places it without touching the
+audio track. A footage layer with `startTime = -sourceIn` shows the clip's source In
+at comp time 0; a frame exported from the swapped span matched the source frame at
+the same source time. AE render templates are only readable from a render-queue
+item (`RenderQueueItem.templates`, `OutputModule.templates`).
 
 ### Title style boundary (2026-10-23)
 

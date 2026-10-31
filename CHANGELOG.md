@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `preview_send_clip_to_after_effects` and `apply_send_clip_to_after_effects` send one Premiere video clip to After Effects, like Premiere's Replace with After Effects Composition: a comp with the sequence size, pixel aspect and frame rate and the clip's exact source range (footage layer audio off) is added to the open, saved AE project and saved, imported back over Dynamic Link and swapped in at the clip's span with `replace_clip`. The clip's linked audio stays. Speed-changed, reversed, offline and non-file clips are refused, and effects or Motion/Opacity changes that the swap would not carry over are listed before approval.
+
+### Fixed
+
+- `import_ae_comps` returns each new item's node ID and name. A named import reports `verified` only when every requested composition is read back by name and source `.aep`, and refuses before importing when the target bin's items cannot be read. Importing all comps keeps the target-bin count check; its item list is informational and is omitted when the bin's items cannot be read.
+- `inspect_after_effects_render_templates` can read template names on an empty render queue: with `allow_temporary_queue_item: true` (requires edit) it queues one composition briefly, reads the names, removes it and checks the queue length.
+- `apply_after_effects_render_handoff` names `replace_clip` with the imported item as the next step for putting a render in place of an existing timeline clip.
+- `export_frame` notes that Premiere can return a cached frame after a linked After Effects composition changes.
+
 ## [1.27.0] - 2026-10-31
 
 ### Added

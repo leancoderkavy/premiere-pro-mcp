@@ -209,6 +209,8 @@ const TOOL_CAPABILITY_REQUIREMENTS: Readonly<Record<string, readonly Capability[
   slide_edit: ["inspect", "edit", "filesystem"],
   preview_after_effects_render_handoff: ["inspect", "filesystem"],
   apply_after_effects_render_handoff: ["inspect", "edit", "filesystem"],
+  preview_send_clip_to_after_effects: ["inspect", "filesystem"],
+  apply_send_clip_to_after_effects: ["inspect", "edit", "filesystem"],
   verify_after_effects_connection: ["inspect"],
   preview_mogrt_recipe: ["inspect", "filesystem"],
   create_mogrt_recipe: ["edit", "export", "filesystem"],
@@ -419,6 +421,8 @@ export function capabilityForTool(toolName: string): Capability {
 export function capabilitiesForToolInvocation(toolName: string, args: unknown): readonly Capability[] {
   if (toolName === "export_interchange_uxp" && args && typeof args === "object" && (args as Record<string, unknown>).verify_artifact === true) return ["export", "filesystem"];
   if (toolName === "audit_project_structure" && args && typeof args === "object" && (args as Record<string, unknown>).apply === true) return ["inspect", "edit"];
+  // An empty AE render queue only exposes template names through a briefly queued composition.
+  if (toolName === "inspect_after_effects_render_templates" && args && typeof args === "object" && (args as Record<string, unknown>).allow_temporary_queue_item === true) return ["inspect", "edit"];
   if (toolName === "prepare_transcript_workflow" && args && typeof args === "object" && (args as Record<string, unknown>).start_if_missing === true) return ["inspect", "edit"];
   // Inline caption retiming is pure computation; reading input_path or writing
   // output_path touches the local filesystem and needs that authority too.
@@ -449,7 +453,7 @@ export function capabilitiesForToolInvocation(toolName: string, args: unknown): 
  */
 export function toolMayChangeState(toolName: string): boolean {
   // Argument-dependent escalations handled specially above.
-  if (toolName === "export_interchange_uxp" || toolName === "prepare_transcript_workflow" || toolName === "set_metadata" || toolName === "audit_project_structure" || toolName === "retime_caption_file") return true;
+  if (toolName === "export_interchange_uxp" || toolName === "prepare_transcript_workflow" || toolName === "set_metadata" || toolName === "audit_project_structure" || toolName === "retime_caption_file" || toolName === "inspect_after_effects_render_templates") return true;
   const actionMap = ACTION_CAPABILITIES[toolName];
   const candidates: (readonly Capability[])[] = actionMap
     ? [...Object.values(actionMap), [capabilityForTool(toolName)]]

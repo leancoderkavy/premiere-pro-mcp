@@ -476,7 +476,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
 
     import_ae_comps: {
       description:
-        "Import After Effects compositions from an .aep file, failing closed when the file does not exist or when the target bin gains no items.",
+        "Import After Effects compositions from an .aep file as Dynamic Link clips, failing closed when the file does not exist or when the target bin gains no items. Returns each new item's nodeId and name for placement (add_to_timeline, replace_clip). With comp_names the result is verified only when every requested composition is read back by name and source .aep. Importing all comps verifies the target-bin item-count increase only, because the expected set is unknown; its items list is informational and is omitted when the bin's items cannot be read.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -525,6 +525,11 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
             if (typeof beforeItems !== "number" || !isFinite(beforeItems) || beforeItems < 0 || Math.floor(beforeItems) !== beforeItems) {
               return __error("The target bin item count could not be read reliably. No compositions were imported.", { verified: false, mutationOutcome: "not_applied", projectChanged: false });
             }
+            // Item identities let callers place the new comps; null when the bin's items cannot be read.
+            var beforeIds = {};
+            try {
+              for (var bi = 0; bi < beforeItems; bi++) beforeIds[String(targetBin.children[bi].nodeId)] = true;
+            } catch (childReadError) { beforeIds = null; }
         `;
         const verify = (importedDescription: string) => `
             var afterItems = null;
@@ -536,6 +541,20 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
             if (addedItems <= 0) {
               return __error("Premiere reported no error, but the target bin gained no items, so ${importedDescription} were not imported from ${aePath}.");
             }
+            // Return the new items so callers can place them without searching the bin.
+            var items = null;
+            if (beforeIds) {
+              try {
+                items = [];
+                for (var ai = 0; ai < afterItems; ai++) {
+                  var addedItem = targetBin.children[ai];
+                  if (beforeIds[String(addedItem.nodeId)]) continue;
+                  var addedPath = "";
+                  try { addedPath = addedItem.getMediaPath ? String(addedItem.getMediaPath()) : ""; } catch (mediaPathError) {}
+                  items.push({ nodeId: String(addedItem.nodeId), name: String(addedItem.name), fromProject: addedPath !== "" && new File(addedPath).fsName === aeFile.fsName });
+                }
+              } catch (itemReadError) { items = null; }
+            }
         `;
 
         if (args.comp_names && args.comp_names.length > 0) {
@@ -544,21 +563,38 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
             .join(", ");
           const script = buildToolScript(`
             ${preflight}
+            if (!beforeIds) {
+              return __error("The target bin's items could not be read, so the requested compositions could not be verified by name. No compositions were imported.", { verified: false, mutationOutcome: "not_applied", projectChanged: false });
+            }
             try {
               app.project.importAEComps("${aePath}", [${comps}], targetBin);
             } catch (importError) {
               return __error("Premiere could not import the requested After Effects compositions: " + importError.toString());
             }
             ${verify("the requested compositions")}
+            var requested = [${comps}];
+            var verified = items !== null;
+            for (var ri = 0; verified && ri < requested.length; ri++) {
+              var found = false;
+              for (var ii = 0; ii < items.length; ii++) {
+                if (items[ii].fromProject && items[ii].name.indexOf(requested[ri] + "/") === 0) found = true;
+              }
+              if (!found) verified = false;
+            }
+            var verificationText = verified
+              ? "Each requested composition was read back as a new bin item from this .aep (by name and media path); rendered content is not verified."
+              : "The bin gained items, but not every requested composition could be matched by name and media path; inspect items before relying on them.";
             return __result({
               imported: true,
-              verified: true,
-              comps: [${comps}],
+              verified: verified,
+              outcome: verified ? "verified" : "committed_unverified",
+              comps: requested,
+              items: items || [],
               addedItems: addedItems,
               binItemsBefore: beforeItems,
               binItemsAfter: afterItems,
-              verification: "Target-bin item-count increase only; composition identity and rendered content are not verified.",
-              verificationScope: "Target-bin item-count increase only; composition identity and rendered content are not verified."
+              verification: verificationText,
+              verificationScope: verificationText
             });
           `);
           return sendCommand(script, bridgeOptions);
@@ -575,6 +611,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
               imported: true,
               verified: true,
               allComps: true,
+              items: items || undefined,
               addedItems: addedItems,
               binItemsBefore: beforeItems,
               binItemsAfter: afterItems,

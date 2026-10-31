@@ -198,6 +198,16 @@ export const TOOL_OPERATIONAL_OVERRIDES: Readonly<
     authority: "edit", verificationBoundary: "local_and_host_response", hostVerificationRequired: true,
     notes: ["Also requires inspect and filesystem authority. Consumes explicit approval before dispatch; rechecks render/file/project/bin evidence and verifies a new media item. No timeline placement or visual verification."],
   },
+  preview_send_clip_to_after_effects: {
+    backend: "local + CEP/ExtendScript", backends: ["local", "cep", "extendscript"], status: "supported", minimumPremiereVersion: null,
+    authority: "inspect", verificationBoundary: "local_and_host_response", hostVerificationRequired: true,
+    notes: ["Also requires filesystem authority. Reads one video clip, its source media and the sequence in Premiere, and picks a free comp name in the open saved AE project; changes nothing."],
+  },
+  apply_send_clip_to_after_effects: {
+    backend: "local + CEP/ExtendScript", backends: ["local", "cep", "extendscript"], status: "supported", minimumPremiereVersion: null,
+    authority: "edit", verificationBoundary: "local_and_host_response", hostVerificationRequired: true,
+    notes: ["Also requires inspect and filesystem authority. Rechecks the clip, adds and saves an AE comp with its exact source range, imports it over Dynamic Link and swaps it in through replace_clip. Effects on the original clip are listed, not copied; no visual verification."],
+  },
   enqueue_after_effects_render: {
     backend: "local + CEP/ExtendScript", backends: ["local", "cep", "extendscript"], status: "supported", minimumPremiereVersion: null,
     authority: "export", verificationBoundary: "host_response", hostVerificationRequired: true,

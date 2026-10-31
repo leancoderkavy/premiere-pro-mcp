@@ -1309,7 +1309,7 @@ ${sequenceRangeGuardScript(range)}
     },
 
     export_frame: {
-      description: "Export a file-verified still image. PNG stills keep the sequence's transparency (straight alpha, reported as hasAlpha); composite them over black before measuring brightness or comparing with a video render. A single still does not verify motion over time, playback or audio.",
+      description: "Export a file-verified still image. PNG stills keep the sequence's transparency (straight alpha, reported as hasAlpha); composite them over black before measuring brightness or comparing with a video render. A single still does not verify motion over time, playback or audio. After a linked After Effects composition changes, Premiere can return its cached frame for a time it already rendered; to check the change, export a time not exported since the change.",
       parameters: {
         type: "object" as const,
         properties: {
