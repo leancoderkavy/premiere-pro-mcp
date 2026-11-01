@@ -571,6 +571,13 @@ export function capabilityForTool(toolName: string): Capability {
 /** Resolve authority at the action level for consolidated multi-action tools. */
 export function capabilitiesForToolInvocation(toolName: string, args: unknown): readonly Capability[] {
   if (toolName === "audit_project_structure" && args && typeof args === "object" && (args as Record<string, unknown>).apply === true) return ["inspect", "edit"];
+  // set_track_states with snapshot and no state field anywhere only reads the tracks back.
+  if (toolName === "set_track_states" && args && typeof args === "object" && (args as Record<string, unknown>).snapshot === true) {
+    const tracks = (args as Record<string, unknown>).tracks;
+    const readOnly = Array.isArray(tracks) && tracks.length > 0 && tracks.every(track => track && typeof track === "object"
+      && (track as Record<string, unknown>).muted === undefined && (track as Record<string, unknown>).solo === undefined && (track as Record<string, unknown>).locked === undefined);
+    if (readOnly) return ["inspect"];
+  }
   // An empty AE render queue only exposes template names through a briefly queued composition.
   if (toolName === "inspect_after_effects_render_templates" && args && typeof args === "object" && (args as Record<string, unknown>).allow_temporary_queue_item === true) return ["inspect", "edit"];
   // Inline caption retiming is pure computation; reading input_path or writing

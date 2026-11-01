@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `set_track_states` sets mute, solo and lock on up to 64 video or audio tracks of the active sequence in one host command with per-track readback: every target is read first and nothing changes when any target is out of range, unreadable or asks for a state the host cannot read and write (solo has no public ExtendScript accessor and is probed on the QE track, refused before mutation when absent). `snapshot: true` returns `data.restore`, the pre-write state in the shape the tool accepts, so one call captures and the next restores; a snapshot with no state fields is a read-only capture that needs only inspect authority. Mismatched readback reports `not_applied` or `committed_unverified` per track instead of success.
+
 ## [1.28.0] - 2026-11-01
 
 ### Added
