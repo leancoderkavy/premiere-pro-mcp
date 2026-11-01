@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   serveStdio: vi.fn(),
   stdioServerTransport: vi.fn(),
   closeMcp: vi.fn(async () => {}),
+  resolveToolSelection: vi.fn(() => ({ source: "default", selected: [], fullCatalog: true })),
   handleRequest: vi.fn(async (_req: any, res: any) => { res.statusCode = 204; }),
   closeTransport: vi.fn(async () => {}),
   uxpStart: vi.fn(async () => {}),
@@ -45,6 +46,7 @@ vi.mock("node:http", () => ({
 vi.mock("../src/server.js", () => ({
   SERVER_VERSION: "9.9.9-test",
   createServer: vi.fn(() => ({ connect: mocks.connect, close: mocks.closeMcp })),
+  resolveToolSelection: mocks.resolveToolSelection,
 }));
 vi.mock("../src/bridge/file-bridge.js", () => ({
   cleanupTempDir: mocks.cleanup,
@@ -286,6 +288,21 @@ describe("stdio CLI entry point", () => {
     await expect(promise).rejects.toThrow("EXIT:1");
     expect(error).toHaveBeenCalledWith(expect.stringContaining("supported only"));
     expect(exit).toHaveBeenCalledWith(1);
+  });
+
+  it("refuses an unknown PREMIERE_MCP_TOOL_LIST name before serving", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.resolveToolSelection.mockImplementationOnce(() => {
+      throw new Error("PREMIERE_MCP_TOOL_LIST names 1 unknown tool(s): not_a_tool");
+    });
+    delete process.env.PREMIERE_UXP_TOKEN;
+    const { promise, exit } = await importCli([]);
+    // main() runs after the import resolves; a non-throwing exit mock keeps the
+    // refusal from surfacing as an unhandled rejection in the test runner.
+    exit.mockImplementation((() => undefined) as never);
+    await promise;
+    await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(1));
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("not_a_tool"));
   });
 
   it("starts the stdio server with configured bridge options", async () => {

@@ -19,6 +19,11 @@ export interface ToolPackSelection {
   source: ToolPackSource;
   selected: readonly WorkflowToolPackName[];
   fullCatalog: boolean;
+  /**
+   * Tool names listed explicitly through PREMIERE_MCP_TOOL_LIST. Present only
+   * when a list was configured; it unions with the selected packs.
+   */
+  explicitTools?: readonly string[];
 }
 
 export interface WorkflowToolPack {
@@ -32,6 +37,7 @@ export interface ToolPackReport {
   source: ToolPackSource;
   selected: readonly (WorkflowToolPackName | "full")[];
   fullCatalog: boolean;
+  explicitTools: readonly string[];
   available: ReadonlyArray<Pick<WorkflowToolPack, "name" | "title" | "description">>;
   note: string;
 }
@@ -238,16 +244,66 @@ function parseToolPackNames(value: string): WorkflowToolPackName[] {
   return [...selected];
 }
 
+const TOOL_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
+
+/**
+ * PREMIERE_MCP_TOOL_LIST names individual tools. Names are separated by commas
+ * (whitespace and newlines are accepted too, so a pack file can be pasted in),
+ * so the shape of a name is checked here while membership in the registered
+ * catalog is checked by the server at startup.
+ */
+export function parseExplicitToolList(value: string | undefined): string[] {
+  if (value === undefined || value.trim() === "") return [];
+  const names = new Set<string>();
+  for (const rawName of value.split(/[,\s]+/u)) {
+    const name = rawName.trim();
+    if (!name) continue;
+    if (!TOOL_NAME_PATTERN.test(name)) {
+      throw new Error(
+        `PREMIERE_MCP_TOOL_LIST entry is not a tool name: ${JSON.stringify(name)} (expected lowercase letters, digits, and underscores)`,
+      );
+    }
+    names.add(name);
+  }
+  return [...names];
+}
+
 export function resolveToolPacks(
   value: string | undefined = process.env.PREMIERE_MCP_TOOL_PACKS,
-  source: ToolPackSource = value === undefined || value.trim() === ""
-    ? "default"
-    : "environment",
+  source?: ToolPackSource,
+  toolListValue: string | undefined = process.env.PREMIERE_MCP_TOOL_LIST,
 ): ToolPackSelection {
-  if (value === undefined || value.trim() === "" || value.trim().toLowerCase() === "full") {
-    return { source, selected: [], fullCatalog: true };
+  const explicitTools = parseExplicitToolList(toolListValue);
+  const packsConfigured = value !== undefined && value.trim() !== "";
+  const resolvedSource: ToolPackSource = source
+    ?? (packsConfigured || explicitTools.length > 0 ? "environment" : "default");
+  if (!packsConfigured || value.trim().toLowerCase() === "full") {
+    // An explicit list adds nothing to the full catalog; it only narrows when
+    // no pack (or a non-full pack) is selected.
+    if (packsConfigured || explicitTools.length === 0) {
+      return { source: resolvedSource, selected: [], fullCatalog: true };
+    }
+    return { source: resolvedSource, selected: [], fullCatalog: false, explicitTools };
   }
-  return { source, selected: parseToolPackNames(value), fullCatalog: false };
+  const selection: ToolPackSelection = {
+    source: resolvedSource,
+    selected: parseToolPackNames(value),
+    fullCatalog: false,
+  };
+  return explicitTools.length > 0 ? { ...selection, explicitTools } : selection;
+}
+
+/**
+ * Names from PREMIERE_MCP_TOOL_LIST that no registered tool matches. The
+ * server turns a non-empty result into a startup error so a typo never
+ * silently drops a tool from the session.
+ */
+export function unknownExplicitTools(
+  selection: ToolPackSelection,
+  knownToolNames: Iterable<string>,
+): string[] {
+  const known = knownToolNames instanceof Set ? knownToolNames : new Set(knownToolNames);
+  return (selection.explicitTools ?? []).filter((name) => !known.has(name));
 }
 
 export function isToolInSelectedPacks(
@@ -256,6 +312,7 @@ export function isToolInSelectedPacks(
 ): boolean {
   if (selection.fullCatalog) return true;
   if (ALWAYS_ADVERTISED_DIAGNOSTIC_TOOLS.has(toolName)) return true;
+  if (selection.explicitTools?.includes(toolName)) return true;
   return selection.selected.some((name) => PACK_BY_NAME.get(name)?.tools.includes(toolName));
 }
 
@@ -264,12 +321,13 @@ export function buildToolPackReport(selection: ToolPackSelection): ToolPackRepor
     source: selection.source,
     selected: selection.fullCatalog ? ["full"] : [...selection.selected],
     fullCatalog: selection.fullCatalog,
+    explicitTools: [...(selection.explicitTools ?? [])],
     available: WORKFLOW_TOOL_PACKS.map(({ name, title, description }) => ({
       name,
       title,
       description,
     })),
     note:
-      "Tool packs narrow tool discovery and registration for this session. They do not grant capabilities; every registered call remains subject to the configured authority profile.",
+      "Tool packs and PREMIERE_MCP_TOOL_LIST narrow tool discovery and registration for this session. They do not grant capabilities; every registered call remains subject to the configured authority profile.",
   };
 }

@@ -103,6 +103,7 @@ import {
 import {
   isToolInSelectedPacks,
   resolveToolPacks,
+  unknownExplicitTools,
   type ToolPackSelection,
 } from "./workflows/tool-packs.js";
 import { getTelemetry, telemetryErrorType, type Telemetry } from "./telemetry.js";
@@ -436,6 +437,42 @@ export interface ServerOptions {
   toolPacks?: string;
   /** Selects connected UXP by default, or forces the CEP compatibility bridge. */
   bridgeMode?: PremiereBridgeMode;
+  /** Overrides PREMIERE_MCP_TOOL_LIST for this server instance. */
+  toolList?: string;
+}
+
+/**
+ * Resolves the pack and explicit-list selection for a server and refuses a
+ * PREMIERE_MCP_TOOL_LIST entry that names no tool. UXP tools count as known
+ * even without a UXP bridge, because the same list is meant to work with and
+ * without PREMIERE_UXP_TOKEN; they are simply not registered without one.
+ */
+export function resolveToolSelection(
+  bridgeOptions: BridgeOptions,
+  serverOptions: Pick<ServerOptions, "toolPacks" | "toolList" | "uxpBridge"> = {},
+  capabilities = resolveCapabilities(),
+): ToolPackSelection {
+  const explicit = serverOptions.toolPacks !== undefined || serverOptions.toolList !== undefined;
+  const selection = resolveToolPacks(
+    serverOptions.toolPacks,
+    explicit ? "explicit" : undefined,
+    serverOptions.toolList,
+  );
+  if (!selection.explicitTools?.length) return selection;
+  const known = new Set<string>(Object.keys(collectTools(bridgeOptions, capabilities, serverOptions.uxpBridge)));
+  if (!serverOptions.uxpBridge) {
+    // getUxpTools only closes over the bridge inside handlers, so an absent
+    // bridge is enough to enumerate the names it would register.
+    for (const name of Object.keys(getUxpTools(undefined as unknown as UxpWebSocketBridge))) known.add(name);
+  }
+  const unknown = unknownExplicitTools(selection, known);
+  if (unknown.length > 0) {
+    throw new Error(
+      `PREMIERE_MCP_TOOL_LIST names ${unknown.length} unknown tool(s): ${unknown.join(", ")}. ` +
+        "Check the spelling against docs/supported-actions.md; tool packs and the list never add tools that do not exist.",
+    );
+  }
+  return selection;
 }
 
 /**
@@ -469,9 +506,7 @@ export function createServer(
   const idempotencyNamespace = randomUUID();
 
   const capabilities = resolveCapabilities();
-  const toolPacks = serverOptions.toolPacks === undefined
-    ? resolveToolPacks()
-    : resolveToolPacks(serverOptions.toolPacks, "explicit");
+  const toolPacks = resolveToolSelection(bridgeOptions, serverOptions, capabilities);
   const telemetry = serverOptions.telemetry ?? getTelemetry();
   // Context consumers must share a single in-memory backend as well as the
   // durable backends; independent repository instances would otherwise make
@@ -759,7 +794,8 @@ export function createServer(
   if (packWithheld > 0) {
     debugLog(
       `Withheld ${packWithheld} permitted tool(s) from tools/list by the ` +
-        `${toolPacks.fullCatalog ? "full" : toolPacks.selected.join(", ")} workflow tool pack selection.`,
+        `${toolPacks.fullCatalog ? "full" : toolPacks.selected.join(", ") || "(no pack)"} workflow tool pack selection` +
+        `${toolPacks.explicitTools?.length ? ` plus ${toolPacks.explicitTools.length} explicitly listed tool(s)` : ""}.`,
     );
   }
 

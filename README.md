@@ -722,6 +722,16 @@ full-catalog mode and cannot be combined with another pack. `ping` and
 `get_capabilities` remain listed for diagnosis, and every registered call still
 passes through the same capability guard; a pack never grants authority.
 
+For a session that needs a handful of specific tools rather than a whole pack,
+set `PREMIERE_MCP_TOOL_LIST` to a comma-separated list of tool names, for
+example `PREMIERE_MCP_TOOL_LIST=get_project_info,get_bin_contents,save_project`.
+The list unions with `PREMIERE_MCP_TOOL_PACKS` when both are set, `ping` and
+`get_capabilities` stay listed, and a name that matches no registered tool is a
+startup error so a typo never silently drops a tool. UXP tool names are
+accepted without `PREMIERE_UXP_TOKEN`; they register once the UXP bridge is
+configured. `fork/packs/*.txt` hold reviewable one-name-per-line lists
+(`PREMIERE_MCP_TOOL_LIST="$(grep -v '^#' fork/packs/cleanup.txt | paste -sd, -)"`).
+
 Every listed tool now declares the same machine-readable result envelope through
 MCP `outputSchema`: `ok`, `tool`, plus `data` on success or `error` on failure.
 The tool-specific `data` shape remains versioned by the individual tool result,
