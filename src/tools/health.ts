@@ -339,7 +339,9 @@ export function getHealthTools(
               requested: args.backend ?? "auto",
               checked: backend,
               active: backend,
+              scope: "connection_diagnostic",
               fallbackToCep: automatic && mode === "auto" && backend === "cep",
+              note: `${automatic ? "Automatic" : "Explicit"} read-only diagnostic checked ${backend.toUpperCase()}.`,
             },
           },
         };

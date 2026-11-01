@@ -30,7 +30,7 @@ describe("health connection diagnostics", () => {
 
     await expect(tools.verify_premiere_connection.handler({})).resolves.toMatchObject({
       success: true,
-      data: { backend: "uxp", bridgeSelection: { active: "uxp", checked: "uxp" } },
+      data: { backend: "uxp", bridgeSelection: { active: "uxp", checked: "uxp", note: "Automatic read-only diagnostic checked UXP." } },
     });
     await expect(tools.get_capabilities.handler({})).resolves.toMatchObject({
       success: true,
@@ -51,7 +51,7 @@ describe("health connection diagnostics", () => {
 
     expect(result).toMatchObject({
       success: true,
-      data: { backend: "cep", bridgeSelection: { mode: "cep", active: "cep", checked: "cep" } },
+      data: { backend: "cep", bridgeSelection: { mode: "cep", active: "cep", checked: "cep", note: "Automatic read-only diagnostic checked CEP." } },
     });
     expect(uxpBridge.request).not.toHaveBeenCalled();
   });
@@ -68,7 +68,7 @@ describe("health connection diagnostics", () => {
 
     expect(result).toMatchObject({
       success: true,
-      data: { backend: "cep", bridgeSelection: { requested: "auto", checked: "cep", active: "cep", fallbackToCep: true } },
+      data: { backend: "cep", bridgeSelection: { requested: "auto", checked: "cep", active: "cep", fallbackToCep: true, note: "Automatic read-only diagnostic checked CEP." } },
     });
     expect(mockedSendCommand).toHaveBeenCalledOnce();
   });
@@ -128,6 +128,7 @@ describe("health connection diagnostics", () => {
       { uxpBridge: { request } as any },
     ).verify_premiere_connection.handler({ backend: "uxp" });
 
+    expect(result).toMatchObject({ data: { bridgeSelection: { scope: "connection_diagnostic", note: "Explicit read-only diagnostic checked UXP." } } });
     expect(request).toHaveBeenCalledWith("state.get");
     expect(result).toMatchObject({
       success: true,

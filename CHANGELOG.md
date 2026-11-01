@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Connection diagnostic notes name the backend actually checked, including automatic CEP fallback and explicit backend probes.
 - Failed title-cache archive writes or renames clean their owned temporary file, preserving the prior cached archive and unrelated exclusive-create collisions.
 - Invalid bridge mode startup errors preserve their fixed validation message without logging the configured value or arbitrary exception messages.
 - Node command and helper-file writes establish exclusive ownership before writing, close descriptors on errors, and remove owned partial files while preserving exclusive-create collisions.
