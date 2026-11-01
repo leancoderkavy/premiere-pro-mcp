@@ -239,8 +239,10 @@ function writeResponseFile(filePath, content) {
   var stagedPath = filePath + ".staged";
   var stagedOwned = false;
   try {
-    fs.writeFileSync(stagedPath, content, { encoding: "utf-8", mode: 384, flag: "wx" });
+    var descriptor = fs.openSync(stagedPath, "wx", 384);
     stagedOwned = true;
+    try { fs.writeFileSync(descriptor, content, "utf-8"); }
+    finally { fs.closeSync(descriptor); }
     fs.renameSync(stagedPath, filePath);
     return true;
   } catch (e) {
@@ -264,13 +266,15 @@ function writeBridgeHeartbeat() {
   var stagedPath = heartbeatPath + "." + ENGINE_ID + ".staged";
   var stagedOwned = false;
   try {
-    fs.writeFileSync(stagedPath, JSON.stringify({
+    var descriptor = fs.openSync(stagedPath, "wx", 384);
+    stagedOwned = true;
+    try { fs.writeFileSync(descriptor, JSON.stringify({
       protocolVersion: 1,
       commandSchemaVersion: 1,
       receiptVersion: 1,
       state: bridgeRunning ? "running" : "waiting"
-    }), { encoding: "utf-8", mode: 384, flag: "wx" });
-    stagedOwned = true;
+    }), "utf-8"); }
+    finally { fs.closeSync(descriptor); }
     fs.renameSync(stagedPath, heartbeatPath);
   } catch (e) {
     if (stagedOwned) deleteFile(stagedPath);
@@ -280,8 +284,10 @@ function writeBridgeHeartbeat() {
     var engineStaged = enginePath + "." + ENGINE_ID + ".staged";
     var engineStagedOwned = false;
     try {
-      fs.writeFileSync(engineStaged, JSON.stringify({ engine: ENGINE_ID }), { encoding: "utf-8", mode: 384, flag: "wx" });
+      var engineDescriptor = fs.openSync(engineStaged, "wx", 384);
       engineStagedOwned = true;
+      try { fs.writeFileSync(engineDescriptor, JSON.stringify({ engine: ENGINE_ID }), "utf-8"); }
+      finally { fs.closeSync(engineDescriptor); }
       fs.renameSync(engineStaged, enginePath);
     } catch (engineError) {
       if (engineStagedOwned) deleteFile(engineStaged);

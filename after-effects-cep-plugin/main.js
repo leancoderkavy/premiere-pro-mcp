@@ -48,8 +48,10 @@
     var staged = filePath + "." + engineId + ".staged";
     var stagedOwned = false;
     try {
-      fs.writeFileSync(staged, text, { encoding: "utf8", mode: 384, flag: "wx" });
+      var descriptor = fs.openSync(staged, "wx", 384);
       stagedOwned = true;
+      try { fs.writeFileSync(descriptor, text, "utf8"); }
+      finally { fs.closeSync(descriptor); }
       fs.renameSync(staged, filePath);
       return true;
     } catch (error) {

@@ -237,7 +237,9 @@ colour, or Graphics and Titles > Upgrade Caption to Graphic.
    hand after the Track Style is set. The graphics land on the top video track.
 4. Still-frame exports can omit caption tracks. Verify with playback or a short
    burn-in `export_sequence` (see `render_verification`). Save sequence In/Out
-   before setting the test range and restore them afterwards.
+   before setting the test range and restore them afterwards. If exactly one
+   mark is set (In-only or Out-only), stop the automated burn-in recipe before
+   changing marks; use playback or a manual export instead.
 
 ## Reaction Shorts
 
