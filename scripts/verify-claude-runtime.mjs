@@ -8,7 +8,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 // Package-process checks only: no Adobe application or bridge is contacted.
 export async function verifyClaudeRuntime(stage, expectedVersion) {
   const entry = path.resolve(stage, "server", "dist", "index.js");
-  const runtimeDir = await mkdtemp(path.join(tmpdir(), "premiere-mcpb-smoke-"));
+  const runtimeRoot = await mkdtemp(path.join(tmpdir(), "premiere-mcpb-smoke-"));
   const env = {
     ...process.env,
     PREMIERE_BRIDGE_MODE: "cep",
@@ -16,10 +16,12 @@ export async function verifyClaudeRuntime(stage, expectedVersion) {
     PREMIERE_MCP_TOOL_PACKS: "full",
     PREMIERE_MCP_CAPABILITIES: "inspect,edit,export,filesystem",
     POSTHOG_API_KEY: "",
-    PREMIERE_TEMP_DIR: runtimeDir,
+    // Reserve an isolated parent, leaving IPC directory creation and private
+    // ACL initialization to the server. mkdtemp inherits ACLs on Windows.
+    PREMIERE_TEMP_DIR: path.join(runtimeRoot, "bridge"),
   };
   const client = new Client({ name: "mcpb-package-verifier", version: "1.0.0" });
-  const transport = new StdioClientTransport({ command: process.execPath, args: [entry], env, stderr: "pipe" });
+  const transport = new StdioClientTransport({ command: process.execPath, args: [entry], env, stderr: "inherit" });
   try {
     const reportedVersion = execFileSync(process.execPath, [entry, "--version"], {
       encoding: "utf8", timeout: 30_000, env,
@@ -37,7 +39,7 @@ export async function verifyClaudeRuntime(stage, expectedVersion) {
       try {
         await transport.close();
       } finally {
-        await rm(runtimeDir, { recursive: true, force: true });
+        await rm(runtimeRoot, { recursive: true, force: true });
       }
     }
   }
