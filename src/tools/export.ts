@@ -634,7 +634,7 @@ function presetExtensionGuardScript(): string {
             if (!givenExtension) {
               outputPath = outputPath + "." + presetExtension;
             } else if (givenExtension !== presetExtension && !(givenExtension === "m4v" && presetExtension === "mp4")) {
-              return __error("The preset writes ." + presetExtension + " files but output_path ends in ." + givenExtension + "; nothing was exported. Use ." + presetExtension + " or pick a preset for ." + givenExtension + " (get_encoder_presets lists each preset's extension).");
+              return __error("The preset writes ." + presetExtension + " files but output_path ends in ." + givenExtension + "; nothing was exported. Use ." + presetExtension + " or pick a preset for ." + givenExtension + " (get_encoder_presets lists each preset's extension).", { mutationOutcome: "not_applied", timelineChanged: false });
             }
           }`;
 }
@@ -652,7 +652,7 @@ function sequenceRangeGuardScript(range: "entire" | "in_to_out" | "work_area"): 
           var markIn = __sequencePointSeconds(seq.getInPoint());
           var markOut = __sequencePointSeconds(seq.getOutPoint());
           if (markIn === null || markOut === null || markOut <= markIn || (markIn <= 0 && Math.abs(markOut - rangeEnd) < 0.001)) {
-            return __error("range 'in_to_out' needs sequence in/out points around part of the sequence (set_sequence_in_out_points); nothing was exported.");
+            return __error("range 'in_to_out' needs sequence in/out points around part of the sequence (set_sequence_in_out_points); nothing was exported.", { mutationOutcome: "not_applied", timelineChanged: false });
           }
           rangeStart = markIn; rangeEnd = markOut;` : ""}
           ${range === "work_area" ? `
@@ -660,7 +660,7 @@ function sequenceRangeGuardScript(range: "entire" | "in_to_out" | "work_area"): 
           var workAreaEnabled = null;
           try { if (typeof seq.isWorkAreaEnabled === "function") workAreaEnabled = seq.isWorkAreaEnabled(); } catch (eWorkAreaEnabled) {}
           if (workAreaEnabled !== true) {
-            return __error("range 'work_area' needs the work area enabled (is_work_area_enabled); nothing was exported.");
+            return __error("range 'work_area' needs the work area enabled (is_work_area_enabled); nothing was exported.", { mutationOutcome: "not_applied", timelineChanged: false });
           }
           function readWorkAreaSeconds(value) {
             if (typeof value !== "number" && typeof value !== "string") return null;
@@ -676,7 +676,7 @@ function sequenceRangeGuardScript(range: "entire" | "in_to_out" | "work_area"): 
             if (typeof seq.getWorkAreaOutPoint === "function") workOut = readWorkAreaSeconds(seq.getWorkAreaOutPoint());
           } catch (eWorkAreaBounds) {}
           if (workIn === null || workOut === null || !isFinite(rangeEnd) || rangeEnd <= 0 || workIn < 0 || workOut <= workIn || workOut > rangeEnd || (workIn === 0 && Math.abs(workOut - rangeEnd) < 0.001)) {
-            return __error("range 'work_area' needs a work area around part of the sequence; nothing was exported. Set and read back a valid work area where supported, or use range 'in_to_out' after set_sequence_in_out_points.");
+            return __error("range 'work_area' needs a work area around part of the sequence; nothing was exported. Set and read back a valid work area where supported, or use range 'in_to_out' after set_sequence_in_out_points.", { mutationOutcome: "not_applied", timelineChanged: false });
           }
           rangeStart = workIn; rangeEnd = workOut;` : ""}`;
 }
@@ -1256,7 +1256,7 @@ ${sequenceRangeGuardScript(range)}
           // A file already at output_path must not pass the written-file check below.
           var existing = new File(outputPath);
           var existedBefore = existing.exists;
-          ${args.overwrite ? "" : `if (existedBefore) return __error("A file already exists at " + outputPath + "; nothing was exported. Choose a new output_path or pass overwrite: true.");`}
+          ${args.overwrite ? "" : `if (existedBefore) return __error("A file already exists at " + outputPath + "; nothing was exported. Choose a new output_path or pass overwrite: true.", { mutationOutcome: "not_applied", timelineChanged: false });`}
           var sizeBefore = existedBefore ? existing.length : -1;
           var modifiedBefore = existedBefore && existing.modified ? existing.modified.getTime() : null;
 
