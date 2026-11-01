@@ -63,10 +63,11 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
 
     save_project_as: {
       description:
-        "Save the current project to a new .prproj path. Premiere then has the NEW copy open and closes the original, so later edits go to the copy; the result reports both paths. Fails when Premiere writes no file or leaves a pre-existing path unchanged. Use open_project to return to the original.",
+        "Save the current project to a new .prproj path. Existing outputs require overwrite true. Premiere then has the NEW copy open and closes the original, so later edits go to the copy; the result reports both paths. Fails when Premiere writes no file or leaves a pre-existing path unchanged. Use open_project to return to the original.",
       parameters: {
         type: "object" as const,
         properties: {
+          overwrite: { type: "boolean", description: "Explicitly allow replacing an existing output file (default: false)." },
           path: {
             type: "string",
             description:
@@ -75,7 +76,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
         },
         required: ["path"],
       },
-      handler: async (args: { path: string }) => {
+      handler: async (args: { path: string; overwrite?: boolean }) => {
         if (typeof args.path !== "string" || !/\.prproj$/i.test(args.path.trim())) {
           return { success: false, error: "path must be a .prproj file path" };
         }
@@ -91,6 +92,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           if (!outputFile.parent || !outputFile.parent.exists) {
             return __error("The Save As directory does not exist: " + outputFile.parent);
           }
+          if (outputFile.exists && ${args.overwrite !== true}) return __error("Output already exists; choose a new path or explicitly set overwrite true. Save As was not attempted.");
           var existedBefore = !!outputFile.exists;
           var lengthBefore = existedBefore ? Number(outputFile.length) : -1;
           if (existedBefore && !isFinite(lengthBefore)) return __error("Cannot read the existing output size; Save As was not attempted.");

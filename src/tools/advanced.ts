@@ -1353,6 +1353,7 @@ export function getAdvancedTools(
       parameters: {
         type: "object" as const,
         properties: {
+          overwrite: { type: "boolean", description: "Explicitly allow replacing an existing output file (default: false)." },
           sequence_id: {
             type: "string",
             description:
@@ -1365,7 +1366,7 @@ export function getAdvancedTools(
         },
         required: ["output_path"],
       },
-      handler: async (args: { sequence_id?: string; output_path: string }) => {
+      handler: async (args: { sequence_id?: string; output_path: string; overwrite?: boolean }) => {
         const seqLookup = args.sequence_id
           ? `var seq = __findSequence("${escapeForExtendScript(args.sequence_id)}"); if (!seq) return __error("Sequence not found");`
           : `var seq = app.project.activeSequence; if (!seq) return __error("No active sequence");`;
@@ -1376,6 +1377,7 @@ export function getAdvancedTools(
           if (!outputFile.parent || !outputFile.parent.exists) {
             return __error("The project export directory does not exist: " + outputFile.parent);
           }
+          if (outputFile.exists && ${args.overwrite !== true}) return __error("Output already exists; choose a new output_path or explicitly set overwrite true. Project export was not attempted.");
           var existedBefore = !!outputFile.exists;
           var lengthBefore = existedBefore ? Number(outputFile.length) : -1;
           var modifiedBefore = "";

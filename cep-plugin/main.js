@@ -230,25 +230,21 @@ function readFile(filePath) {
 }
 
 function writeFile(filePath, content) {
-  try {
-    fs.writeFileSync(filePath, content, "utf-8");
-    return true;
-  } catch (e) {
-    log("Error writing " + filePath + ": " + e.message, "err");
-    return false;
-  }
+  return writeResponseFile(filePath, content);
 }
 
 // Publish responses atomically so the MCP process never sees a partially-written
 // JSON file. The staging suffix is not a response filename the server will read.
 function writeResponseFile(filePath, content) {
   var stagedPath = filePath + ".staged";
+  var stagedOwned = false;
   try {
-    fs.writeFileSync(stagedPath, content, "utf-8");
+    fs.writeFileSync(stagedPath, content, { encoding: "utf-8", mode: 384, flag: "wx" });
+    stagedOwned = true;
     fs.renameSync(stagedPath, filePath);
     return true;
   } catch (e) {
-    deleteFile(stagedPath);
+    if (stagedOwned) deleteFile(stagedPath);
     log("Error publishing " + filePath + ": " + e.message, "err");
     return false;
   }
@@ -266,25 +262,29 @@ function writeBridgeHeartbeat() {
   if (!tempDir) return;
   var heartbeatPath = path.join(tempDir, "bridge-heartbeat.json");
   var stagedPath = heartbeatPath + "." + ENGINE_ID + ".staged";
+  var stagedOwned = false;
   try {
     fs.writeFileSync(stagedPath, JSON.stringify({
       protocolVersion: 1,
       commandSchemaVersion: 1,
       receiptVersion: 1,
       state: bridgeRunning ? "running" : "waiting"
-    }), "utf-8");
+    }), { encoding: "utf-8", mode: 384, flag: "wx" });
+    stagedOwned = true;
     fs.renameSync(stagedPath, heartbeatPath);
   } catch (e) {
-    deleteFile(stagedPath);
+    if (stagedOwned) deleteFile(stagedPath);
   }
   if (IS_HEADLESS_ENGINE && bridgeRunning) {
     var enginePath = path.join(tempDir, HEADLESS_ENGINE_FILE);
     var engineStaged = enginePath + "." + ENGINE_ID + ".staged";
+    var engineStagedOwned = false;
     try {
-      fs.writeFileSync(engineStaged, JSON.stringify({ engine: ENGINE_ID }), "utf-8");
+      fs.writeFileSync(engineStaged, JSON.stringify({ engine: ENGINE_ID }), { encoding: "utf-8", mode: 384, flag: "wx" });
+      engineStagedOwned = true;
       fs.renameSync(engineStaged, enginePath);
     } catch (engineError) {
-      deleteFile(engineStaged);
+      if (engineStagedOwned) deleteFile(engineStaged);
     }
   }
 }
@@ -380,13 +380,14 @@ function processOneCommand(cmdFileName) {
   // Only starts after 2s, so fast commands never touch the extra file.
   var busyFilePath = path.join(tempDir, "busy_" + id + ".json");
   var startedAt = new Date().getTime();
+  var busyOwned = false;
   var busyTimer = setInterval(function () {
-    writeFile(busyFilePath, '{"id":"' + id + '","elapsedMs":' + (new Date().getTime() - startedAt) + "}");
+    if (writeFile(busyFilePath, '{"id":"' + id + '","elapsedMs":' + (new Date().getTime() - startedAt) + "}")) busyOwned = true;
   }, 2000);
 
   executeScript(script, function (result) {
     clearInterval(busyTimer);
-    deleteFile(busyFilePath);
+    if (busyOwned) deleteFile(busyFilePath);
     commandCount++;
 
     var response;

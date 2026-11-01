@@ -172,9 +172,74 @@ const FILESYSTEM_TOOL_NAMES = new Set([
 // inferred safely from their names. Keep them explicit: a preview reads an
 // approved folder, authoring mutates a saved AE project and exports a file.
 const TOOL_CAPABILITY_REQUIREMENTS: Readonly<Record<string, readonly Capability[]>> = {
+  execute_extendscript: ["edit", "export", "filesystem", "unsafe-script"],
+  send_raw_script: ["edit", "export", "filesystem", "unsafe-script"],
+  evaluate_expression: ["edit", "export", "filesystem", "unsafe-script"],
+  search_project_context: ["inspect", "filesystem"],
+  // Host imports, saves, render jobs, and artifact writes carry separate authority.
+  apply_lut: ["edit", "filesystem"],
+  consolidate_and_transfer: ["edit", "filesystem"],
+  consolidate_duplicates: ["edit", "filesystem"],
+  create_project: ["edit", "filesystem"],
+  open_project: ["edit", "filesystem"],
+  save_project: ["edit", "filesystem"],
+  save_project_as: ["edit", "filesystem"],
+  save_project_uxp: ["edit", "filesystem"],
+  import_ae_comps: ["edit", "filesystem"],
+  import_edl: ["edit", "filesystem"],
+  import_fcp_xml: ["edit", "filesystem"],
+  import_folder: ["edit", "filesystem"],
+  import_image_sequence: ["edit", "filesystem"],
+  import_media: ["edit", "filesystem"],
+  import_mogrt: ["edit", "filesystem"],
+  import_mogrt_from_library: ["edit", "filesystem"],
+  import_sequences: ["edit", "filesystem"],
+  import_transcript_uxp: ["edit", "filesystem"],
+  relink_media: ["edit", "filesystem"],
+  relink_offline_media_uxp: ["edit", "filesystem"],
+  export_aaf: ["edit", "export", "filesystem"],
+  export_aaf_uxp: ["edit", "export", "filesystem"],
+  export_as_fcp_xml: ["edit", "export", "filesystem"],
+  export_as_project: ["edit", "export", "filesystem"],
+  export_frame: ["edit", "export", "filesystem"],
+  export_frame_uxp: ["edit", "export", "filesystem"],
+  export_interchange_uxp: ["edit", "export", "filesystem"],
+  export_omf: ["edit", "export", "filesystem"],
+  export_sequence: ["edit", "export", "filesystem"],
+  export_sequence_clip_review_frames: ["edit", "export", "filesystem"],
+  export_sequence_marker_review_frames: ["edit", "export", "filesystem"],
+  export_sequence_review_frames: ["edit", "export", "filesystem"],
+  capture_frame: ["edit", "export", "filesystem"],
+  encode_file: ["edit", "export", "filesystem"],
+  encode_project_item: ["edit", "export", "filesystem"],
+  start_batch_encode: ["edit", "export", "filesystem"],
+  export_sequence_edl: ["export", "filesystem"],
+  validate_export_preset: ["export", "filesystem"],
+  freeze_frame: ["edit", "filesystem"],
+  set_clip_duration: ["edit", "filesystem"],
+  create_sequence_with_preset_uxp: ["edit", "filesystem"],
+  delete_preview_files: ["edit", "filesystem"],
+  refresh_media: ["edit", "filesystem"],
+  get_encoder_presets: ["inspect", "filesystem"],
+  list_stock_titles: ["inspect", "filesystem"],
+  get_project_scratch_disks: ["inspect", "filesystem"],
+  inspect_project_recovery: ["inspect", "filesystem"],
+  plan_silence_review_markers: ["inspect", "filesystem"],
+  validate_project_for_export: ["inspect", "filesystem"],
+  create_context_edit_plan: ["inspect", "filesystem"],
+  create_editorial_context_pack: ["inspect", "filesystem"],
+  create_editorial_plan: ["inspect", "filesystem"],
+  preview_editorial_plan: ["inspect", "filesystem"],
+  inspect_film_editorial_workflow: ["inspect", "filesystem"],
+  apply_editorial_organization_plan: ["inspect", "edit", "filesystem"],
+  audit_object_masks_uxp: ["inspect"],
+  has_transcript_uxp: ["inspect"],
+  is_language_pack_available_uxp: ["inspect"],
+  wait_for_host_readiness_uxp: ["inspect"],
+
   start_local_analysis_job: ["filesystem"],
   cancel_workflow_job: ["filesystem"],
-  export_and_verify: ["inspect", "export", "filesystem"],
+  export_and_verify: ["inspect", "edit", "export", "filesystem"],
   inspect_rendered_video_scopes: ["inspect", "filesystem"],
   build_edit_review_evidence: ["inspect", "filesystem"],
   inspect_otio_interchange: ["inspect", "filesystem"],
@@ -189,7 +254,7 @@ const TOOL_CAPABILITY_REQUIREMENTS: Readonly<Record<string, readonly Capability[
   inspect_workflow_checkpoint: ["inspect", "filesystem"],
   acknowledge_operation_recovery: ["inspect", "edit"],
   apply_extended_edit_plan: ["inspect", "edit", "filesystem"],
-  prepare_transcript_workflow: ["inspect"],
+  prepare_transcript_workflow: ["inspect", "filesystem"],
   // Audit is read-only; apply: true adds edit (see capabilitiesForToolInvocation).
   audit_project_structure: ["inspect"],
   preview_scene_review_workflow: ["inspect", "filesystem"],
@@ -202,8 +267,10 @@ const TOOL_CAPABILITY_REQUIREMENTS: Readonly<Record<string, readonly Capability[
   // Preset preflight reads local files; AME queue handoff can start exports.
   create_sequence: ["edit", "filesystem"],
   create_sequence_from_preset: ["edit", "filesystem"],
-  add_to_render_queue: ["export", "filesystem"],
-  export_sequence_job_start: ["export", "filesystem"],
+  add_to_render_queue: ["edit", "export", "filesystem"],
+  export_sequence_job_start: ["edit", "export", "filesystem"],
+  // Reads the job output file size to judge whether the export settled.
+  get_export_job_status: ["inspect", "filesystem"],
   get_export_file_extension: ["inspect", "filesystem"],
   roll_edit: ["inspect", "edit", "filesystem"],
   slide_edit: ["inspect", "edit", "filesystem"],
@@ -237,10 +304,88 @@ const TOOL_CAPABILITY_REQUIREMENTS: Readonly<Record<string, readonly Capability[
 };
 
 const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, readonly Capability[]>>>> = {
+  manage_proxies: {
+    create: ["edit", "export", "filesystem"],
+    attach: ["edit", "filesystem"],
+    toggle: ["edit"],
+  },
+  manage_project_sessions_uxp: {
+    list: ["inspect"],
+    validate: ["inspect", "filesystem"],
+    create: ["edit", "filesystem"],
+    open: ["edit", "filesystem"],
+    save: ["edit", "filesystem"],
+    save_as: ["edit", "filesystem"],
+    branch_copies: ["edit", "filesystem"],
+    close: ["edit", "filesystem"],
+  },
+  create_caption_track: {
+    import: ["edit"],
+    plan_lecture_workflow: ["inspect"],
+  },
+  manage_growing_media_uxp: {
+    status: ["inspect"],
+    pause: ["edit"],
+    resume: ["edit"],
+  },
+  manage_workflow_checkpoints_uxp: {
+    has: ["inspect"],
+    get: ["inspect"],
+    set: ["edit"],
+    clear: ["edit"],
+  },
+  maintain_media_health_uxp: {
+    inspect: ["inspect"],
+    refresh: ["edit", "filesystem"],
+    set_offline: ["edit"],
+    find_by_media_path: ["inspect"],
+  },
+  manage_source_media_timing_uxp: {
+    inspect: ["inspect"],
+    set_start: ["edit"],
+  },
+  manage_source_media_overrides_uxp: {
+    inspect: ["inspect"],
+    update: ["edit"],
+  },
+  manage_track_state_uxp: {
+    inspect: ["inspect"],
+    set_mute: ["edit"],
+  },
+  duplicate_track_item_uxp: {
+    inspect: ["inspect"],
+    apply: ["edit"],
+  },
+  ripple_delete_track_item_uxp: {
+    inspect: ["inspect"],
+    apply: ["edit"],
+  },
+  slide_track_item_uxp: {
+    inspect: ["inspect"],
+    apply: ["edit"],
+  },
+  slip_track_item_uxp: {
+    inspect: ["inspect"],
+    apply: ["edit"],
+  },
+  unnest_sequence_uxp: {
+    inspect: ["inspect"],
+    apply: ["edit"],
+  },
+  manage_source_clip_uxp: {
+    inspect: ["inspect"],
+    update: ["edit"],
+  },
+  manage_sequence_preview_frame_uxp: {
+    inspect: ["inspect"],
+    update: ["edit"],
+  },
+
   manage_project_context: {
     capture: ["inspect", "filesystem"],
     enrich: ["inspect", "filesystem"],
-    status: ["inspect"],
+    status: ["inspect", "filesystem"],
+    import_evidence: ["filesystem"],
     clear: ["filesystem"],
   },
   manage_clip_effects_uxp: {
@@ -301,7 +446,7 @@ const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, reado
   },
   preflight_production_storage_uxp: {
     preflight: ["inspect"],
-    configure_project: ["edit"],
+    configure_project: ["edit", "filesystem"],
   },
   inspect_project_selection_uxp: {
     views: ["inspect"],
@@ -397,9 +542,11 @@ const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, reado
   },
   encode_media_uxp: {
     preflight: ["inspect"],
-    sequence: ["export", "filesystem"],
-    project_item: ["export", "filesystem"],
-    file: ["export", "filesystem"],
+    jobs: ["inspect"],
+    wait: ["inspect"],
+    sequence: ["edit", "export", "filesystem"],
+    project_item: ["edit", "export", "filesystem"],
+    file: ["edit", "export", "filesystem"],
   },
 };
 
@@ -419,10 +566,16 @@ export function capabilityForTool(toolName: string): Capability {
 export function capabilitiesForToolInvocation(toolName: string, args: unknown): readonly Capability[] {
   if (toolName === "export_interchange_uxp" && args && typeof args === "object" && (args as Record<string, unknown>).verify_artifact === true) return ["export", "filesystem"];
   if (toolName === "audit_project_structure" && args && typeof args === "object" && (args as Record<string, unknown>).apply === true) return ["inspect", "edit"];
-  if (toolName === "prepare_transcript_workflow" && args && typeof args === "object" && (args as Record<string, unknown>).start_if_missing === true) return ["inspect", "edit"];
   // Inline caption retiming is pure computation; reading input_path or writing
   // output_path touches the local filesystem and needs that authority too.
   if (toolName === "retime_caption_file" && args && typeof args === "object" && ((args as Record<string, unknown>).input_path !== undefined || (args as Record<string, unknown>).output_path !== undefined)) return ["inspect", "filesystem"];
+  if (toolName === "prepare_transcript_workflow" && args && typeof args === "object" && (args as Record<string, unknown>).start_if_missing === true) return ["inspect", "edit", "filesystem"];
+  const inputRecord = args && typeof args === "object" && !Array.isArray(args) ? args as Record<string, unknown> : undefined;
+  if (toolName === "export_sequence_edl" && inputRecord?.output_path === undefined) return ["export"];
+  if (toolName === "close_project") return inputRecord?.save_first === false ? ["edit"] : ["edit", "filesystem"];
+  if (toolName === "set_offline" && inputRecord?.offline === false) return ["edit", "filesystem"];
+  if (toolName === "manage_project_sessions_uxp" && inputRecord?.action === "close" && inputRecord.save_before_close === false) return ["edit"];
+  if (toolName === "manage_metadata_uxp" && ((inputRecord?.action === "update" && typeof inputRecord.xmp_metadata === "string") || (inputRecord?.action === "update_field" && inputRecord.packet === "xmp"))) return ["edit", "filesystem"];
   const actionMap = ACTION_CAPABILITIES[toolName];
   if (toolName === "set_metadata" && args && typeof args === "object" && (args as Record<string, unknown>).packet === "xmp") {
     // XMP field writes land in the source media file, not just the project.
@@ -433,7 +586,7 @@ export function capabilitiesForToolInvocation(toolName: string, args: unknown): 
     ? args as Record<string, unknown>
     : undefined;
   const action = input?.action;
-  const required = typeof action === "string" ? actionMap[action] : undefined;
+  const required = typeof action === "string" && Object.hasOwn(actionMap, action) ? actionMap[action] : undefined;
   if (toolName === "encode_media_uxp" && action === "preflight" && typeof input?.preset_file === "string") {
     return ["inspect", "filesystem"];
   }
@@ -478,6 +631,7 @@ export function isToolPermitted(
   config: CapabilityConfig,
 ): boolean {
   if (ALWAYS_LISTED_TOOL_NAMES.has(toolName)) return true;
+  if (toolName === "export_sequence_edl") return config.capabilities.has("export");
   const exactRequirements = TOOL_CAPABILITY_REQUIREMENTS[toolName];
   if (exactRequirements) {
     return exactRequirements.every((capability) => config.capabilities.has(capability));

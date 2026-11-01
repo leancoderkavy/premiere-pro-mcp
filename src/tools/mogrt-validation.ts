@@ -1,4 +1,5 @@
-import { readFileSync, statSync } from "node:fs";
+import { readBoundedRegularFile } from "../security/file-safety.js";
+import { statSync } from "node:fs";
 import { readZipEntry } from "./mogrt-bake.js";
 
 /** Refuse malformed local templates before invoking the potentially blocking host importer. */
@@ -6,7 +7,7 @@ export function validateMogrtArchive(path: string): string | null {
   try {
     const stat = statSync(path);
     if (!stat.isFile() || stat.size > 64 * 1024 * 1024) return "MOGRT must be a regular file of at most 64 MiB.";
-    const archive = readFileSync(path);
+    const archive = readBoundedRegularFile(path, 64 * 1024 * 1024);
     const definition = readZipEntry(archive, "definition.json", 1024 * 1024)
       ?? readZipEntry(archive, "manifest.json", 1024 * 1024);
     if (!definition) return "MOGRT ZIP must contain definition.json or manifest.json; nothing was sent to Premiere.";

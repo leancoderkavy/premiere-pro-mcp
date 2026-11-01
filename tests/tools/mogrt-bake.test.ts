@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gzipSync, gunzipSync } from "node:zlib";
@@ -114,6 +114,13 @@ describe("bakePremiereTitle", () => {
     expect(again.reused).toBe(false);
     expect(again.checks.every((c) => c.actual === c.expected)).toBe(true);
     expect(readPremiereTitleText(again.path)).toEqual(["Beta", "Alpha"]);
+  });
+
+  it("refuses a linked cache directory instead of writing outside its private cache", () => {
+    const outside = join(workspace, "outside-cache"), link = join(workspace, "linked-cache");
+    mkdirSync(outside);
+    symlinkSync(outside, link, process.platform === "win32" ? "junction" : "dir");
+    expect(() => bakePremiereTitle(lowerThird, ["Role", "Name"], link)).toThrow(/symbolic link|junction/);
   });
 
   it("fills a partial set of lines and leaves the other layer's default text", () => {

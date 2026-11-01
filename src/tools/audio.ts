@@ -1,7 +1,7 @@
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 import { execFile } from "node:child_process";
-import { existsSync, renameSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, renameSync, rmSync, rmdirSync, statSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 
@@ -1200,42 +1200,47 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
           const overshoot = last.measured.truePeakDbfs === null ? 0.5 : Math.max(0, last.measured.truePeakDbfs - truePeak);
           const nextTruePeak = Number(Math.max(-9, last.appliedTruePeakDbfs - (last.truePeakPass ? 0 : overshoot + 0.1)).toFixed(2));
           const nextTarget = Number(Math.min(-5, Math.max(-70, last.appliedTargetLufs - (last.loudnessPass ? 0 : last.deltaLu))).toFixed(2));
-          const retryPath = join(dirname(outputPath), `.${basename(outputPath, extension)}.retry-${attempts.length + 1}-${process.pid}${extension}`);
-          const retry = await render(retryPath, nextTarget, nextTruePeak);
-          if ("success" in retry) {
-            rmSync(retryPath, { force: true });
-            break;
-          }
-          attempts.push(retry);
-          const passes = (attempt: Attempt) => Number(attempt.loudnessPass) + Number(attempt.truePeakPass);
-          if (passes(retry) >= passes(best)) {
-            // Keep the previous valid attempt recoverable until the better file
-            // is in place. A direct remove-then-rename could lose the only valid
-            // output when antivirus, permissions or another process blocks rename.
-            const previousPath = `${retryPath}.previous`;
-            let movedPrevious = false;
-            try {
-              renameSync(outputPath, previousPath);
-              movedPrevious = true;
-              renameSync(retryPath, outputPath);
-              rmSync(previousPath, { force: true });
-              best = retry;
-            } catch {
-              if (movedPrevious && !existsSync(outputPath) && existsSync(previousPath)) {
-                try { renameSync(previousPath, outputPath); } catch { /* reported below */ }
-              }
-              if (existsSync(outputPath)) {
-                rmSync(retryPath, { force: true });
-                rmSync(previousPath, { force: true });
-                break;
-              }
-              return {
-                success: false,
-                error: `Could not replace the first normalized output safely. The previous attempt remains at ${previousPath}; move it back to ${outputPath} before retrying.`,
-              };
+          const retryDirectory = mkdtempSync(join(dirname(outputPath), ".mcp-normalize-"));
+          const retryPath = join(retryDirectory, `retry${extension}`);
+          try {
+            const retry = await render(retryPath, nextTarget, nextTruePeak);
+            if ("success" in retry) {
+              rmSync(retryPath, { force: true });
+              break;
             }
-          } else {
-            rmSync(retryPath, { force: true });
+            attempts.push(retry);
+            const passes = (attempt: Attempt) => Number(attempt.loudnessPass) + Number(attempt.truePeakPass);
+            if (passes(retry) >= passes(best)) {
+              // Keep the previous valid attempt recoverable until the better file
+              // is in place. A direct remove-then-rename could lose the only valid
+              // output when antivirus, permissions or another process blocks rename.
+              const previousPath = `${retryPath}.previous`;
+              let movedPrevious = false;
+              try {
+                renameSync(outputPath, previousPath);
+                movedPrevious = true;
+                renameSync(retryPath, outputPath);
+                rmSync(previousPath, { force: true });
+                best = retry;
+              } catch {
+                if (movedPrevious && !existsSync(outputPath) && existsSync(previousPath)) {
+                  try { renameSync(previousPath, outputPath); } catch { /* reported below */ }
+                }
+                if (existsSync(outputPath)) {
+                  rmSync(retryPath, { force: true });
+                  rmSync(previousPath, { force: true });
+                  break;
+                }
+                return {
+                  success: false,
+                  error: `Could not replace the first normalized output safely. The previous attempt remains at ${previousPath}; move it back to ${outputPath} before retrying.`,
+                };
+              }
+            } else {
+              rmSync(retryPath, { force: true });
+            }
+          } finally {
+            try { rmdirSync(retryDirectory); } catch { /* Preserve a recoverable attempt when publication failed. */ }
           }
         }
         const loudnessPass = best.loudnessPass;

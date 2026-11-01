@@ -1,13 +1,18 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 import { bakePremiereTitle, pruneTitleCache, writeZip } from "../../src/tools/mogrt-bake.js";
+import { cleanupTempDirs, makePrivateBridgeTempDir } from "../helpers/temp-dir.js";
 
 const folders: string[] = [];
 function directory() { const dir = mkdtempSync(join(tmpdir(), "title-cache-")); folders.push(dir); return dir; }
 afterEach(() => { for (const folder of folders.splice(0)) rmSync(folder, { recursive: true }); });
+afterAll(cleanupTempDirs);
+// Baking checks its output folder like a bridge directory, so a pre-made folder must
+// be created through the bridge helper: on Windows that sets the owner and ACL.
+function bakeCache() { return makePrivateBridgeTempDir("title-cache-"); }
 function titleName(index: number) { return `Basic-Title-${index.toString(16).padStart(16, "0")}.mogrt`; }
 function seed(dir: string, count: number) {
   for (let i = 0; i < count; i++) {
@@ -69,14 +74,14 @@ describe("bounded baked-title cache", () => {
     expect(() => pruneTitleCache(join(directory(), "missing"))).not.toThrow();
   });
   it("prunes after baking a new verified title", () => {
-    const source = template(directory()), cache = directory(); seed(cache, 51);
+    const source = template(directory()), cache = bakeCache(); seed(cache, 51);
     const result = bakePremiereTitle(source, ["New title"], cache);
     expect(result.checks.every((check) => check.actual === check.expected)).toBe(true);
     expect(existsSync(result.path)).toBe(true);
     expect(readdirSync(cache)).toHaveLength(50);
   });
   it("refreshes an old reused copy before pruning so its import path remains available", () => {
-    const source = template(directory()), cache = directory();
+    const source = template(directory()), cache = bakeCache();
     const first = bakePremiereTitle(source, ["Reused title"], cache);
     utimesSync(first.path, 1, 1); seed(cache, 51);
     const reused = bakePremiereTitle(source, ["Reused title"], cache);

@@ -1,5 +1,7 @@
+import { ensurePrivateBridgeDirectory } from "../bridge/file-bridge.js";
+import { readBoundedRegularFile } from "../security/file-safety.js";
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, renameSync, statSync, unlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { deflateRawSync, gunzipSync, gzipSync, inflateRawSync } from "node:zlib";
@@ -175,7 +177,7 @@ export function templateKind(entryNames: string[]): TemplateKind {
 }
 
 export function readTemplateKind(mogrtPath: string): TemplateKind {
-  return templateKind(centralDirectory(readFileSync(mogrtPath)).map((entry) => entry.name));
+  return templateKind(centralDirectory(readBoundedRegularFile(mogrtPath, MAX_TEMPLATE_BYTES)).map((entry) => entry.name));
 }
 
 interface SourceTextBlob {
@@ -214,7 +216,7 @@ function prprojOf(prgraphic: Buffer): { entries: ZipEntry[]; index: number; xml:
 
 /** Text of every Source Text layer in a Premiere-built template, in document order. */
 export function readPremiereTitleText(mogrtPath: string): string[] {
-  const prgraphic = readZipEntry(readFileSync(mogrtPath), "project.prgraphic");
+  const prgraphic = readZipEntry(readBoundedRegularFile(mogrtPath, MAX_TEMPLATE_BYTES), "project.prgraphic");
   if (!prgraphic) throw new Error("Template has no project.prgraphic");
   const texts: string[] = [];
   for (const match of prprojOf(prgraphic).xml.matchAll(SOURCE_TEXT_BLOB)) {
@@ -285,11 +287,11 @@ export function bakePremiereTitle(
   newCapsuleId: () => string = randomUUID,
 ): BakeResult {
   if (statSync(templatePath).size > MAX_TEMPLATE_BYTES) throw new Error("Template file is too large");
-  const entries = readZipEntries(readFileSync(templatePath));
+  const entries = readZipEntries(readBoundedRegularFile(templatePath, MAX_TEMPLATE_BYTES));
   const byName = new Map(entries.map((entry) => [entry.name, entry]));
   if (templateKind([...byName.keys()]) !== "premiere") throw new Error("Not a Premiere-built template (no project.prgraphic)");
 
-  const digest = createHash("sha256").update(readFileSync(templatePath)).update("\u0000").update(JSON.stringify(lines)).digest("hex").slice(0, 16);
+  const digest = createHash("sha256").update(readBoundedRegularFile(templatePath, MAX_TEMPLATE_BYTES)).update("\u0000").update(JSON.stringify(lines)).digest("hex").slice(0, 16);
   const slug = (templatePath.split(/[\\/]/).pop() ?? "title").replace(/\.mogrt$/i, "").replace(/[^A-Za-z0-9._-]+/g, "-");
   const outPath = join(outDir, `${slug}-${digest}.mogrt`);
 
@@ -328,6 +330,7 @@ export function bakePremiereTitle(
     const texts = readPremiereTitleText(outPath);
     return lines.map((expected, index) => ({ index, expected, actual: texts[assignment[index]] ?? null }));
   };
+  ensurePrivateBridgeDirectory(outDir);
   if (existsSync(outPath)) {
     const checks = verify();
     if (checks.every((check) => check.actual === check.expected)) {
@@ -370,9 +373,8 @@ export function bakePremiereTitle(
     else output.push(entry);
   }
 
-  mkdirSync(outDir, { recursive: true, mode: 0o700 });
-  const staging = `${outPath}.${process.pid}.tmp`;
-  writeFileSync(staging, writeZip(output), { mode: 0o600 });
+  const staging = `${outPath}.${randomUUID()}.tmp`;
+  writeFileSync(staging, writeZip(output), { mode: 0o600, flag: "wx" });
   renameSync(staging, outPath);
   const checks = verify();
   pruneTitleCache(outDir);

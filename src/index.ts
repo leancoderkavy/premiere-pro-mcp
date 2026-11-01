@@ -3,7 +3,7 @@
 import { StdioServerTransport, serveStdio } from "@modelcontextprotocol/server/stdio";
 import { createServer } from "./server.js";
 import { cleanupTempDir, getTempDir } from "./bridge/file-bridge.js";
-import { getTelemetry } from "./telemetry.js";
+import { getTelemetry, telemetryErrorType } from "./telemetry.js";
 import { execFileSync, spawnSync } from "child_process";
 import { existsSync } from "fs";
 import { fileURLToPath } from "url";
@@ -370,7 +370,7 @@ async function main() {
       onBusy: () => console.error(
         "[premiere-pro-mcp] UXP loopback port is busy; UXP tools stay unavailable and the bind is retried until it frees up.",
       ),
-      onError: (error) => console.error("[premiere-pro-mcp] UXP bridge failed to start:", error),
+      onError: (error) => console.error("[premiere-pro-mcp] UXP bridge failed to start:", telemetryErrorType(error)),
     });
   }
 
@@ -390,7 +390,7 @@ async function main() {
     : serveStdio(
       () => createServer(bridgeOptions, { uxpBridge, telemetry }),
       {
-        onerror: (error) => console.error("[premiere-pro-mcp] MCP stdio error:", error),
+        onerror: (error) => console.error("[premiere-pro-mcp] MCP stdio error:", telemetryErrorType(error)),
       },
     );
   if (protocolMode === "auto") debugLog("Server connected and ready");
@@ -410,6 +410,7 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("[premiere-pro-mcp] Fatal error:", err);
+  const summary = err instanceof Error && err.message === "PREMIERE_MCP_PROTOCOL_MODE must be either auto or legacy." ? err.message : telemetryErrorType(err);
+  console.error("[premiere-pro-mcp] Fatal error:", summary);
   process.exit(1);
 });

@@ -1,5 +1,6 @@
+import { readBoundedRegularFile } from "../security/file-safety.js";
 import { createHash } from "node:crypto";
-import { closeSync, constants, fstatSync, openSync, readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { isAbsolute } from "node:path";
 
 export const MAX_INTERCHANGE_BYTES = 10 * 1024 * 1024;
@@ -16,16 +17,13 @@ export function boundedText(value: unknown, name: string, maximum = 512, allowEm
 export function readBoundedInterchange(path: unknown) {
   const target = boundedText(path, "path", 4096, false);
   if (!isAbsolute(target)) throw new Error("path must be absolute");
-  const descriptor = openSync(target, constants.O_RDONLY);
-  try {
-    const stat = fstatSync(descriptor);
-    if (!stat.isFile() || stat.size > MAX_INTERCHANGE_BYTES) throw new Error(`path must be a regular file of at most ${MAX_INTERCHANGE_BYTES} bytes`);
-    const buffer = readFileSync(descriptor);
+  {
+    const buffer = readBoundedRegularFile(target, MAX_INTERCHANGE_BYTES);
     if (buffer.length > MAX_INTERCHANGE_BYTES) throw new Error("Interchange file grew beyond the byte limit during read");
     const text = buffer.toString("utf8");
     if (!Buffer.from(text, "utf8").equals(buffer)) throw new Error("Interchange file must contain valid UTF-8");
     return { path: target, contents: text, bytes: buffer.length, sha256: createHash("sha256").update(buffer).digest("hex") };
-  } finally { closeSync(descriptor); }
+  }
 }
 
 /** Create-only output: a prior export, including a symlink, is never overwritten. */

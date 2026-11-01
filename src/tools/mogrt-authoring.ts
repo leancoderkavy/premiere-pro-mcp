@@ -1,3 +1,4 @@
+import { assertNoSymlinkedPaths } from "../security/path-guard.js";
 import { randomUUID } from "node:crypto";
 import { existsSync, openSync, closeSync, readSync, statSync } from "node:fs";
 import path from "node:path";
@@ -181,6 +182,7 @@ export function validateMogrtBrandKit(value: unknown, workspacePath: string): Mo
 }
 
 function containedFile(candidate: string, workspacePath: string, field: string): void {
+  assertNoSymlinkedPaths({ candidate, workspacePath });
   const contained = workspaceOutput(workspacePath, resolvePathFamily(candidate).api.dirname(candidate), "contained-file");
   if (contained.root !== resolvePathFamily(workspacePath).resolved) {
     throw new Error(`${field} must be inside approved_workspace_path`);
@@ -203,6 +205,7 @@ function workspaceOutput(root: string, outputDirectory: string, name: string): {
   if (!isAbsolutePortable(root) || !isAbsolutePortable(outputDirectory)) {
     throw new Error("approved_workspace_path and output_directory must be absolute paths");
   }
+  assertNoSymlinkedPaths({ root, outputDirectory });
   const rootPath = resolvePathFamily(root);
   const directoryPath = resolvePathFamily(outputDirectory);
   if (rootPath.windows !== directoryPath.windows) {
@@ -770,6 +773,7 @@ export function getMogrtAuthoringTools(
         assertOnlyKeys(input, ["preview_token", "confirm_export"], "arguments");
         if (input.confirm_export !== true) throw new Error("confirm_export must be true to create the MOGRT");
         const plan = takePlan(input.preview_token);
+        assertNoSymlinkedPaths(plan);
         const result = await send(buildMogrtRecipeScript(plan), { ...bridgeOptions, timeoutMs: MOGRT_EXPORT_TIMEOUT_MS });
         if (!result.success) {
           return { ...result, error: `${result.error ?? "MOGRT authoring failed"} (operation ${operationId})` };

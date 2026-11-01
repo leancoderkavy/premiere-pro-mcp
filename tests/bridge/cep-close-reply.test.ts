@@ -18,7 +18,7 @@ describe("CEP reply publication after a project close", () => {
     expect(() => runInNewContext(`${processor}\nprocessOneCommand("cmd_1.jsx");`, state)).not.toThrow();
     expect(writes).toHaveLength(1);expect(writes[0].file).toBe("/tmp/cep-reply/res_1.json");
     expect(JSON.parse(writes[0].content).success).toBe(result.startsWith("{"));
-    expect(state.commandInFlight).toBe(false);expect(released).toBe(true);expect(removed).toContain("/tmp/cep-reply/busy_1.json");
+    expect(state.commandInFlight).toBe(false);expect(released).toBe(true);expect(removed).not.toContain("/tmp/cep-reply/busy_1.json");
   });
   it("does not forge a reply or release execution when evalScript never returns", () => {
     let writes = 0;

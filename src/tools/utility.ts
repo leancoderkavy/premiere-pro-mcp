@@ -618,10 +618,11 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Sour
 
     freeze_frame: {
       description:
-        "Create a freeze frame from a clip at a specific SEQUENCE time (for a source-media time, use create_source_freeze_frame). Exports the frame, imports it back as a still image, and sets the still's Out mark to duration_seconds so add_to_timeline places it at that length (snapped to the still's frame grid, then to the sequence frame). It does not place the still on the timeline.",
+        "Create a freeze frame from a clip at a specific SEQUENCE time (for a source-media time, use create_source_freeze_frame). Existing outputs require overwrite true. Exports the frame, imports it back as a still image, and sets the still's Out mark to duration_seconds so add_to_timeline places it at that length (snapped to the still's frame grid, then to the sequence frame). It does not place the still on the timeline.",
       parameters: {
         type: "object" as const,
         properties: {
+          overwrite: { type: "boolean", description: "Explicitly allow replacing an existing output file (default: false)." },
           time_seconds: {
             type: "number",
             description:
@@ -643,6 +644,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Sour
       handler: async (args: {
         time_seconds?: number;
         output_path: string;
+        overwrite?: boolean;
         duration_seconds?: number;
       }) => {
         const durationSeconds = args.duration_seconds ?? 2;
@@ -659,7 +661,11 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Sour
               : `var timeTicks = seq.getPlayerPosition().ticks;`
           }
 
-          var res = __exportStillFrame("${escapeForExtendScript(args.output_path)}", timeTicks);
+          var outputPath = "${escapeForExtendScript(args.output_path)}";
+          var outputSlash = Math.max(outputPath.lastIndexOf("/"), outputPath.lastIndexOf(String.fromCharCode(92)));
+          if (outputPath.lastIndexOf(".") <= outputSlash) outputPath += ".png";
+          if (new File(outputPath).exists && ${args.overwrite !== true}) return __error("Output already exists; choose a new output_path or explicitly set overwrite true. No frame was exported or imported.");
+          var res = __exportStillFrame(outputPath, timeTicks);
           if (!res.ok) return __error(res.error + " [" + res.notes.join("; ") + "]");
 
           // Import back and find the new project item by node ID.

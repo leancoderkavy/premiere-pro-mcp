@@ -9,6 +9,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - A stale node ID or other pre-write refusal from an editing tool no longer locks the CEP bridge. Previously `enable_disable_clip` with a clip that no longer existed returned "Clip not found" with an unknown outcome, which recorded `unknown_command_outcome` recovery and blocked every later edit until `inspect_operation_recovery` and `acknowledge_operation_recovery`. Refusals raised before a command changes anything (332 lookup and validation sites, plus the expected project/target guards) now report `not_applied` through a new `__refuse` helper. They stay unknown when the undo history moved, a marker write was attempted, or an earlier command of the same tool call was already dispatched. Per-command undo and write flags are now reset before the guards run, so a guard refusal no longer inherits the previous command's marker-write state.
+- Tool authority now requires filesystem access for user-file reads and writes and edit access for host and encoder mutations, including action-specific native tools and durable context. Arbitrary scripting cannot bypass a narrower edit, export or filesystem profile. The v1.25.0 export job tools follow the same rule: `export_sequence_job_start` also requires edit, like `add_to_render_queue`, and `get_export_job_status` requires filesystem because it reads the output file size.
+- Audio normalization retries use private staging, bounded file readers reject non-regular and oversized inputs, and MOGRT workspace operations refuse symlink escapes. Still and project export destinations require explicit overwrite consent.
+- HTTP and stdio error logs retain only bounded error categories, telemetry startup omits endpoint credentials, and private connector files use explicit owner-only permissions with owned staging cleanup.
 
 ## [1.27.0] - 2026-10-31
 
