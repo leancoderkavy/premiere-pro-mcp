@@ -135,7 +135,7 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
 
     duplicate_sequence: {
       description:
-        "Duplicate an existing sequence and report the new copy's sequence ID (id) and, when Premiere exposes it, its project item node ID (projectItemNodeId). Project-item tools accept either.",
+        "Duplicate an existing sequence and report the new copy's sequence ID (id) and, when Premiere exposes it, its project item node ID (projectItemNodeId). Project-item tools accept either. Readback verifies identity only; audio track-to-master routing is not verified. When sound is expected, check an export with export_sequence audio_check=expect_signal.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -162,12 +162,12 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
             var candidate = app.project.sequences[after];
             if (!existingIds[String(candidate.sequenceID)]) { copy = candidate; break; }
           }
-          if (!copy) return __refuse("Premiere did not create a copy of " + seq.name);
+          if (!copy) return __error("Premiere did not create a copy of " + seq.name);
           // The copy's project item has its own node ID. Report it so project-item
           // tools (rename, move, delete) can address the copy without a name lookup.
           var copyItemNodeId = "";
           try { copyItemNodeId = __nodeIdOf(copy.projectItem); } catch (eCopyItem) {}
-          return __result({ duplicated: true, verified: true, originalName: seq.name, originalId: seq.sequenceID, name: copy.name, id: copy.sequenceID, projectItemNodeId: copyItemNodeId || undefined });
+          return __result({ duplicated: true, verified: true, originalName: seq.name, originalId: seq.sequenceID, name: copy.name, id: copy.sequenceID, projectItemNodeId: copyItemNodeId || undefined, audioRoutingVerified: false, verificationScope: "Sequence copy identity only; audio track-to-master routing was not verified." });
         `);
         return sendCommand(script, bridgeOptions);
       },

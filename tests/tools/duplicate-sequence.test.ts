@@ -26,6 +26,6 @@ describe("duplicate_sequence", () => {
     vi.mocked(sendCommand).mockImplementation(async (script: string) =>
       JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { app: { project: { sequences, activeSequence: list[0] } } }))));
     await expect(getSequenceTools({ tempDir: "/tmp/dup" } as BridgeOptions).duplicate_sequence.handler({ sequence_id: "orig" }))
-      .resolves.toMatchObject({ success: true, data: { name: "Sweep Copy", id: "new-2", originalId: "orig", verified: true } });
+      .resolves.toMatchObject({ success: true, data: { name: "Sweep Copy", id: "new-2", originalId: "orig", verified: true, audioRoutingVerified: false, verificationScope: expect.stringContaining("routing was not verified") } });
   });
 });
