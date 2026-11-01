@@ -60,8 +60,8 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         const paths = resolvedPaths.map((p) => `"${escapeForExtendScript(p)}"`).join(", ");
         const suppress = args.suppress_ui !== false ? "true" : "false";
         const binLookup = args.target_bin
-          ? `var targetBin = __findProjectItem("${escapeForExtendScript(args.target_bin)}");
-             if (!targetBin) return __error("Bin not found: ${escapeForExtendScript(args.target_bin)}");`
+          ? `var targetBin = __findBin("${escapeForExtendScript(args.target_bin)}");
+             if (!targetBin) return __error(__findProjectItem("${escapeForExtendScript(args.target_bin)}") ? "${escapeForExtendScript(args.target_bin)} is not a bin; nothing was imported." : "Bin not found: ${escapeForExtendScript(args.target_bin)}");`
           : `var targetBin = app.project.rootItem;`;
 
         const script = buildToolScript(`
@@ -143,8 +143,8 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
           return { success: false as const, error: `Could not inspect folder: ${resolvedFolder} — nothing was imported.` };
         }
         const folderBinLookup = args.target_bin
-          ? `var targetBin = __findProjectItem("${escapeForExtendScript(args.target_bin)}");
-             if (!targetBin) return __error("Bin not found: ${escapeForExtendScript(args.target_bin)}");`
+          ? `var targetBin = __findBin("${escapeForExtendScript(args.target_bin)}");
+             if (!targetBin) return __error(__findProjectItem("${escapeForExtendScript(args.target_bin)}") ? "${escapeForExtendScript(args.target_bin)} is not a bin; nothing was imported." : "Bin not found: ${escapeForExtendScript(args.target_bin)}");`
           : `var targetBin = app.project.rootItem;`;
         const script = buildToolScript(`
           ${folderBinLookup}
@@ -353,7 +353,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the item to move",
+            description: "Node ID or name of the item to move, or the sequence ID of a sequence",
           },
           target_bin: {
             type: "string",
@@ -390,7 +390,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the item to relink",
+            description: "Node ID or name of the item to relink, or the sequence ID of a sequence",
           },
           new_path: {
             type: "string",
@@ -437,7 +437,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the item to refresh",
+            description: "Node ID or name of the item to refresh, or the sequence ID of a sequence",
           },
         },
         required: ["item_id"],
@@ -521,7 +521,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           offline: {
             type: "boolean",
@@ -559,7 +559,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
         },
         required: ["item_id"],
@@ -587,7 +587,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
         },
         required: ["item_id"],
@@ -615,7 +615,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           frame_rate: {
             type: "number",
@@ -651,7 +651,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           numerator: {
             type: "number",
@@ -773,7 +773,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
         },
         required: ["item_id"],
@@ -810,7 +810,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item to select",
+            description: "Node ID or name of the project item to select, or the sequence ID of a sequence",
           },
         },
         required: ["item_id"],
@@ -848,7 +848,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           start_seconds: {
             type: "number",

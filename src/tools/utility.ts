@@ -240,7 +240,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Sour
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item to delete",
+            description: "Node ID or name of the project item to delete, or the sequence ID of a sequence",
           },
           confirm_remove_from_sequences: {
             type: "boolean",
@@ -1528,7 +1528,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Sour
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
         },
         required: ["item_id"],
@@ -1568,7 +1568,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Sour
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           time_seconds: {
             type: "number",

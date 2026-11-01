@@ -141,6 +141,8 @@ describe("get_caption_style_guidance tool", () => {
     expect(data.limitations.join(" ")).toContain("Premiere Pro 2024");
     expect(data.routes).toEqual(expect.arrayContaining(["export_sequence", "create_caption_track"]));
     expect(data.routes).not.toContain("export_frame");
+    expect(data.routes).not.toContain("export_sequence_review_frames");
+    expect(new Set(data.routes).size).toBe(data.routes.length);
     expect(data.warnings).toEqual([]);
   });
 
@@ -162,6 +164,11 @@ describe("get_caption_style_guidance tool", () => {
     expect(data.render_verification.still_frames).toMatch(/omitted caption tracks/);
     expect(data.render_verification.burn_in_export).toContain("export_sequence with range in_to_out");
     expect(data.render_verification.burn_in_export).toContain("Burn Captions Into Video");
+    // The burn-in recipe overwrites sequence In/Out, so it saves them first and restores them with a stale-state check.
+    expect(data.render_verification.burn_in_export).toMatch(/^For rendered evidence, first save the sequence's current In\/Out with get_sequence_in_out_points/);
+    expect(data.render_verification.restore_marks).toContain("if they still match the temporary range, put back the saved marks with set_sequence_in_out_points, or clear_sequence_in_out when none were set");
+    expect(data.render_verification.restore_marks).toContain("If they changed in the meantime, leave them");
+    expect(data.routes).toEqual(expect.arrayContaining(["get_sequence_in_out_points", "set_sequence_in_out_points", "clear_sequence_in_out"]));
     expect(data.limitations.join(" ")).toContain("not caption render evidence");
     expect(data.premiere_ui_steps.join(" ")).not.toContain("export_frame");
   });

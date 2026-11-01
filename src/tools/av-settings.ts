@@ -127,7 +127,7 @@ export function getAvSettingsTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Project item node ID or exact name",
+            description: "Project item node ID or exact name, or the sequence ID of a sequence",
           },
         },
         required: ["item_id"],
@@ -174,7 +174,7 @@ export function getAvSettingsTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Project item node ID or exact name",
+            description: "Project item node ID or exact name, or the sequence ID of a sequence",
           },
           channel_index: {
             type: "number",

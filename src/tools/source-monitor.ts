@@ -10,7 +10,7 @@ export function getSourceMonitorTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item to open",
+            description: "Node ID or name of the project item to open, or the sequence ID of a sequence",
           },
         },
         required: ["item_id"],

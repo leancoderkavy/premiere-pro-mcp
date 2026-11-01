@@ -86,7 +86,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           parse_fields: {
             type: "boolean",
@@ -174,7 +174,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           field_name: {
             type: "string",
@@ -352,7 +352,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           color_index: {
             type: "number",
@@ -388,7 +388,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
         },
         required: ["item_id"],
@@ -412,7 +412,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
         },
         required: ["item_id"],
@@ -446,7 +446,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           frame_rate: {
             type: "number",
@@ -511,7 +511,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
       parameters: {
         type: "object" as const,
         properties: {
-          item_id: { type: "string", description: "Node ID or name of the project item" },
+          item_id: { type: "string", description: "Node ID or name of the project item, or the sequence ID of a sequence" },
           include_raw: { type: "boolean", description: "Opt in to raw XMP instead of parsed fields (maximum 256 Ki characters). Requires include_sensitive true; default false." },
           include_sensitive: { type: "boolean", description: "Opt in to GPS, serial, author and contact fields; required for raw XMP; default false." },
         },
@@ -536,7 +536,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           xmp_xml: {
             type: "string",
@@ -627,7 +627,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
         },
         required: ["item_id"],
