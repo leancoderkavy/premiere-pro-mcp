@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync, readFileSync, unlinkSync, existsSync, readdirSync, renameSync, statSync, lstatSync, realpathSync, chmodSync, watch, FSWatcher, type Stats } from "node:fs";
+import { mkdirSync, openSync, closeSync, writeFileSync, readFileSync, unlinkSync, existsSync, readdirSync, renameSync, statSync, lstatSync, realpathSync, chmodSync, watch, FSWatcher, type Stats } from "node:fs";
 import { basename, dirname, isAbsolute, join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
@@ -553,6 +553,19 @@ function heartbeatFailure(liveness: BridgeLiveness, hostLabel = "Premiere Pro", 
   return null;
 }
 
+/** Exclusive open establishes ownership before any bytes are written. */
+function writeExclusiveBridgeFile(filePath: string, content: string): void {
+  const descriptor = openSync(filePath, "wx", 0o600);
+  // An open collision never reaches this try, so an unrelated file is kept.
+  try {
+    try { writeFileSync(descriptor, content, "utf-8"); }
+    finally { closeSync(descriptor); }
+  } catch (error) {
+    safeUnlink(filePath);
+    throw error;
+  }
+}
+
 /**
  * Make sure this server version's helpers file exists in the temp dir, and return
  * the bootstrap line each command must carry so the CEP-side engine loads it once.
@@ -565,7 +578,7 @@ function ensureHelpers(tempDir: string, helpers?: BridgeHelpers): string {
   };
   const helpersPath = join(tempDir, activeHelpers.fileName);
   if (!existsSync(helpersPath)) {
-    writeFileSync(helpersPath, activeHelpers.source, { encoding: "utf-8", mode: 0o600, flag: "wx" });
+    writeExclusiveBridgeFile(helpersPath, activeHelpers.source);
   }
   return activeHelpers.buildBootstrap(helpersPath);
 }
@@ -680,8 +693,8 @@ async function sendCommandUnchecked(
     // Write a complete command before its .jsx name makes it visible to CEP.
     // renameSync is atomic when both paths are in the bridge directory.
     measureStageSync("dispatch", () => {
-    writeFileSync(stagedCmdFile, withHelpers ? `${ensureHelpers(tempDir, options?.helpers)}
-${script}` : script, { encoding: "utf-8", mode: 0o600, flag: "wx" });
+    writeExclusiveBridgeFile(stagedCmdFile, withHelpers ? `${ensureHelpers(tempDir, options?.helpers)}
+${script}` : script);
     stagedOwned = true;
     assertInvocationNotCancelled();
     renameSync(stagedCmdFile, cmdFile);
@@ -758,8 +771,8 @@ async function sendRawCommandUnchecked(
 
   try {
     measureStageSync("dispatch", () => {
-    writeFileSync(stagedCmdFile, `${ensureHelpers(tempDir, options?.helpers)}
-${script}`, { encoding: "utf-8", mode: 0o600, flag: "wx" });
+    writeExclusiveBridgeFile(stagedCmdFile, `${ensureHelpers(tempDir, options?.helpers)}
+${script}`);
     stagedOwned = true;
     assertInvocationNotCancelled();
     renameSync(stagedCmdFile, cmdFile);
