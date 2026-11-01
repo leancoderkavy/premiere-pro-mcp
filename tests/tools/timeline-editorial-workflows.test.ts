@@ -40,7 +40,7 @@ describe("reachable timeline/editorial contracts", () => {
     const clip = { nodeId: "clip", projectItem: { nodeId: "source", isSequence: () => false }, start: { ticks: "9007199254740993123" }, end: { ticks: "9007199255249025123" }, inPoint: { ticks: time(1) }, outPoint: { ticks: time(3) }, disabled: false, getLinkedItems: () => null, getSpeed: () => 1, isSpeedReversed: () => false };
     const tracks = Object.assign([{ clips: Object.assign([clip], { numItems: 1 }), isLocked: () => false }], { numTracks: 1 });
     const seq = { sequenceID: "s", timebase: time(1 / 24), zeroPoint: "0", videoTracks: tracks, audioTracks: Object.assign([], { numTracks: 0 }) };
-    const send = vi.fn(async (script: string) => vm.runInNewContext(script, { app: { project: { documentID: "p" } }, __findSequence: () => seq, __isCurrentProjectSequence: () => true, __result: success, __error: failure }));
+    const send = vi.fn(async (script: string) => vm.runInNewContext(script, { app: { project: { documentID: "p" } }, __findSequence: () => seq, __isCurrentProjectSequence: () => true, __result: success, __error: failure, __refuse: failure }));
     const tools = getTimelineEditorialTools({}, { send }); const observed = await tools.inspect_timeline_snapshot.handler({ sequence_id: "s" });
     expect(observed).toMatchObject({ success: true, data: { clips: [{ start_ticks: "9007199254740993123" }], completeness: { effects: false, markers: false } } });
     expect(await tools.inspect_timeline_snapshot.handler({ sequence_id: "s", expected_revision: "wrong" })).toMatchObject({ success: false, error: expect.stringContaining("SNAPSHOT_CHANGED") });
@@ -56,7 +56,7 @@ describe("reachable timeline/editorial contracts", () => {
     const seq = { sequenceID: "s", timebase: time(1 / 24), zeroPoint: "0", videoTracks, audioTracks };
     const qeSeq = { getVideoTrackAt: () => ({ isSyncLocked: () => true }), getAudioTrackAt: () => ({ isSyncLocked: () => "yes" }) };
     const enableQE = vi.fn();
-    const contextFor = (active: unknown) => ({ app: { project: { documentID: "p", activeSequence: active }, enableQE }, qe: { project: { getActiveSequence: () => qeSeq } }, __findSequence: () => seq, __isCurrentProjectSequence: () => true, __result: success, __error: failure });
+    const contextFor = (active: unknown) => ({ app: { project: { documentID: "p", activeSequence: active }, enableQE }, qe: { project: { getActiveSequence: () => qeSeq } }, __findSequence: () => seq, __isCurrentProjectSequence: () => true, __result: success, __error: failure, __refuse: failure });
     let context = contextFor(seq);
     const send = vi.fn(async (script: string) => vm.runInNewContext(script, context));
     const tools = getTimelineEditorialTools({}, { send });
@@ -157,7 +157,7 @@ describe("reviewed compound CEP plans", () => {
     const target = { backend: "cep", project_document_id: "p", sequence_id: "s", clip: { node_id: "clip", track_type: "video", track_index: 0, effect: { match_name: "Match", parameter_index: 0, parameter_name: "Amount" } } };
     const script = runWithExpectedHostTarget(target, () => buildToolScript('writes++; return __result({verified:true});'));
     const component = { matchName: "Match", properties: Object.assign([{ displayName: "Amount" }], { numItems: 1 }) }, clip = { components: Object.assign([component], { numItems: 1 }) }; let writes = 0;
-    const context = { app: { project: { documentID: "p", activeSequence: { sequenceID: "s" } } }, __findClip: () => ({ clip, trackType: "video", trackIndex: 0 }), __result: success, __error: failure, get writes() { return writes; }, set writes(n: number) { writes = n; } };
+    const context = { app: { project: { documentID: "p", activeSequence: { sequenceID: "s" } } }, __findClip: () => ({ clip, trackType: "video", trackIndex: 0 }), __result: success, __error: failure, __refuse: failure, get writes() { return writes; }, set writes(n: number) { writes = n; } };
     expect(vm.runInNewContext(script, context).success).toBe(true); expect(writes).toBe(1);
     component.properties[0].displayName = "Reordered"; expect(vm.runInNewContext(script, context)).toMatchObject({ success: false, error: expect.stringContaining("parameter identity") }); expect(writes).toBe(1);
     expect(() => runWithExpectedHostTarget({ ...target, clip: { ...target.clip, effect: { ...target.clip.effect, parameter_index: -1 } } }, () => null)).toThrow("indexed parameter");
@@ -170,7 +170,7 @@ describe("ordinary stacked-camera execution", () => {
     const plan = planStackedCameraEdit(s, [{ start_ticks: "0", end_ticks: time(2), camera_track_id: "video:0" }], ["video:0"], ["audio:0"]), script = stackedCameraApplyScript(s, plan);
     const nativeClip = (c: TimelineSnapshot["clips"][number], copy: boolean): any => ({ nodeId: c.id + (copy ? "copy" : ""), projectItem: { nodeId: c.source_id, isSequence: () => false }, getSpeed: () => 1, isSpeedReversed: () => false, getLinkedItems: () => null, start: { ticks: c.start_ticks }, end: { ticks: c.end_ticks }, inPoint: { ticks: c.in_ticks }, outPoint: { ticks: c.out_ticks }, disabled: !c.enabled });
     const sequence = (copy: boolean): any => ({ sequenceID: copy ? "copy" : "s", videoTracks: Object.assign([{ isLocked: () => false, clips: Object.assign([nativeClip(s.clips[0], copy)], { numItems: 1 }) }], { numTracks: 1 }), audioTracks: Object.assign([{ isLocked: () => false, clips: Object.assign([nativeClip(s.clips[1], copy)], { numItems: 1 }) }], { numTracks: 1 }) });
-    const original = sequence(false), sequences: any = Object.assign([original], { numSequences: 1 }), context = { app: { project: { documentID: "p", sequences } }, __findSequence: () => original, __result: success, __error: failure };
+    const original = sequence(false), sequences: any = Object.assign([original], { numSequences: 1 }), context = { app: { project: { documentID: "p", sequences } }, __findSequence: () => original, __result: success, __error: failure, __refuse: failure };
     original.clone = () => {};
     expect(vm.runInNewContext(script, context)).toMatchObject({ success: false, data: { outcome: "committed_unverified", verified: false } });
     original.clone = () => { const copy = sequence(true); copy.videoTracks[0].isLocked = () => true; sequences.push(copy); sequences.numSequences++; };
@@ -185,17 +185,17 @@ describe("ordinary stacked-camera execution", () => {
     const makeClip = (c: TimelineSnapshot["clips"][number], cloned = false) => ({ nodeId: `${c.id}${cloned ? "copy" : ""}`, projectItem: { nodeId: c.source_id, isSequence: () => false }, getSpeed: () => 1, isSpeedReversed: () => false, getLinkedItems: () => null, start: { ticks: c.start_ticks }, end: { ticks: c.end_ticks }, inPoint: { ticks: c.in_ticks }, outPoint: { ticks: c.out_ticks }, disabled: !c.enabled });
     const makeSequence = (cloned = false): any => ({ sequenceID: cloned ? "copy" : "s", videoTracks: Object.assign([0, 1].map(index => ({ isLocked: () => false, clips: Object.assign(s.clips.filter(c => c.track_id === `video:${index}`).map(c => makeClip(c, cloned)), { numItems: 1 }) })), { numTracks: 2 }), audioTracks: Object.assign([{ isLocked: () => false, clips: Object.assign([makeClip(s.clips[2], cloned)], { numItems: 1 }) }], { numTracks: 1 }) });
     const original = makeSequence(), sequences: any = Object.assign([original], { numSequences: 1 }); original.clone = () => { sequences.push(makeSequence(true)); sequences.numSequences++; };
-    const result = vm.runInNewContext(script, { app: { project: { documentID: "p", sequences } }, __findSequence: () => original, __result: success, __error: failure });
+    const result = vm.runInNewContext(script, { app: { project: { documentID: "p", sequences } }, __findSequence: () => original, __result: success, __error: failure, __refuse: failure });
     expect(result).toMatchObject({ success: true, data: { sequenceId: "copy", masterAudioPreserved: true, nativeMulticam: false } }); expect(sequences[1].videoTracks[0].clips[0].disabled).toBe(true); expect(sequences[1].audioTracks[0].clips[0].disabled).toBe(false); expect(original.videoTracks[0].clips[0].disabled).toBe(false);
     expect(script).not.toMatch(/\b(?:let|const)\b|=>|\d+n/);
     original.videoTracks[0].isLocked = () => true;
-    expect(vm.runInNewContext(script, { app: { project: { documentID: "p", sequences } }, __findSequence: () => original, __result: success, __error: failure })).toMatchObject({ success: false, error: expect.stringContaining("lock") }); expect(sequences.numSequences).toBe(2);
+    expect(vm.runInNewContext(script, { app: { project: { documentID: "p", sequences } }, __findSequence: () => original, __result: success, __error: failure, __refuse: failure })).toMatchObject({ success: false, error: expect.stringContaining("lock") }); expect(sequences.numSequences).toBe(2);
     original.videoTracks[0].isLocked = undefined;
-    expect(vm.runInNewContext(script, { app: { project: { documentID: "p", sequences } }, __findSequence: () => original, __result: success, __error: failure })).toMatchObject({ success: false, error: expect.stringContaining("lock") }); expect(sequences.numSequences).toBe(2);
+    expect(vm.runInNewContext(script, { app: { project: { documentID: "p", sequences } }, __findSequence: () => original, __result: success, __error: failure, __refuse: failure })).toMatchObject({ success: false, error: expect.stringContaining("lock") }); expect(sequences.numSequences).toBe(2);
     original.videoTracks[0].isLocked = () => false; original.videoTracks[0].clips[0].getSpeed = () => 2;
-    expect(vm.runInNewContext(script, { app: { project: { documentID: "p", sequences } }, __findSequence: () => original, __result: success, __error: failure })).toMatchObject({ success: false, error: expect.stringContaining("retimed") }); expect(sequences.numSequences).toBe(2);
+    expect(vm.runInNewContext(script, { app: { project: { documentID: "p", sequences } }, __findSequence: () => original, __result: success, __error: failure, __refuse: failure })).toMatchObject({ success: false, error: expect.stringContaining("retimed") }); expect(sequences.numSequences).toBe(2);
     original.videoTracks[0].clips[0].getSpeed = () => 1; original.videoTracks[0].clips[0].getLinkedItems = () => Object.assign([{ nodeId: "master" }], { numItems: 1 });
-    expect(vm.runInNewContext(script, { app: { project: { documentID: "p", sequences } }, __findSequence: () => original, __result: success, __error: failure })).toMatchObject({ success: false, error: expect.stringContaining("linked identities") }); expect(sequences.numSequences).toBe(2);
+    expect(vm.runInNewContext(script, { app: { project: { documentID: "p", sequences } }, __findSequence: () => original, __result: success, __error: failure, __refuse: failure })).toMatchObject({ success: false, error: expect.stringContaining("linked identities") }); expect(sequences.numSequences).toBe(2);
   });
 });
 

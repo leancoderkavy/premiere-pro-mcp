@@ -299,6 +299,18 @@ describe("stdio CLI entry point", () => {
     expect(process.env.PREMIERE_MCP_TRANSPORT).toBe("stdio");
   });
 
+  it("keeps stdio adapter errors out of operational logs", async () => {
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+    process.argv = [process.execPath, "index.js"];
+    await import("../src/index.js");
+    await vi.waitFor(() => expect(mocks.serveStdio).toHaveBeenCalledOnce());
+    const failure = new Error("Bearer private-token /Users/editor/private-project.mov");
+    failure.name = "private-person@example.test";
+    mocks.serveStdio.mock.calls[0][1].onerror(failure);
+    expect(JSON.stringify(errorLog.mock.calls)).not.toMatch(/private-token|private-project|private-person/);
+    expect(errorLog).toHaveBeenCalledWith("[premiere-pro-mcp] MCP stdio error:", "Error");
+  });
+
   it("offers an explicit legacy stdio fallback for clients that cannot negotiate server/discover", async () => {
     process.argv = [process.execPath, "index.js"];
     process.env.PREMIERE_MCP_PROTOCOL_MODE = "legacy";
@@ -322,8 +334,24 @@ describe("stdio CLI entry point", () => {
     expect(mocks.serveStdio).not.toHaveBeenCalled();
     expect(error).toHaveBeenCalledWith(
       "[premiere-pro-mcp] Fatal error:",
-      expect.objectContaining({ message: "PREMIERE_MCP_PROTOCOL_MODE must be either auto or legacy." }),
+      "PREMIERE_MCP_PROTOCOL_MODE must be either auto or legacy.",
     );
+  });
+
+  it("preserves the fixed bridge-mode validation message without logging its configured value", async () => {
+    process.argv = [process.execPath, "index.js"];
+    process.env.PREMIERE_BRIDGE_MODE = "unsupported-private-value";
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+    await import("../src/index.js");
+    await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(1));
+    expect(mocks.serveStdio).not.toHaveBeenCalled();
+    expect(mocks.uxpStart).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalledWith(
+      "[premiere-pro-mcp] Fatal error:",
+      "PREMIERE_BRIDGE_MODE must be either auto or cep.",
+    );
+    expect(JSON.stringify(error.mock.calls)).not.toContain("unsupported-private-value");
   });
 
   it("treats an unsubstituted Claude Desktop protocol-mode placeholder as auto", async () => {
@@ -332,6 +360,17 @@ describe("stdio CLI entry point", () => {
     await import("../src/index.js");
     await vi.waitFor(() => expect(mocks.serveStdio).toHaveBeenCalledOnce());
     expect(mocks.stdioServerTransport).not.toHaveBeenCalled();
+  });
+
+  it("forces CEP without starting a configured UXP listener", async () => {
+    process.argv = [process.execPath, "index.js"];
+    process.env.PREMIERE_BRIDGE_MODE = "cep";
+    process.env.PREMIERE_UXP_TOKEN = "a-secure-token-with-length";
+    await import("../src/index.js");
+    await vi.waitFor(() => expect(mocks.serveStdio).toHaveBeenCalledOnce());
+    const { createServer } = await import("../src/server.js");
+    expect(createServer).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ bridgeMode: "cep", uxpBridge: undefined }));
+    expect(mocks.uxpStart).not.toHaveBeenCalled();
   });
 
   it("starts the authenticated UXP bridge on the first real request and emits debug readiness details", async () => {
@@ -386,7 +425,7 @@ describe("stdio CLI entry point", () => {
     process.stdin.emit("data", '{"jsonrpc":"2.0","id":1,"method":"initialize"}\n');
     await vi.waitFor(() => expect(error).toHaveBeenCalledWith(
       "[premiere-pro-mcp] UXP bridge failed to start:",
-      expect.objectContaining({ message: "permission denied" }),
+      "Error",
     ));
     expect(exit).not.toHaveBeenCalled();
   });
@@ -399,7 +438,7 @@ describe("stdio CLI entry point", () => {
     await import("../src/index.js");
     await vi.waitFor(() => expect(error).toHaveBeenCalledWith(
       "[premiere-pro-mcp] Fatal error:",
-      expect.objectContaining({ message: "connect failed" }),
+      "Error",
     ));
     expect(exit).toHaveBeenCalledWith(1);
   });
@@ -674,6 +713,23 @@ describe("HTTP entry point", () => {
     await handler({ method: "DELETE", url: "/mcp", headers: { authorization: "Bearer strong-test-token" } }, res);
     expect(mocks.readBoundedBody).toHaveBeenCalledOnce();
     expect(mocks.handleRequest).toHaveBeenCalledOnce();
+  });
+
+  it("keeps request and adapter failures out of operational logs", async () => {
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+    const handler = await loadHttp();
+    const sensitive = new Error("Bearer private-token /Users/editor/private-project.mov");
+    sensitive.name = "private-person@example.test";
+    const sdk = await import("@modelcontextprotocol/server");
+    const node = await import("@modelcontextprotocol/node");
+    (vi.mocked(sdk.createMcpHandler).mock.calls[0][1] as any).onerror(sensitive);
+    (vi.mocked(node.toNodeHandler).mock.calls[0][1] as any).onerror(sensitive);
+    mocks.handleRequest.mockRejectedValueOnce(sensitive);
+    const res = response();
+    await handler({ method: "POST", url: "/mcp", headers: { authorization: "Bearer strong-test-token" } }, res);
+    expect(res.statusCode).toBe(500);
+    expect(JSON.stringify(errorLog.mock.calls)).not.toMatch(/private-token|private-project|private-person/);
+    expect(errorLog).toHaveBeenCalledWith("[premiere-pro-mcp] Request error:", "Error");
   });
 
   it("returns 500 when MCP request handling fails", async () => {

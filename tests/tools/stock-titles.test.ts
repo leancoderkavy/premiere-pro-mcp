@@ -8,7 +8,8 @@ import { join } from "node:path";
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
 import type { BridgeOptions } from "../../src/bridge/file-bridge.js";
 
-vi.mock("../../src/bridge/file-bridge.js", () => ({
+vi.mock("../../src/bridge/file-bridge.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../src/bridge/file-bridge.js")>()),
   sendCommand: vi.fn().mockResolvedValue({ success: true, data: {} }),
   sendRawCommand: vi.fn().mockResolvedValue({ success: true, data: {} }),
   getTempDir: vi.fn().mockReturnValue("/tmp/test"),

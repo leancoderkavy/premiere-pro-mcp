@@ -7,6 +7,7 @@ import { getHelpersSource } from "../../src/bridge/script-builder.js";
 import { runWithUndoTracking } from "../../src/bridge/undo-tracking.js";
 import { getCaptionTools } from "../../src/tools/captions.js";
 import { buildPremiereInstructions } from "../../src/workflows/agent-instructions.js";
+import { WORKFLOW_TOOL_PACKS } from "../../src/workflows/tool-packs.js";
 const tool = getCaptionTools({}).create_caption_track;
 const id = 'caption"\\\n.srt';
 function host(steps: number | undefined, afterCount: unknown = 1) {
@@ -89,5 +90,21 @@ describe("caption import reversal evidence", () => {
     const instructions = buildPremiereInstructions(new Set(["create_caption_track"]));
     expect(instructions).toContain("Caption tracks render in export_sequence by default");
     expect(instructions).toContain("missing count is not permission to guess");
+    // Reversal routes appear only when their tools are registered.
+    expect(instructions).not.toContain("multiple_undo");
+    expect(instructions).not.toContain("manage_track_state_uxp");
+    const withUndo = buildPremiereInstructions(new Set(["create_caption_track", "multiple_undo"]));
+    expect(withUndo).toContain("- create_caption_track -> multiple_undo: To reverse a caption import");
+    expect(withUndo).not.toContain("manage_track_state_uxp");
+    const withMute = buildPremiereInstructions(new Set(["create_caption_track", "manage_track_state_uxp"]));
+    expect(withMute).toContain("- create_caption_track -> manage_track_state_uxp: A connected capable UXP panel");
+  });
+
+  it("registers the advertised reversal tools in every pack that exposes caption import", () => {
+    const captionPacks = WORKFLOW_TOOL_PACKS.filter((pack) => pack.tools.includes("create_caption_track"));
+    expect(captionPacks.map((pack) => pack.name)).toEqual(expect.arrayContaining(["captions", "assistant-edit"]));
+    for (const pack of captionPacks) {
+      expect(pack.tools, pack.name).toEqual(expect.arrayContaining(["multiple_undo", "manage_track_state_uxp"]));
+    }
   });
 });

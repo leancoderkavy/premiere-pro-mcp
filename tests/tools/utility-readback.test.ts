@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { runInNewContext } from "node:vm";
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
+import { runWithUndoTracking } from "../../src/bridge/undo-tracking.js";
 import type { BridgeOptions } from "../../src/bridge/file-bridge.js";
 
 vi.mock("../../src/bridge/file-bridge.js", () => ({
@@ -224,5 +225,22 @@ describe("add_adjustment_layer", () => {
   it("refuses an out-of-range track before touching QE", async () => {
     adjustmentHost({ modern: true });
     await expect(run(tools.add_adjustment_layer, { track_index: 5 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("out of range") });
+  });
+});
+
+
+describe("frame-rate update failure after dispatch", () => {
+  it.each([null, { videoFrameRate: { ticks: String(TICKS / 30) } }])("keeps unreadable or mismatched readback uncertain: %j", async (readback) => {
+    let written = false;
+    const seq = {
+      getSettings: () => written ? readback : { videoFrameRate: { ticks: String(TICKS / 30) } },
+      setSettings: vi.fn(() => { written = true; }),
+      videoTracks: { numTracks: 0 }, audioTracks: { numTracks: 0 },
+    };
+    useContext({ app: { enableQE() {}, project: { activeSequence: seq } }, Time: function Time(this: { ticks: string }) { this.ticks = "0"; } });
+    const result = await runWithUndoTracking(true, () => run(tools.set_sequence_frame_rate, { frame_rate: 25 }));
+    expect(seq.setSettings).toHaveBeenCalledOnce();
+    expect(result.success).toBe(false);
+    expect(result.data?.mutationOutcome).not.toBe("not_applied");
   });
 });

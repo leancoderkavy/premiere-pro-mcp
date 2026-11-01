@@ -21,14 +21,14 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
       handler: async () => {
         const script = buildToolScript(`
           var project = app.project;
-          if (!project) return __error("No project is open");
+          if (!project) return __refuse("No project is open");
           var projectPath = String(project.path || "");
           if (!projectPath) {
-            return __error("This project has no saved path; use save_project_as. Premiere was not asked to save.");
+            return __refuse("This project has no saved path; use save_project_as. Premiere was not asked to save.");
           }
           var outputFile = new File(projectPath);
           if (!outputFile.parent || !outputFile.parent.exists) {
-            return __error("The project directory does not exist: " + outputFile.parent + "; Premiere was not asked to save.");
+            return __refuse("The project directory does not exist: " + outputFile.parent + "; Premiere was not asked to save.");
           }
           function saveFileEvidence(file) {
             try {
@@ -63,10 +63,11 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
 
     save_project_as: {
       description:
-        "Save the current project to a new .prproj path. Premiere then has the NEW copy open and closes the original, so later edits go to the copy; the result reports both paths. Fails when Premiere writes no file or leaves a pre-existing path unchanged. Use open_project to return to the original.",
+        "Save the current project to a new .prproj path. Existing outputs require overwrite true. Premiere then has the NEW copy open and closes the original, so later edits go to the copy; the result reports both paths. Fails when Premiere writes no file or leaves a pre-existing path unchanged. Use open_project to return to the original.",
       parameters: {
         type: "object" as const,
         properties: {
+          overwrite: { type: "boolean", description: "Explicitly allow replacing an existing output file (default: false)." },
           path: {
             type: "string",
             description:
@@ -75,14 +76,14 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
         },
         required: ["path"],
       },
-      handler: async (args: { path: string }) => {
+      handler: async (args: { path: string; overwrite?: boolean }) => {
         if (typeof args.path !== "string" || !/\.prproj$/i.test(args.path.trim())) {
           return { success: false, error: "path must be a .prproj file path" };
         }
         const target = escapeForExtendScript(args.path.trim());
         const script = buildToolScript(`
           var project = app.project;
-          if (!project) return __error("No project is open");
+          if (!project) return __refuse("No project is open");
           var previousPath = String(project.path || "");
           if (__normProjectPath(previousPath) === __normProjectPath("${target}")) {
             return __error("That is the current project's own path; use save_project instead.");
@@ -91,6 +92,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           if (!outputFile.parent || !outputFile.parent.exists) {
             return __error("The Save As directory does not exist: " + outputFile.parent);
           }
+          if (outputFile.exists && ${args.overwrite !== true}) return __error("Output already exists; choose a new path or explicitly set overwrite true. Save As was not attempted.");
           var existedBefore = !!outputFile.exists;
           var lengthBefore = existedBefore ? Number(outputFile.length) : -1;
           if (existedBefore && !isFinite(lengthBefore)) return __error("Cannot read the existing output size; Save As was not attempted.");
@@ -208,7 +210,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { sequence_id: string }) => {
         const script = buildToolScript(`
           var seq = __findSequence("${escapeForExtendScript(args.sequence_id)}");
-          if (!seq) return __error("Sequence not found: ${escapeForExtendScript(args.sequence_id)}");
+          if (!seq) return __refuse("Sequence not found: ${escapeForExtendScript(args.sequence_id)}");
           app.project.activeSequence = seq;
           var active = __getCurrentActiveSequence();
           if (!active || String(active.sequenceID) !== String(seq.sequenceID)) {
@@ -452,7 +454,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           const verification = runWithExpectedProject(undefined, () => runWithExpectedHostTarget(undefined, () => runWithUndoTracking(false, () => buildToolScript(`
             var targetPath = "${escapeForExtendScript(data.path!)}", targetId = "${escapeForExtendScript(data.documentId!)}";
             var projects = app.projects;
-            if (!projects || typeof projects.numProjects !== "number" || !isFinite(projects.numProjects) || projects.numProjects < 0 || Math.floor(projects.numProjects) !== projects.numProjects || projects.numProjects > 256) return __error("Open project collection is unreadable");
+            if (!projects || typeof projects.numProjects !== "number" || !isFinite(projects.numProjects) || projects.numProjects < 0 || Math.floor(projects.numProjects) !== projects.numProjects || projects.numProjects > 256) return __refuse("Open project collection is unreadable");
             var paths = [], stillOpen = false;
             for (var i = 0; i < projects.numProjects; i++) {
               var candidate = projects[i], candidatePath = String(candidate.path || ""), candidateId = String(candidate.documentID || "");
@@ -476,7 +478,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
 
     import_ae_comps: {
       description:
-        "Import After Effects compositions from an .aep file, failing closed when the file does not exist or when the target bin gains no items.",
+        "Import After Effects compositions from an .aep file as Dynamic Link clips, failing closed when the file does not exist or when the target bin gains no items. Returns each new item's nodeId and name for placement (add_to_timeline, replace_clip). With comp_names the result is verified only when every requested composition is read back by name and source .aep. Importing all comps verifies the target-bin item-count increase only, because the expected set is unknown; its items list is informational and is omitted when the bin's items cannot be read.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -507,7 +509,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
         }
         const aePath = escapeForExtendScript(args.ae_project_path);
         const binLookup = args.target_bin
-          ? `var targetBin = __findProjectItem("${escapeForExtendScript(args.target_bin)}"); if (!targetBin) return __error("Bin not found");`
+          ? `var targetBin = __findBin("${escapeForExtendScript(args.target_bin)}"); if (!targetBin) return __error(__findProjectItem("${escapeForExtendScript(args.target_bin)}") ? "${escapeForExtendScript(args.target_bin)} is not a bin; nothing was imported." : "Bin not found");`
           : `var targetBin = app.project.rootItem;`;
         // The After Effects import calls report nothing observable, so the file must
         // exist before the call and the target bin must actually gain items after it.
@@ -525,6 +527,11 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
             if (typeof beforeItems !== "number" || !isFinite(beforeItems) || beforeItems < 0 || Math.floor(beforeItems) !== beforeItems) {
               return __error("The target bin item count could not be read reliably. No compositions were imported.", { verified: false, mutationOutcome: "not_applied", projectChanged: false });
             }
+            // Item identities let callers place the new comps; null when the bin's items cannot be read.
+            var beforeIds = {};
+            try {
+              for (var bi = 0; bi < beforeItems; bi++) beforeIds[String(targetBin.children[bi].nodeId)] = true;
+            } catch (childReadError) { beforeIds = null; }
         `;
         const verify = (importedDescription: string) => `
             var afterItems = null;
@@ -536,6 +543,20 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
             if (addedItems <= 0) {
               return __error("Premiere reported no error, but the target bin gained no items, so ${importedDescription} were not imported from ${aePath}.");
             }
+            // Return the new items so callers can place them without searching the bin.
+            var items = null;
+            if (beforeIds) {
+              try {
+                items = [];
+                for (var ai = 0; ai < afterItems; ai++) {
+                  var addedItem = targetBin.children[ai];
+                  if (beforeIds[String(addedItem.nodeId)]) continue;
+                  var addedPath = "";
+                  try { addedPath = addedItem.getMediaPath ? String(addedItem.getMediaPath()) : ""; } catch (mediaPathError) {}
+                  items.push({ nodeId: String(addedItem.nodeId), name: String(addedItem.name), fromProject: addedPath !== "" && new File(addedPath).fsName === aeFile.fsName });
+                }
+              } catch (itemReadError) { items = null; }
+            }
         `;
 
         if (args.comp_names && args.comp_names.length > 0) {
@@ -544,21 +565,38 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
             .join(", ");
           const script = buildToolScript(`
             ${preflight}
+            if (!beforeIds) {
+              return __error("The target bin's items could not be read, so the requested compositions could not be verified by name. No compositions were imported.", { verified: false, mutationOutcome: "not_applied", projectChanged: false });
+            }
             try {
               app.project.importAEComps("${aePath}", [${comps}], targetBin);
             } catch (importError) {
               return __error("Premiere could not import the requested After Effects compositions: " + importError.toString());
             }
             ${verify("the requested compositions")}
+            var requested = [${comps}];
+            var verified = items !== null;
+            for (var ri = 0; verified && ri < requested.length; ri++) {
+              var found = false;
+              for (var ii = 0; ii < items.length; ii++) {
+                if (items[ii].fromProject && items[ii].name.indexOf(requested[ri] + "/") === 0) found = true;
+              }
+              if (!found) verified = false;
+            }
+            var verificationText = verified
+              ? "Each requested composition was read back as a new bin item from this .aep (by name and media path); rendered content is not verified."
+              : "The bin gained items, but not every requested composition could be matched by name and media path; inspect items before relying on them.";
             return __result({
               imported: true,
-              verified: true,
-              comps: [${comps}],
+              verified: verified,
+              outcome: verified ? "verified" : "committed_unverified",
+              comps: requested,
+              items: items || [],
               addedItems: addedItems,
               binItemsBefore: beforeItems,
               binItemsAfter: afterItems,
-              verification: "Target-bin item-count increase only; composition identity and rendered content are not verified.",
-              verificationScope: "Target-bin item-count increase only; composition identity and rendered content are not verified."
+              verification: verificationText,
+              verificationScope: verificationText
             });
           `);
           return sendCommand(script, bridgeOptions);
@@ -575,6 +613,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
               imported: true,
               verified: true,
               allComps: true,
+              items: items || undefined,
               addedItems: addedItems,
               binItemsBefore: beforeItems,
               binItemsAfter: afterItems,
@@ -611,8 +650,8 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { bin_id: string; confirm_remove_from_sequences?: boolean; allow_offline?: boolean }) => {
         const script = buildToolScript(`
           var bin = __findProjectItem("${escapeForExtendScript(args.bin_id)}");
-          if (!bin) return __error("Bin not found: ${escapeForExtendScript(args.bin_id)}");
-          if (bin.type !== 2) return __error("Item is not a bin");
+          if (!bin) return __refuse("Bin not found: ${escapeForExtendScript(args.bin_id)}");
+          if (bin.type !== 2) return __refuse("Item is not a bin");
           var nodeId = String(bin.nodeId);
           var name = bin.name;
           var usage = __projectItemUsage(bin);
@@ -652,8 +691,8 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { bin_id: string; new_name: string }) => {
         const script = buildToolScript(`
           var bin = __findProjectItem("${escapeForExtendScript(args.bin_id)}");
-          if (!bin) return __error("Bin not found: ${escapeForExtendScript(args.bin_id)}");
-          if (bin.type !== 2) return __error("Item is not a bin");
+          if (!bin) return __refuse("Bin not found: ${escapeForExtendScript(args.bin_id)}");
+          if (bin.type !== 2) return __refuse("Item is not a bin");
           var oldName = bin.name;
           bin.renameBin("${escapeForExtendScript(args.new_name)}");
           if (String(bin.name) !== "${escapeForExtendScript(args.new_name)}") return __error("Premiere kept the bin name " + bin.name + ".");
@@ -751,13 +790,13 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
       parameters: {},
       handler: async () => {
         const script = buildToolScript(`
-          if (!app.encoder || typeof app.encoder.startBatch !== "function") return __error("Adobe Media Encoder is not available");
+          if (!app.encoder || typeof app.encoder.startBatch !== "function") return __refuse("Adobe Media Encoder is not available");
           try {
             var startResult = app.encoder.startBatch();
             // Premiere reports an accepted batch-start request as 1/true.
-            if (startResult !== 1 && startResult !== true) return __error("Adobe Media Encoder did not accept the start request.");
+            if (startResult !== 1 && startResult !== true) return __refuse("Adobe Media Encoder did not accept the start request.");
           } catch (e) {
-            return __error("Adobe Media Encoder rejected the start request: " + e.message);
+            return __refuse("Adobe Media Encoder rejected the start request: " + e.message);
           }
           return __result({
             requested: true,
@@ -843,7 +882,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           .join(", ");
         const script = buildToolScript(`
           var sourceProject = new File("${escapeForExtendScript(args.project_path)}");
-          if (!sourceProject.exists) return __error("Source Premiere project does not exist: " + sourceProject.fsName);
+          if (!sourceProject.exists) return __refuse("Source Premiere project does not exist: " + sourceProject.fsName);
           var beforeIds = {};
           for (var beforeIndex = 0; beforeIndex < app.project.sequences.numSequences; beforeIndex++) {
             beforeIds[String(app.project.sequences[beforeIndex].sequenceID)] = true;
@@ -1025,13 +1064,13 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
         }
         if (args.mode === "into_open_project") {
           const binLookup = args.target_bin
-            ? `var targetBin = __findProjectItem("${escapeForExtendScript(args.target_bin)}");
-               if (!targetBin) return __error("Bin not found: ${escapeForExtendScript(args.target_bin)}");`
+            ? `var targetBin = __findBin("${escapeForExtendScript(args.target_bin)}");
+               if (!targetBin) return __error(__findProjectItem("${escapeForExtendScript(args.target_bin)}") ? "${escapeForExtendScript(args.target_bin)} is not a bin; nothing was imported." : "Bin not found: ${escapeForExtendScript(args.target_bin)}");`
             : `var targetBin = app.project.rootItem;`;
           const intoScript = buildToolScript(`
             var xmlFile = new File("${escapeForExtendScript(args.path)}");
-            if (!xmlFile.exists) return __error("FCP XML file not found on disk: ${escapeForExtendScript(args.path)}");
-            if (!app.project) return __error("No open project to import into");
+            if (!xmlFile.exists) return __refuse("FCP XML file not found on disk: ${escapeForExtendScript(args.path)}");
+            if (!app.project) return __refuse("No open project to import into");
             ${binLookup}
             var sequencesBefore = app.project.sequences.numSequences;
             // Premiere can link the XML's clips to project items that already
@@ -1229,7 +1268,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { enabled: boolean }) => {
         const script = buildToolScript(`
           if (!app.project || typeof app.project.setEnableTranscodeOnIngest !== "function") {
-            return __error("This Premiere build does not expose setEnableTranscodeOnIngest; no change was attempted.");
+            return __refuse("This Premiere build does not expose setEnableTranscodeOnIngest; no change was attempted.");
           }
           var hostReturn;
           try { hostReturn = app.project.setEnableTranscodeOnIngest(${args.enabled ? 1 : 0}); }
@@ -1249,7 +1288,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
       handler: async () => {
         const script = buildToolScript(`
           var bin = app.project.getInsertionBin();
-          if (!bin) return __error("No insertion bin found");
+          if (!bin) return __refuse("No insertion bin found");
           return __result({ name: bin.name, nodeId: bin.nodeId, treePath: bin.treePath });
         `);
         return sendCommand(script, bridgeOptions);
@@ -1285,7 +1324,7 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
         }
         const script = buildToolScript(`
           var meta = app.project.getProjectPanelMetadata();
-          if (!meta) return __error("Could not retrieve project panel metadata");
+          if (!meta) return __refuse("Could not retrieve project panel metadata");
           var text = String(meta);
           var maxChars = ${maxChars};
           var totalChars = text.length;

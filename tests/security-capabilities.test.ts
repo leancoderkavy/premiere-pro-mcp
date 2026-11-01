@@ -16,7 +16,7 @@ describe("capability profiles", () => {
 
   it("permits unsafe scripting only when explicitly enabled", async () => {
     const handler = vi.fn(async () => "ok");
-    const guarded = guardToolHandler("send_raw_script", handler, resolveCapabilities("inspect,unsafe-script"));
+    const guarded = guardToolHandler("send_raw_script", handler, resolveCapabilities("inspect,edit,export,filesystem,unsafe-script"));
     await expect(guarded({})).resolves.toBe("ok");
   });
 
@@ -101,7 +101,7 @@ describe("capability profiles", () => {
     expect(capabilitiesForToolInvocation("manage_project_context", { action: "capture" }))
       .toEqual(["inspect", "filesystem"]);
     expect(capabilitiesForToolInvocation("manage_project_context", { action: "status" }))
-      .toEqual(["inspect"]);
+      .toEqual(["inspect", "filesystem"]);
     expect(capabilitiesForToolInvocation("manage_project_context", { action: "clear" }))
       .toEqual(["filesystem"]);
 
@@ -226,7 +226,7 @@ describe("capability profiles", () => {
   it("withholds and rejects non-undoable preset sequence creation without edit authority", async () => {
     const handler = vi.fn(async () => "ok");
     const inspectOnly = resolveCapabilities("inspect");
-    expect(capabilitiesForToolInvocation("create_sequence_with_preset_uxp", {})).toEqual(["edit"]);
+    expect(capabilitiesForToolInvocation("create_sequence_with_preset_uxp", {})).toEqual(["edit", "filesystem"]);
     expect(isToolPermitted("create_sequence_with_preset_uxp", inspectOnly)).toBe(false);
     await expect(
       guardToolHandler("create_sequence_with_preset_uxp", handler, inspectOnly, () => "preset-sequence-create")({}),
@@ -301,7 +301,7 @@ describe("capability profiles", () => {
     ["manage_project_panel_metadata_uxp", "update", ["edit"]],
     ["create_project_metadata_field_uxp", "create", ["edit"]],
     ["manage_color_conformance_uxp", "update", ["edit"]],
-    ["preflight_production_storage_uxp", "configure_project", ["edit"]],
+    ["preflight_production_storage_uxp", "configure_project", ["edit", "filesystem"]],
     ["manage_markers_uxp", "remove", ["edit"]],
     ["manage_markers_uxp", "remove_many", ["edit"]],
     ["organize_project_items_uxp", "move", ["edit"]],
@@ -319,7 +319,7 @@ describe("capability profiles", () => {
     ["automate_effect_parameters_uxp", "set_time_varying", ["edit"]],
     ["transform_track_item_uxp", "update", ["edit"]],
     ["manage_sequences_uxp", "delete", ["edit"]],
-    ["encode_media_uxp", "sequence", ["export", "filesystem"]],
+    ["encode_media_uxp", "sequence", ["edit", "export", "filesystem"]],
   ] as const)("requires exact mutation authority for %s:%s", (toolName, action, required) => {
     expect(capabilitiesForToolInvocation(toolName, { action })).toEqual(required);
   });

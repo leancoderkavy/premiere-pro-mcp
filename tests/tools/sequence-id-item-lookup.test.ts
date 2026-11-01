@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { runInNewContext } from "node:vm";
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
 import type { BridgeOptions } from "../../src/bridge/file-bridge.js";
 
@@ -13,6 +15,8 @@ vi.mock("../../src/bridge/file-bridge.js", () => ({
 import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { getUtilityTools } from "../../src/tools/utility.js";
 import { getSequenceTools } from "../../src/tools/sequence.js";
+import { getMediaTools } from "../../src/tools/media.js";
+import { getProjectTools } from "../../src/tools/project.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const bridgeOptions: BridgeOptions = { tempDir: "/tmp/test-bridge", timeoutMs: 5000 };
@@ -162,5 +166,79 @@ describe("duplicate_sequence receipt", () => {
     const result = (await getSequenceTools(bridgeOptions).duplicate_sequence.handler({ sequence_id: "orig" })) as { success: boolean; data: Record<string, unknown> };
     expect(result).toMatchObject({ success: true, data: { id: "copy-1", verified: true } });
     expect(result.data).not.toHaveProperty("projectItemNodeId");
+  });
+});
+
+describe("bin-only lookups refuse a sequence ID", () => {
+  // A real file and folder so the handlers' disk pre-checks pass.
+  const file = fileURLToPath(import.meta.url);
+  const folder = dirname(file);
+
+  for (const [tool, args] of [
+    ["import_media", { file_paths: [file] }],
+    ["import_folder", { folder_path: folder }],
+  ] as const) {
+    it(`${tool} refuses a sequence ID as target_bin before calling the host import`, async () => {
+      const host = project();
+      const importFiles = vi.fn(() => true);
+      Object.assign(host.app.project, { importFiles });
+      const script = await scriptFor(getMediaTools(bridgeOptions)[tool], { ...args, target_bin: host.list[1].sequenceID });
+      expect(script).toContain(`var targetBin = __findBin("${host.list[1].sequenceID}");`);
+      const result = run(script, host.app);
+      expect(result).toEqual({ success: false, error: `${host.list[1].sequenceID} is not a bin; nothing was imported.` });
+      expect(importFiles).not.toHaveBeenCalled();
+    });
+  }
+
+  it("import_media still imports into a bin found by node ID or name and reports a missing bin", async () => {
+    class File { constructor(public fsName: string) {} get exists() { return true; } }
+    for (const target of ["000f4250", "Sequences"]) {
+      const host = project();
+      const importFiles = vi.fn(() => { throw new Error("stop after dispatch"); });
+      Object.assign(host.app.project, { importFiles });
+      const script = await scriptFor(getMediaTools(bridgeOptions).import_media, { file_paths: [fileURLToPath(import.meta.url)], target_bin: target });
+      runInNewContext(`${getHelpersSource()}\n${script}`, { app: host.app, File });
+      expect(importFiles).toHaveBeenCalledTimes(1);
+      expect((importFiles.mock.calls[0] as unknown[])[2]).toMatchObject({ name: "Sequences", type: 2 });
+    }
+    const missing = run(await scriptFor(getMediaTools(bridgeOptions).import_media, { file_paths: [fileURLToPath(import.meta.url)], target_bin: 'no"bin' }), project().app);
+    expect(missing).toEqual({ success: false, error: 'Bin not found: no"bin' });
+  });
+
+  it("import_ae_comps and import_fcp_xml resolve target_bin through the bin-only lookup", async () => {
+    const projectTools = getProjectTools(bridgeOptions);
+    const xml = await scriptFor(projectTools.import_fcp_xml, { path: fileURLToPath(import.meta.url), mode: "into_open_project", target_bin: 'Seq"1' });
+    expect(xml).toContain('var targetBin = __findBin("Seq\\"1");');
+    expect(xml).toContain('"Seq\\"1 is not a bin; nothing was imported."');
+    expect(xml).not.toContain('var targetBin = __findProjectItem(');
+  });
+});
+
+describe("item parameters advertise sequence IDs", () => {
+  const modules = import.meta.glob("../../src/tools/*.ts", { eager: true }) as Record<string, Record<string, unknown>>;
+  const resolvedThroughProjectLookup: string[] = [];
+  const missing: string[] = [];
+  for (const mod of Object.values(modules)) {
+    for (const [key, factory] of Object.entries(mod)) {
+      if (!/^get\w+Tools$/.test(key) || typeof factory !== "function") continue;
+      let tools: Record<string, { handler?: unknown; parameters?: { properties?: Record<string, { description?: string }> } }>;
+      try { tools = (factory as (o: BridgeOptions) => typeof tools)(bridgeOptions); } catch { continue; }
+      for (const [name, tool] of Object.entries(tools ?? {})) {
+        if (!tool || typeof tool.handler !== "function") continue;
+        const source = String(tool.handler);
+        for (const [param, spec] of Object.entries(tool.parameters?.properties ?? {})) {
+          if (!/item_id/.test(param)) continue;
+          const lookup = new RegExp(`__findProjectItem\\("\\$\\{[^}]*escapeForExtendScript\\)?\\((String\\()?args\\.${param}\\)?\\)\\}"\\)`);
+          if (!lookup.test(source)) continue;
+          resolvedThroughProjectLookup.push(`${name}.${param}`);
+          if (!/sequence ID/.test(spec.description ?? "")) missing.push(`${name}.${param}`);
+        }
+      }
+    }
+  }
+
+  it("every item_id resolved by the whole-project lookup says it accepts a sequence ID", () => {
+    expect(resolvedThroughProjectLookup).toEqual(expect.arrayContaining(["delete_project_item.item_id", "move_item_to_bin.item_id", "rename_project_item.item_id", "set_metadata.item_id"]));
+    expect(missing).toEqual([]);
   });
 });

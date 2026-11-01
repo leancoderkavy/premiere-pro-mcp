@@ -87,6 +87,15 @@ describe("telemetry", () => {
     error.mockRestore();
   });
 
+  it("does not log credentials or query parameters from a configured telemetry host", async () => {
+    Object.assign(process.env, { POSTHOG_API_KEY: "test-key", POSTHOG_HOST: "https://private-user:private-password@telemetry.invalid?token=private-token" });
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { getTelemetry } = await import("../src/telemetry.js");
+    expect(getTelemetry().enabled).toBe(true);
+    expect(JSON.stringify(errorLog.mock.calls)).not.toMatch(/private-user|private-password|private-token/);
+    errorLog.mockRestore();
+  });
+
   it("emits only the bounded activation properties", async () => {
     const { captureActivationEvent } = await import("../src/telemetry.js");
     const telemetry = { enabled: true, capture: vi.fn(), shutdown: vi.fn(async () => {}) };

@@ -103,6 +103,6 @@ export function getTelemetry(): Telemetry {
     transport: process.env.PREMIERE_MCP_TRANSPORT ?? "unknown",
   });
 
-  console.error(`[premiere-pro-mcp] PostHog telemetry enabled (${host})`);
+  console.error("[premiere-pro-mcp] PostHog telemetry enabled");
   return telemetry;
 }

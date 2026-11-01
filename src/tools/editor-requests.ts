@@ -407,7 +407,7 @@ export function getEditorRequestTools(bridgeOptions: BridgeOptions) {
         const scope = args.count_scope ?? "per_track";
         const script = buildToolScript(`
           var seq = __getCurrentActiveSequence();
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           var everyNth = ${everyNth};
           var offset = ${offset};
           var perTrack = ${scope === "per_track" ? "true" : "false"};
@@ -525,7 +525,7 @@ export function getEditorRequestTools(bridgeOptions: BridgeOptions) {
         const trackType = args.track_type ?? "both";
         const script = buildToolScript(`
           var seq = __getCurrentActiveSequence();
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           var action = "${args.action}";
           var frames = ${frames};
           var trackIndexFilter = ${args.track_index === undefined ? "null" : args.track_index};

@@ -990,13 +990,41 @@ function __nodeIdOf(item) {
 // timecode (a BWF time_reference, a camera clip starting at 01:00:00:00)
 // reads that start plus the range, and each point's offset child holds the
 // start in ticks, so it is subtracted to give seconds from the file's start.
+// Points without an offset child fall back to Column.Intrinsic.MediaStart
+// (live 26.0.2 time-of-day camera clips store the start only there).
 // Returns null when the range cannot be read.
 function __subclipStoredRange(metadata) {
   if (!metadata) return null;
   function __subclipOffsetTicks(body) {
     var offset = body.match(/offset>\\s*(-?\\d+)\\s*</);
-    var ticks = offset ? parseFloat(offset[1]) : 0;
-    return isFinite(ticks) ? ticks : 0;
+    if (!offset) return null;
+    var ticks = parseFloat(offset[1]);
+    return isFinite(ticks) ? ticks : null;
+  }
+  // MediaStart on the point's own grid: 0 when absent, null when present but
+  // unreadable, so an absolute start is never treated as zero.
+  function __subclipMediaStartTicks(xml, point, audio) {
+    var tagName = "Column.Intrinsic.MediaStart";
+    var openStart = xml.indexOf(tagName);
+    if (openStart < 0) return 0;
+    var openEnd = xml.indexOf(">", openStart);
+    if (openEnd < 0 || xml.charAt(openEnd - 1) === "/") return null;
+    var closeStart = xml.indexOf(tagName, openEnd);
+    if (closeStart < 0) return null;
+    var body = xml.substring(openEnd + 1, closeStart);
+    var nested = body.match(/<rdf:value>\\s*([^<]*?)\\s*<\\/rdf:value>/);
+    var timecode = nested ? nested[1] : body.replace(/<\\/[^<>]*$/, "").replace(/^\\s+|\\s+$/g, "");
+    if (timecode.indexOf("<") >= 0) return null;
+    if (audio) {
+      var hz = Math.round(TICKS_PER_SECOND / point.frameTicks);
+      var samples = timecode.match(/^(\\d+):(\\d{2}):(\\d{2}):(\\d+)$/);
+      if (!samples || parseInt(samples[4], 10) >= hz) return null;
+      return (((parseInt(samples[1], 10) * 60 + parseInt(samples[2], 10)) * 60 + parseInt(samples[3], 10)) * hz + parseInt(samples[4], 10)) * point.frameTicks;
+    }
+    var rate = body.match(/frame_rate>\\s*(\\d+)\\s*</);
+    if (rate && Math.abs(parseFloat(rate[1]) - point.frameTicks) > 1) return null;
+    var frames = __subclipTimecodeFrames(timecode, point.frameTicks);
+    return isFinite(frames) ? frames * point.frameTicks : null;
   }
   function __subclipTimecodeFrames(timecode, frameTicks) {
     var parts = String(timecode).match(/^\\s*(\\d+)[:;.](\\d+)[:;.](\\d+)([:;.])(\\d+)\\s*$/);
@@ -1051,19 +1079,32 @@ function __subclipStoredRange(metadata) {
   }
   var inPoint = __subclipPoint(metadata, "VideoInPoint");
   var outPoint = __subclipPoint(metadata, "VideoOutPoint");
+  var audio = false;
   if (!inPoint && !outPoint) {
+    audio = true;
     inPoint = __subclipAudioPoint(metadata, "AudioInPoint");
     outPoint = __subclipAudioPoint(metadata, "AudioOutPoint");
   }
   if (!inPoint || !outPoint) return null;
+  var startTicks = inPoint.offsetTicks;
+  if (startTicks === null) startTicks = __subclipMediaStartTicks(metadata, inPoint, audio);
+  if (startTicks === null) return null;
+  var outStartTicks = outPoint.offsetTicks === null ? startTicks : outPoint.offsetTicks;
+  var inTicks = inPoint.frames * inPoint.frameTicks - startTicks;
+  var outTicks = (outPoint.frames + 1) * outPoint.frameTicks - outStartTicks;
+  // Time-of-day timecode wraps at midnight: a camera started at 22:52:31:00
+  // stores a later Out such as 00:51:07:23 (see __itemMarksForRestore).
+  var dayTicks = audio ? 86400 * TICKS_PER_SECOND : __subclipTimecodeFrames(inPoint.timecode.indexOf(";") >= 0 ? "24:00:00;00" : "24:00:00:00", inPoint.frameTicks) * inPoint.frameTicks;
+  if (inTicks < 0) inTicks += dayTicks;
+  if (outTicks < inTicks) outTicks += dayTicks;
   return {
-    inSeconds: __ticksToSeconds(inPoint.frames * inPoint.frameTicks - inPoint.offsetTicks),
-    outSeconds: __ticksToSeconds((outPoint.frames + 1) * outPoint.frameTicks - outPoint.offsetTicks),
+    inSeconds: __ticksToSeconds(inTicks),
+    outSeconds: __ticksToSeconds(outTicks),
     inTimecode: inPoint.timecode,
     outTimecode: outPoint.timecode,
     inFrameSeconds: __ticksToSeconds(inPoint.frameTicks),
     outFrameSeconds: __ticksToSeconds(outPoint.frameTicks),
-    mediaStartSeconds: __ticksToSeconds(inPoint.offsetTicks)
+    mediaStartSeconds: __ticksToSeconds(startTicks)
   };
 }
 
@@ -1396,13 +1437,16 @@ function __isBuiltInComponent(component) {
 // while others use GUIDs (DeEsser, Single-band Compressor, Hard Limiter).
 // Live intrinsics: "Internal Volume Mono|Stereo|5.1", "Internal Channel
 // Volume Stereo|5.1", "Internal Audio Balance". Panner's match name is not
-// confirmed, so "Internal (Audio) Panner" and the English/Spanish display
-// names also count; Balance and Pan take raw values (set_clip_pan writes
-// -100..100), so misreading them as normalized effects must be avoided.
+// confirmed, so "Internal (Audio) Panner", the audio* / AE.ADBE intrinsic
+// match names copy_effects_between_clips already skips, and the
+// English/Spanish display names also count; Balance and Pan take raw values
+// (set_clip_pan writes -100..100), so misreading them as normalized effects
+// must be avoided.
 var __INTRINSIC_AUDIO_DISPLAY_NAMES = { "Volume": true, "Channel Volume": true, "Panner": true, "Balance": true, "Volumen": true, "Volumen del canal": true, "Equilibrio": true, "Paneo de balance": true };
+var __INTRINSIC_AUDIO_MATCH_NAMES = { "audioVolume": true, "audioChannelVolume": true, "audioPanner": true, "AE.ADBE Volume": true, "AE.ADBE Channel Volume": true, "AE.ADBE Panner": true };
 function __isIntrinsicAudioComponent(component) {
   var match = __componentMatchName(component);
-  if (/^Internal (Volume|Channel Volume|Audio Balance|Balance|Audio Panner|Panner)\\b/.test(match)) return true;
+  if (/^Internal (Volume|Channel Volume|Audio Balance|Balance|Audio Panner|Panner)\\b/.test(match) || __INTRINSIC_AUDIO_MATCH_NAMES[match] === true) return true;
   return !!__INTRINSIC_AUDIO_DISPLAY_NAMES[String(component.displayName)];
 }
 
@@ -3439,6 +3483,7 @@ function __jsonStringify(obj) {
 // none. __result reports how many entries the command added so an agent can
 // undo exactly that call.
 var __undoStart = null;
+var __commandMutating = false;
 var __markerWriteAttempted = false;
 var __stillFrameRecoveryRequired = false;
 function __captureRestorationReceipt(data) {
@@ -3516,6 +3561,32 @@ function __error(msg, extraData) {
   return data ? __jsonStringify({ success: false, error: message, data: data }) : __jsonStringify({ success: false, error: message });
 }
 
+// A refusal raised before this command changed anything (lookup failed,
+// input out of range, guard mismatch). It reports not_applied so a stale ID
+// does not leave a recovery lock. If the undo history moved, a marker write
+// was attempted or a still-frame restore failed, it falls back to __error,
+// as it does for inspect-only commands, whose result shape is unchanged.
+// The file bridge also treats it as unknown when an earlier command of the
+// same tool call was dispatched.
+function __refuse(msg, extraData) {
+  if (!__commandMutating) return __error(msg, extraData);
+  var data = {};
+  if (extraData && typeof extraData === "object") {
+    for (var key in extraData) if (extraData.hasOwnProperty(key)) data[key] = extraData[key];
+  }
+  var unchanged = !__markerWriteAttempted && !__stillFrameRecoveryRequired;
+  if (unchanged && __undoStart !== null) {
+    var undoNow = __readUndoIndex();
+    if (undoNow === null || undoNow > __undoStart) unchanged = false;
+  }
+  if (unchanged && data.mutationOutcome === undefined && data.timelineChanged === undefined) {
+    data.mutationOutcome = "not_applied";
+    data.timelineChanged = false;
+    data.refusedBeforeChange = true;
+  }
+  return __error(msg, data);
+}
+
 // === End MCP Bridge Helpers ===
 `;
 
@@ -3560,22 +3631,22 @@ export function buildScript(code: string): string {
   const target = expectedHostTarget();
   let targetGuard = target?.sequence_id ? `
     var __guardSequence = app.project && app.project.activeSequence;
-    if (!__guardSequence || String(__guardSequence.sequenceID) !== "${escapeForExtendScript(target.sequence_id)}") return __error("Expected target guard refused: active sequence changed; nothing was changed.");
+    if (!__guardSequence || String(__guardSequence.sequenceID) !== "${escapeForExtendScript(target.sequence_id)}") return __refuse("Expected target guard refused: active sequence changed; nothing was changed.");
   ` : "";
-  if (target?.project_document_id) targetGuard += `if (!app.project || String(app.project.documentID) !== "${escapeForExtendScript(target.project_document_id)}") return __error("Expected target guard refused: project document changed; nothing was changed.");\n`;
+  if (target?.project_document_id) targetGuard += `if (!app.project || String(app.project.documentID) !== "${escapeForExtendScript(target.project_document_id)}") return __refuse("Expected target guard refused: project document changed; nothing was changed.");\n`;
   if (target?.source_item) {
-    targetGuard += `var __guardSourceItem = __findProjectItem("${escapeForExtendScript(target.source_item.node_id)}"); if (!__guardSourceItem || String(__guardSourceItem.nodeId) !== "${escapeForExtendScript(target.source_item.node_id)}") return __error("Expected source guard refused: exact source identity changed; nothing was changed.");\n`;
-    if (target.source_item.media_path !== undefined) targetGuard += `if (typeof __guardSourceItem.getMediaPath !== "function" || String(__guardSourceItem.getMediaPath()) !== "${escapeForExtendScript(target.source_item.media_path)}") return __error("Expected source guard refused: source media path changed; nothing was changed.");\n`;
+    targetGuard += `var __guardSourceItem = __findProjectItem("${escapeForExtendScript(target.source_item.node_id)}"); if (!__guardSourceItem || String(__guardSourceItem.nodeId) !== "${escapeForExtendScript(target.source_item.node_id)}") return __refuse("Expected source guard refused: exact source identity changed; nothing was changed.");\n`;
+    if (target.source_item.media_path !== undefined) targetGuard += `if (typeof __guardSourceItem.getMediaPath !== "function" || String(__guardSourceItem.getMediaPath()) !== "${escapeForExtendScript(target.source_item.media_path)}") return __refuse("Expected source guard refused: source media path changed; nothing was changed.");\n`;
   }
   if (target?.clip) {
     const clip = target.clip;
     targetGuard += `
     var __guardClip = __findClip("${escapeForExtendScript(clip.node_id)}");
-    if (!__guardClip || __guardClip.trackType !== "${clip.track_type}" || __guardClip.trackIndex !== ${clip.track_index}) return __error("Expected target guard refused: clip identity or track changed; nothing was changed.");
+    if (!__guardClip || __guardClip.trackType !== "${clip.track_type}" || __guardClip.trackIndex !== ${clip.track_index}) return __refuse("Expected target guard refused: clip identity or track changed; nothing was changed.");
     `;
-    if (clip.project_item_id !== undefined) targetGuard += `if (!__guardClip.clip.projectItem || String(__guardClip.clip.projectItem.nodeId) !== "${escapeForExtendScript(clip.project_item_id)}") return __error("Expected target guard refused: source identity changed; nothing was changed.");\n`;
+    if (clip.project_item_id !== undefined) targetGuard += `if (!__guardClip.clip.projectItem || String(__guardClip.clip.projectItem.nodeId) !== "${escapeForExtendScript(clip.project_item_id)}") return __refuse("Expected target guard refused: source identity changed; nothing was changed.");\n`;
     for (const [field, host] of [["start_ticks", "start"], ["end_ticks", "end"], ["in_ticks", "inPoint"], ["out_ticks", "outPoint"]] as const) {
-      if (clip[field] !== undefined) targetGuard += `if (String(__guardClip.clip.${host}.ticks) !== "${escapeForExtendScript(clip[field]!)}") return __error("Expected target guard refused: clip range changed; nothing was changed.");\n`;
+      if (clip[field] !== undefined) targetGuard += `if (String(__guardClip.clip.${host}.ticks) !== "${escapeForExtendScript(clip[field]!)}") return __refuse("Expected target guard refused: clip range changed; nothing was changed.");\n`;
     }
     if (clip.effect) {
       const effect = clip.effect;
@@ -3585,35 +3656,39 @@ export function buildScript(code: string): string {
           var __candidateComponent = __guardClip.clip.components[__gc];
           if (String(__candidateComponent.matchName) === "${escapeForExtendScript(effect.match_name)}") { __guardComponent = __candidateComponent; __guardMatches++; }
         }
-        if (__guardMatches !== 1 || !__guardComponent) return __error("Expected effect guard refused: component identity is missing or ambiguous; nothing was changed.");
-        ${effect.display_name === undefined ? "" : `if (String(__guardComponent.displayName) !== "${escapeForExtendScript(effect.display_name)}") return __error("Expected effect guard refused: component display identity changed; nothing was changed.");`}
-        if (!__guardComponent.properties || __guardComponent.properties.numItems <= ${effect.parameter_index} || String(__guardComponent.properties[${effect.parameter_index}].displayName) !== "${escapeForExtendScript(effect.parameter_name)}") return __error("Expected effect guard refused: indexed parameter identity changed; nothing was changed.");
+        if (__guardMatches !== 1 || !__guardComponent) return __refuse("Expected effect guard refused: component identity is missing or ambiguous; nothing was changed.");
+        ${effect.display_name === undefined ? "" : `if (String(__guardComponent.displayName) !== "${escapeForExtendScript(effect.display_name)}") return __refuse("Expected effect guard refused: component display identity changed; nothing was changed.");`}
+        if (!__guardComponent.properties || __guardComponent.properties.numItems <= ${effect.parameter_index} || String(__guardComponent.properties[${effect.parameter_index}].displayName) !== "${escapeForExtendScript(effect.parameter_name)}") return __refuse("Expected effect guard refused: indexed parameter identity changed; nothing was changed.");
       `;
     }
   }
   const projectGuard = expected === undefined ? "" : `
     var __expectedProjectPath = new File("${escapeForExtendScript(expected)}").fsName;
     var __activeProjectPath = app.project && app.project.path;
-    if (!__activeProjectPath) return __error("Expected project guard refused: active project is missing or unsaved; nothing was changed.");
+    if (!__activeProjectPath) return __refuse("Expected project guard refused: active project is missing or unsaved; nothing was changed.");
     __activeProjectPath = new File(__activeProjectPath).fsName;
     if (String($.os).toLowerCase().indexOf("windows") !== -1) {
       __expectedProjectPath = __expectedProjectPath.toLowerCase();
       __activeProjectPath = __activeProjectPath.toLowerCase();
     }
-    if (__activeProjectPath !== __expectedProjectPath) return __error("Expected project guard refused: active project differs; nothing was changed.");
+    if (__activeProjectPath !== __expectedProjectPath) return __refuse("Expected project guard refused: active project differs; nothing was changed.");
   `;
   // Helpers live in a long-lived engine, so __undoStart is always reset: set
   // for tools that change the project, cleared for everything else.
   const undoStart = undoTrackingEnabled()
     ? `__undoStart = typeof __readUndoIndex === "function" ? __readUndoIndex() : null;`
     : `__undoStart = null;`;
+  // Reset per-command state before the guards: the engine is long-lived, so a
+  // guard refusal must not inherit the previous command's undo or write flags.
   return `(function() {
   try {
+    __undoStart = null;
+    __commandMutating = ${undoTrackingEnabled()};
+    __markerWriteAttempted = false;
+    __stillFrameRecoveryRequired = false;
     ${projectGuard}
     ${targetGuard}
     ${undoStart}
-    __markerWriteAttempted = false;
-    __stillFrameRecoveryRequired = false;
     ${code}
   } catch(e) {
     return __error(e.toString());

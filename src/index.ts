@@ -3,12 +3,13 @@
 import { StdioServerTransport, serveStdio } from "@modelcontextprotocol/server/stdio";
 import { createServer } from "./server.js";
 import { cleanupTempDir, getTempDir } from "./bridge/file-bridge.js";
-import { getTelemetry } from "./telemetry.js";
+import { getTelemetry, telemetryErrorType } from "./telemetry.js";
 import { execFileSync, spawnSync } from "child_process";
 import { existsSync } from "fs";
 import { fileURLToPath } from "url";
 import path from "path";
 import { UxpWebSocketBridge } from "./bridge/uxp-websocket-bridge.js";
+import { resolvePremiereBridgeMode } from "./bridge/transport-selection.js";
 import {
   collectLocalDoctor,
   createDoctorRepairPlan,
@@ -151,7 +152,7 @@ try {
 
 if (args.includes("--help") || args.includes("-h")) {
   console.log(`
-premiere-pro-mcp — MCP server for Adobe Premiere Pro (442 default-profile tools)
+premiere-pro-mcp — MCP server for Adobe Premiere Pro (444 default-profile tools)
 
 Usage:
   premiere-pro-mcp              Start the MCP server (stdio transport)
@@ -182,6 +183,7 @@ Environment variables:
   PREMIERE_MCP_PROTOCOL_MODE  auto (default) or legacy; use legacy only when a client cannot complete modern MCP negotiation
   PREMIERE_UXP_TOKEN    Enable the authenticated local UXP bridge (minimum 16 characters)
   PREMIERE_UXP_PORT     UXP loopback WebSocket port (default: 7777)
+  PREMIERE_BRIDGE_MODE  auto (default: connected UXP, otherwise CEP) or cep (force CEP)
   AFTER_EFFECTS_MCP_TEMP_DIR  Shared AE bridge directory (default: OS temp + /after-effects-mcp-bridge)
 
 More info: https://github.com/leancoderkavy/premiere-pro-mcp
@@ -332,6 +334,7 @@ if (cepActions.length === 1) {
 async function main() {
   process.env.PREMIERE_MCP_TRANSPORT = "stdio";
   const protocolMode = readMcpProtocolMode();
+  const bridgeMode = resolvePremiereBridgeMode();
   const telemetry = getTelemetry();
   const bridgeOptions = {
     tempDir: process.env.PREMIERE_TEMP_DIR,
@@ -350,7 +353,7 @@ async function main() {
   let uxpBridge: UxpWebSocketBridge | undefined;
   let lazyUxp: LazyUxpStart | undefined;
   const uxpToken = readEnvValue(process.env.PREMIERE_UXP_TOKEN);
-  if (uxpToken) {
+  if (uxpToken && bridgeMode !== "cep") {
     const bridge = new UxpWebSocketBridge({
       token: uxpToken,
       port: process.env.PREMIERE_UXP_PORT
@@ -370,13 +373,13 @@ async function main() {
       onBusy: () => console.error(
         "[premiere-pro-mcp] UXP loopback port is busy; UXP tools stay unavailable and the bind is retried until it frees up.",
       ),
-      onError: (error) => console.error("[premiere-pro-mcp] UXP bridge failed to start:", error),
+      onError: (error) => console.error("[premiere-pro-mcp] UXP bridge failed to start:", telemetryErrorType(error)),
     });
   }
 
   const serverHandle = protocolMode === "legacy"
     ? await (async () => {
-      const server = createServer(bridgeOptions, { uxpBridge, telemetry });
+      const server = createServer(bridgeOptions, { uxpBridge, telemetry, bridgeMode });
       const transport = new StdioServerTransport();
       await server.connect(transport);
       debugLog("Server connected in legacy MCP mode");
@@ -388,9 +391,9 @@ async function main() {
       };
     })()
     : serveStdio(
-      () => createServer(bridgeOptions, { uxpBridge, telemetry }),
+      () => createServer(bridgeOptions, { uxpBridge, telemetry, bridgeMode }),
       {
-        onerror: (error) => console.error("[premiere-pro-mcp] MCP stdio error:", error),
+        onerror: (error) => console.error("[premiere-pro-mcp] MCP stdio error:", telemetryErrorType(error)),
       },
     );
   if (protocolMode === "auto") debugLog("Server connected and ready");
@@ -410,6 +413,10 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("[premiere-pro-mcp] Fatal error:", err);
+  const summary = err instanceof Error && [
+    "PREMIERE_MCP_PROTOCOL_MODE must be either auto or legacy.",
+    "PREMIERE_BRIDGE_MODE must be either auto or cep.",
+  ].includes(err.message) ? err.message : telemetryErrorType(err);
+  console.error("[premiere-pro-mcp] Fatal error:", summary);
   process.exit(1);
 });

@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync, readFileSync, unlinkSync, existsSync, readdirSync, renameSync, statSync, lstatSync, realpathSync, chmodSync, watch, FSWatcher, type Stats } from "node:fs";
+import { mkdirSync, openSync, closeSync, writeFileSync, readFileSync, unlinkSync, existsSync, readdirSync, renameSync, statSync, lstatSync, realpathSync, chmodSync, watch, FSWatcher, type Stats } from "node:fs";
 import { basename, dirname, isAbsolute, join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
@@ -553,6 +553,19 @@ function heartbeatFailure(liveness: BridgeLiveness, hostLabel = "Premiere Pro", 
   return null;
 }
 
+/** Exclusive open establishes ownership before any bytes are written. */
+function writeExclusiveBridgeFile(filePath: string, content: string): void {
+  const descriptor = openSync(filePath, "wx", 0o600);
+  // An open collision never reaches this try, so an unrelated file is kept.
+  try {
+    try { writeFileSync(descriptor, content, "utf-8"); }
+    finally { closeSync(descriptor); }
+  } catch (error) {
+    safeUnlink(filePath);
+    throw error;
+  }
+}
+
 /**
  * Make sure this server version's helpers file exists in the temp dir, and return
  * the bootstrap line each command must carry so the CEP-side engine loads it once.
@@ -565,7 +578,7 @@ function ensureHelpers(tempDir: string, helpers?: BridgeHelpers): string {
   };
   const helpersPath = join(tempDir, activeHelpers.fileName);
   if (!existsSync(helpersPath)) {
-    writeFileSync(helpersPath, activeHelpers.source, "utf-8");
+    writeExclusiveBridgeFile(helpersPath, activeHelpers.source);
   }
   return activeHelpers.buildBootstrap(helpersPath);
 }
@@ -615,8 +628,15 @@ async function executeOwnedCommand(tempDir: string, options: BridgeOptions | und
         const mutating = options?.mutating ?? (options?.mutationOnTimeout === true || undoTrackingEnabled());
         if (mutating && !getBridgeCompatibility(options).compatible) return { success: false, data: { mutationOutcome: "not_applied" }, error: "CEP_SCHEMA_INCOMPATIBLE: install the matching CEP panel before editing; no command was dispatched" };
         if (mutating && inspectHostRecovery(tempDir).recoveryRequired) return { success: false, data: { mutationOutcome: "not_applied", recoveryRequired: true }, error: "HOST_RECOVERY_REQUIRED: inspect current Premiere state and acknowledge the matching recovery revision before another edit" };
+        // __refuse proves only that this command changed nothing. An earlier
+        // command of the same tool call may already have written.
+        const priorDispatch = currentInvocation()?.dispatched === true;
         const result = await measureStage("host_wait", work);
-        const data = result.data as { mutationOutcome?: string } | undefined;
+        const data = result.data as { mutationOutcome?: string; timelineChanged?: boolean | null; refusedBeforeChange?: boolean } | undefined;
+        if (data?.refusedBeforeChange === true && priorDispatch) {
+          data.mutationOutcome = "unknown";
+          data.timelineChanged = null;
+        }
         if (data?.mutationOutcome === "unknown") markHostRecovery(tempDir, "unknown_command_outcome");
         return result;
       });
@@ -666,25 +686,32 @@ async function sendCommandUnchecked(
   const stagedCmdFile = `${cmdFile}.staged`;
   const resFile = join(tempDir, `res_${id}.json`);
   const busyFile = join(tempDir, `busy_${id}.json`);
+  let stagedOwned = false;
+  let published = false;
 
   try {
     // Write a complete command before its .jsx name makes it visible to CEP.
     // renameSync is atomic when both paths are in the bridge directory.
     measureStageSync("dispatch", () => {
-    writeFileSync(stagedCmdFile, withHelpers ? `${ensureHelpers(tempDir, options?.helpers)}
-${script}` : script, "utf-8");
+    writeExclusiveBridgeFile(stagedCmdFile, withHelpers ? `${ensureHelpers(tempDir, options?.helpers)}
+${script}` : script);
+    stagedOwned = true;
     assertInvocationNotCancelled();
     renameSync(stagedCmdFile, cmdFile);
+    stagedOwned = false;
+    published = true;
     if (options?.mutating ?? (options?.mutationOnTimeout === true || undoTrackingEnabled())) markHostDispatch();
     });
 
     const mutating = options?.mutating ?? (options?.mutationOnTimeout === true || undoTrackingEnabled());
     return await pollForResponse(resFile, busyFile, timeoutMs, options?.hostLabel, options?.mutating === false ? false : (options?.mutationOnTimeout === true || undoTrackingEnabled()), mutating);
   } finally {
-    safeUnlink(stagedCmdFile);
-    safeUnlink(cmdFile);
-    safeUnlink(resFile);
-    safeUnlink(busyFile);
+    if (stagedOwned) safeUnlink(stagedCmdFile);
+    if (published) {
+      safeUnlink(cmdFile);
+      safeUnlink(resFile);
+      safeUnlink(busyFile);
+    }
   }
 }
 
@@ -739,22 +766,29 @@ async function sendRawCommandUnchecked(
   const stagedCmdFile = `${cmdFile}.staged`;
   const resFile = join(tempDir, `res_${id}.json`);
   const busyFile = join(tempDir, `busy_${id}.json`);
+  let stagedOwned = false;
+  let published = false;
 
   try {
     measureStageSync("dispatch", () => {
-    writeFileSync(stagedCmdFile, `${ensureHelpers(tempDir, options?.helpers)}
-${script}`, "utf-8");
+    writeExclusiveBridgeFile(stagedCmdFile, `${ensureHelpers(tempDir, options?.helpers)}
+${script}`);
+    stagedOwned = true;
     assertInvocationNotCancelled();
     renameSync(stagedCmdFile, cmdFile);
+    stagedOwned = false;
+    published = true;
     if (options?.mutating ?? (options?.mutationOnTimeout === true || undoTrackingEnabled())) markHostDispatch();
     });
     const mutating = options?.mutating ?? (options?.mutationOnTimeout === true || undoTrackingEnabled());
     return await pollForResponse(resFile, busyFile, timeoutMs, options?.hostLabel, options?.mutating === false ? false : (options?.mutationOnTimeout === true || undoTrackingEnabled()), mutating);
   } finally {
-    safeUnlink(stagedCmdFile);
-    safeUnlink(cmdFile);
-    safeUnlink(resFile);
-    safeUnlink(busyFile);
+    if (stagedOwned) safeUnlink(stagedCmdFile);
+    if (published) {
+      safeUnlink(cmdFile);
+      safeUnlink(resFile);
+      safeUnlink(busyFile);
+    }
   }
 }
 
