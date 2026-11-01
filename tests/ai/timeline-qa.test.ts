@@ -42,6 +42,13 @@ describe("normalizeSequenceSnapshot", () => {
     expect(snapshot.tracks[1].clips.map((c) => c.id)).toEqual(["early", "late"]);
   });
 
+  it("reads get_full_sequence_info's frame-duration frameRate", () => {
+    const tracks = { videoTracks: [{ index: 0, clips: [] }], audioTracks: [] };
+    expect(norm({ ...tracks, frameRate: { seconds: 0.04166666666667, ticks: "10584000000" } })).toMatchObject({ frame_rate: 24, frame_rate_source: "snapshot" });
+    expect(norm({ ...tracks, frameRate: { seconds: 0.03336666666667, ticks: "8475667200" } }).frame_rate).toBe(29.97003);
+    expect(() => norm({ ...tracks, frameRate: { seconds: 1 } })).toThrow(/frame_rate must be a number between 1 and 240/);
+  });
+
   it("accepts the raw get_sequence_structure shape", () => {
     const snapshot = norm({
       name: "Main", id: "seq-1", durationSeconds: 12,

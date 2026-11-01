@@ -6,8 +6,12 @@ import {
   normalizeSequenceSnapshot,
 } from "../ai/timeline-qa.js";
 
+// Snapshots come straight from get_sequence_structure / get_full_sequence_info /
+// inspect_sequence_structure_uxp, so unlisted raw keys must pass the strict
+// argument check; normalizeSequenceSnapshot reads only the keys it knows.
 const CLIP_SCHEMA = {
   type: "object",
+  additionalProperties: true,
   description: "One timeline clip. Accepts the normalized keys below or raw get_sequence_structure / inspect_sequence_structure_uxp keys (nodeId, startSeconds, endSeconds, inPointSeconds, outPointSeconds, enabled, speed, sourceProjectItemId).",
   properties: {
     id: { type: "string", minLength: 1, maxLength: 128, description: "Stable clip id (nodeId). Synthesized from position when omitted." },
@@ -26,6 +30,7 @@ const CLIP_SCHEMA = {
 
 const TRACK_SCHEMA = {
   type: "object",
+  additionalProperties: true,
   description: "One track with its clips. Accepts type/index/clips or raw mediaType/trackIndex/items keys.",
   properties: {
     type: { type: "string", enum: ["video", "audio"], description: "Track media type." },
@@ -39,6 +44,7 @@ function snapshotSchema(description: string) {
   return {
     type: "object",
     description,
+    additionalProperties: true,
     properties: {
       sequence_id: { type: "string", maxLength: 128, description: "Sequence id." },
       name: { type: "string", maxLength: 255, description: "Sequence name." },

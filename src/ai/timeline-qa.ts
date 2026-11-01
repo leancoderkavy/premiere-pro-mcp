@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { PREMIERE_TICKS_PER_SECOND } from "./exact-time.js";
 import { secondsToFrame } from "./word-timeline.js";
 
 /**
@@ -99,6 +100,13 @@ function optionalSeconds(value: unknown, label: string): number | undefined {
   if (typeof value !== "number" || !Number.isFinite(value)) fail(`${label} must be a finite number of seconds`);
   if (Math.abs(value) > MAX_ABS_SECONDS) fail(`${label} must be within ±${MAX_ABS_SECONDS} seconds`);
   return round6(value);
+}
+
+// get_full_sequence_info reports frameRate as one frame's duration ({ seconds, ticks }).
+function frameRateFromRaw(value: unknown): unknown {
+  if (!isRecord(value)) return value;
+  const ticks = typeof value.ticks === "string" || typeof value.ticks === "number" ? Number(value.ticks) : NaN;
+  return Number.isFinite(ticks) && ticks > 0 ? round6(Number(PREMIERE_TICKS_PER_SECOND) / ticks) : value;
 }
 
 export function validateFrameRate(value: unknown, label = "frame_rate"): number {
@@ -238,7 +246,7 @@ export function normalizeSequenceSnapshot(raw: unknown, options: NormalizeOption
 
   let frameRate: number;
   let frameRateSource: SequenceSnapshot["frame_rate_source"];
-  const rawRate = pick(raw, ["frame_rate", "frameRate", "fps", "timebase"]);
+  const rawRate = frameRateFromRaw(pick(raw, ["frame_rate", "frameRate", "fps", "timebase"]));
   if (options.frameRateOverride !== undefined) {
     frameRate = validateFrameRate(options.frameRateOverride, "frame_rate");
     frameRateSource = "override";

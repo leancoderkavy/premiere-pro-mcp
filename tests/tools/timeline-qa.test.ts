@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getTimelineQaTools } from "../../src/tools/timeline-qa.js";
+import { argumentDiagnostics, strictDeclaredObjects } from "../../src/workflows/strict-schema.js";
 
 const tools = getTimelineQaTools();
 const clip = (id: string, start: number, end: number, extra: Record<string, unknown> = {}) => ({ id, name: `Clip ${id}`, start_seconds: start, end_seconds: end, in_seconds: 0, out_seconds: end - start, ...extra });
@@ -35,6 +36,25 @@ describe("timeline QA tool schemas", () => {
     expect(tools.audit_timeline_health.parameters.required).toEqual(["snapshot"]);
     expect(tools.audit_timeline_health.parameters.properties.flash_frame_max_frames).toMatchObject({ type: "integer", minimum: 1, maximum: 12 });
     expect(tools.diff_sequence_snapshots.parameters.properties.tolerance_frames).toMatchObject({ type: "integer", minimum: 0, maximum: 10 });
+  });
+  it("accepts a raw get_sequence_structure result through the strict argument check", async () => {
+    const raw = {
+      pagination: { totalClips: 1, matchingCount: 1, returned: 1, truncated: false, nextOffset: null, offset: 0, limit: 50 },
+      name: "Scratch", id: "seq-1", durationSeconds: 4, videoTrackCount: 1, audioTrackCount: 1,
+      videoTracks: [{ index: 0, name: "Video 1", clipCount: 1, isMuted: false, isLocked: false, clips: [
+        { index: 0, nodeId: "000f424d", name: "picture.mp4", startSeconds: 0, endSeconds: 4, durationSeconds: 4, inPointSeconds: 0, outPointSeconds: 4, mediaType: "Video", enabled: true, speed: 1 },
+      ] }],
+      audioTracks: [{ index: 0, name: "Audio 1", clipCount: 0, isMuted: false, isLocked: false, clips: [] }],
+      syncWarnings: [], syncCheck: { status: "page_scoped", scannedClips: 1, truncated: false },
+    };
+    const health = strictDeclaredObjects(tools.audit_timeline_health.parameters as Record<string, unknown>);
+    const diff = strictDeclaredObjects(tools.diff_sequence_snapshots.parameters as Record<string, unknown>);
+    expect(argumentDiagnostics({ snapshot: raw }, health)).toEqual([]);
+    expect(argumentDiagnostics({ before: raw, after: raw }, diff)).toEqual([]);
+    // Tool-level arguments stay closed.
+    expect(argumentDiagnostics({ snapshot: raw, extra: 1 }, health)[0]).toMatch(/^UNKNOWN_ARGUMENT: unknown argument extra/);
+    const result = await tools.audit_timeline_health.handler({ snapshot: raw });
+    expect(result.success).toBe(true);
   });
 });
 
