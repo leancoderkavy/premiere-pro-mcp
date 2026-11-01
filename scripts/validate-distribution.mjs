@@ -114,6 +114,13 @@ export async function validateClaudeStage(stage) {
     path.join(stage, "server", "dist", "index.js"),
     "Claude bundle stage is missing server/dist/index.js; run the TypeScript build first",
   );
+  const serverPackage = await readJson(path.join(stage, "server", "package.json"));
+  assert(
+    serverPackage.name === packageJson.name &&
+      serverPackage.version === packageJson.version &&
+      serverPackage.type === packageJson.type,
+    "Claude runtime package identity must match the bundle package.json",
+  );
   for (const dependency of Object.keys(packageJson.dependencies ?? {})) {
     await assertFile(
       path.join(stage, "node_modules", dependency, "package.json"),
