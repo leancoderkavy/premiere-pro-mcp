@@ -24,7 +24,13 @@ first.
 
 ## Universal local setup
 
-Install the published package and its Premiere connector:
+Install the published package. On Premiere 25.6+, install the release's UXP
+`.ccx` connector using `uxp-plugin/DISTRIBUTION.md`, and configure the same
+secret of at least 16 characters in the UXP panel and server as
+`PREMIERE_UXP_TOKEN`. UXP is selected automatically when connected.
+
+Install CEP as the compatibility connector for older hosts and operations that
+do not yet have a documented UXP route:
 
 ```bash
 npm install -g premiere-pro-mcp
@@ -61,7 +67,13 @@ from a source build instead:
 
 Build the source checkout with `npm ci` followed by `npm run build` before
 using the source-build configuration. Then restart Premiere, open a project,
-and open **Window > Extensions > MCP for Adobe Premiere Pro**.
+and open **Window > UXP Plugins > MCP for Adobe Premiere Pro**. When using CEP,
+open **Window > Extensions > MCP for Adobe Premiere Pro** instead.
+
+Set `PREMIERE_BRIDGE_MODE=cep` in the server environment only when CEP must be
+forced while UXP is connected. The default `auto` mode uses connected UXP and
+falls back to CEP before dispatch when UXP is unavailable; failed UXP mutations
+are never retried through CEP.
 
 ## Client specific convenience paths
 
@@ -72,12 +84,14 @@ or plugin format.
 ### Claude Desktop
 
 1. Open the [latest release](https://github.com/leancoderkavy/premiere-pro-mcp/releases/latest)
-   and download both the `premiere-pro-mcp-<version>.mcpb` bundle and the
-   `MCPBridgeCEP.zxp` Premiere connector.
+   and download the `premiere-pro-mcp-<version>.mcpb` bundle plus the UXP
+   `.ccx` connector for Premiere 25.6+. Download `MCPBridgeCEP.zxp` when CEP
+   compatibility is needed.
 2. In Claude Desktop, choose **Settings > Extensions > Advanced settings >
    Install Extension**, select the `.mcpb` file, and restart Claude Desktop.
-3. Install `MCPBridgeCEP.zxp` with a trusted ZXP installer. If a ZXP installer
-   is unavailable, install the connector with the universal npm command above.
+3. Install the UXP `.ccx` using Adobe's normal UXP package flow and configure
+   `PREMIERE_UXP_TOKEN`. If CEP is needed, install `MCPBridgeCEP.zxp` with a
+   trusted ZXP installer or use the universal npm command above.
 
 The Claude Desktop bundle contains the MCP server. The Premiere connector is
 still a required, separate installation.
@@ -131,7 +145,8 @@ premiere-pro-mcp --doctor
 ```
 
 Once the connection check succeeds, ask the assistant to run
-`get_capabilities` and `ping`, then ask a read-only question such as:
+`get_capabilities`, which reports the active bridge. Use `ping` only for a
+CEP-specific check, then ask a read-only question such as:
 
 ```text
 What is my current Premiere Pro project and active sequence? Do not make changes.

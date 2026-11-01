@@ -8,6 +8,7 @@ import type { CatalogToolDefinition } from "../tool-capability-report.js";
 import { buildFirstRunReport, type FirstRunReport } from "../diagnostics.js";
 import { captureActivationEvent, type Telemetry } from "../telemetry.js";
 import type { UxpWebSocketBridge } from "../bridge/uxp-websocket-bridge.js";
+import { bridgeSelectionStatus, selectPremiereBridge, type PremiereBridgeMode } from "../bridge/transport-selection.js";
 import {
   buildToolPackReport,
   isToolInSelectedPacks,
@@ -19,6 +20,7 @@ export interface HealthToolOptions {
   telemetry?: Telemetry;
   uxpBridge?: UxpWebSocketBridge;
   toolPacks?: ToolPackSelection;
+  bridgeMode?: PremiereBridgeMode;
 }
 
 const disabledTelemetry: Telemetry = {
@@ -174,6 +176,7 @@ export function getHealthTools(
           success: true,
           data: {
             ...report,
+            bridge: bridgeSelectionStatus(options.bridgeMode ?? "auto", options.uxpBridge),
             ...(query !== undefined ? {
               // The full Adobe inventories dominate the legacy response. A
               // task search needs backend prerequisites, not every API symbol.
@@ -249,12 +252,14 @@ export function getHealthTools(
           backend: {
             type: "string",
             enum: ["cep", "uxp"],
-            description: "Bridge to check. Defaults to CEP. This check never falls back to a different bridge.",
+            description: "Bridge to check. Omit to select connected UXP by default and fall back to CEP when UXP is unavailable. An explicit backend never falls back.",
           },
         },
       },
       handler: async (args: { backend?: "cep" | "uxp" }) => {
-        const backend = args.backend ?? "cep";
+        const mode = options.bridgeMode ?? "auto";
+        const automatic = args.backend === undefined;
+        let backend = args.backend ?? selectPremiereBridge(mode, options.uxpBridge);
         const telemetry = options.telemetry ?? disabledTelemetry;
 
         let report: FirstRunReport;
@@ -263,8 +268,8 @@ export function getHealthTools(
             report = buildFirstRunReport("uxp", { reachable: false });
           } else {
             try {
-              // This is an explicit read-only UXP request. Do not try CEP if it
-              // fails: even diagnostics should accurately name their backend.
+              // Automatic diagnostics may fall back because this request is
+              // read-only. Explicit UXP checks never switch backends.
               const result = await options.uxpBridge.request("state.get");
               const state = result && typeof result === "object"
                 ? result as Record<string, unknown>
@@ -275,10 +280,19 @@ export function getHealthTools(
                 sequenceOpen: state.sequenceOpen === true,
               });
             } catch {
-              report = buildFirstRunReport("uxp", { reachable: false });
+              if (automatic && mode === "auto") {
+                backend = "cep";
+                report = await probeCep();
+              } else {
+                report = buildFirstRunReport("uxp", { reachable: false });
+              }
             }
           }
         } else {
+          report = await probeCep();
+        }
+
+        async function probeCep(): Promise<FirstRunReport> {
           try {
             const script = buildToolScript(`
               var projectOpen = !!(app && app.project && typeof app.project.name !== "undefined");
@@ -298,13 +312,13 @@ export function getHealthTools(
             const data = response.success && response.data && typeof response.data === "object"
               ? response.data as Record<string, unknown>
               : {};
-            report = buildFirstRunReport("cep", {
+            return buildFirstRunReport("cep", {
               reachable: response.success === true,
               projectOpen: data.projectOpen === true,
               sequenceOpen: data.sequenceOpen === true,
             });
           } catch {
-            report = buildFirstRunReport("cep", { reachable: false });
+            return buildFirstRunReport("cep", { reachable: false });
           }
         }
 
@@ -316,7 +330,17 @@ export function getHealthTools(
         }
         // A completed diagnostic remains a successful tool call even if it
         // identifies a problem. The structured report tells the user what to fix.
-        return { success: true, data: report };
+        return {
+          success: true,
+          data: {
+            ...report,
+            bridgeSelection: {
+              ...bridgeSelectionStatus(mode, options.uxpBridge),
+              requested: args.backend ?? "auto",
+              checked: backend,
+            },
+          },
+        };
       },
     },
   };
