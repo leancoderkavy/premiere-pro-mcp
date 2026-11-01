@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Failed title-cache archive writes or renames clean their owned temporary file, preserving the prior cached archive and unrelated exclusive-create collisions.
 - Invalid bridge mode startup errors preserve their fixed validation message without logging the configured value or arbitrary exception messages.
 - Node command and helper-file writes establish exclusive ownership before writing, close descriptors on errors, and remove owned partial files while preserving exclusive-create collisions.
 - Partial connector response/heartbeat writes close their exclusive descriptors and clean owned stages, allowing retries after write errors without touching a colliding stage. Automated caption burn-in guidance stops before changing one-sided sequence marks.

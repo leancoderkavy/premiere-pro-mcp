@@ -1,7 +1,7 @@
 import { ensurePrivateBridgeDirectory } from "../bridge/file-bridge.js";
 import { readBoundedRegularFile } from "../security/file-safety.js";
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync, lstatSync, readdirSync, renameSync, statSync, unlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { openSync, closeSync, existsSync, lstatSync, readdirSync, renameSync, statSync, unlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { deflateRawSync, gunzipSync, gzipSync, inflateRawSync } from "node:zlib";
@@ -374,8 +374,17 @@ export function bakePremiereTitle(
   }
 
   const staging = `${outPath}.${randomUUID()}.tmp`;
-  writeFileSync(staging, writeZip(output), { mode: 0o600, flag: "wx" });
-  renameSync(staging, outPath);
+  // A successful exclusive open proves ownership even if the write is partial.
+  // Keep the open outside cleanup so an EEXIST collision is never removed.
+  const descriptor = openSync(staging, "wx", 0o600);
+  try {
+    try { writeFileSync(descriptor, writeZip(output)); }
+    finally { closeSync(descriptor); }
+    renameSync(staging, outPath);
+  } catch (error) {
+    try { unlinkSync(staging); } catch { /* Preserve the original publication error. */ }
+    throw error;
+  }
   const checks = verify();
   pruneTitleCache(outDir);
   return { path: outPath, reused: false, checks };

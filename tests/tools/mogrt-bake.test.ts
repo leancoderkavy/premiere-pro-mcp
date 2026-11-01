@@ -1,5 +1,5 @@
-import { afterAll, describe, expect, it } from "vitest";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gzipSync, gunzipSync } from "node:zlib";
@@ -13,6 +13,38 @@ import {
   templateKind,
   writeZip,
 } from "../../src/tools/mogrt-bake.js";
+
+const archiveFault = vi.hoisted(() => ({ phase: "" as "" | "write" | "rename" | "collision", stages: new Map<number, string>(), collisionPath: "" }));
+vi.mock("node:fs", async (original) => {
+  const actual = await original<typeof import("node:fs")>();
+  return {
+    ...actual,
+    openSync: (path: string, flags: string | number, mode?: number) => {
+      if (String(path).endsWith(".tmp") && archiveFault.phase === "collision") {
+        actual.writeFileSync(path, "unrelated stage", { mode: 0o600, flag: "wx" });
+        archiveFault.collisionPath = path;
+        throw Object.assign(new Error("archive collision"), { code: "EEXIST" });
+      }
+      const descriptor = actual.openSync(path, flags, mode);
+      if (String(path).endsWith(".tmp")) archiveFault.stages.set(descriptor, path);
+      return descriptor;
+    },
+    closeSync: (descriptor: number) => { archiveFault.stages.delete(descriptor); actual.closeSync(descriptor); },
+    writeFileSync: (file: string | number, bytes: any, options: any) => {
+      const path = typeof file === "number" ? archiveFault.stages.get(file) : file;
+      if (path?.endsWith(".tmp") && archiveFault.phase === "write") {
+        actual.writeFileSync(file, bytes.subarray(0, 7), options);
+        throw new Error("archive write fault");
+      }
+      actual.writeFileSync(file, bytes, options);
+    },
+    renameSync: (from: string, to: string) => {
+      if (String(from).endsWith(".tmp") && archiveFault.phase === "rename") throw new Error("archive rename fault");
+      actual.renameSync(from, to);
+    },
+  };
+});
+afterEach(() => { archiveFault.phase = ""; archiveFault.collisionPath = ""; });
 
 const workspace = mkdtempSync(join(tmpdir(), "mogrt-bake-"));
 afterAll(() => rmSync(workspace, { recursive: true, force: true }));
@@ -114,6 +146,29 @@ describe("bakePremiereTitle", () => {
     expect(again.reused).toBe(false);
     expect(again.checks.every((c) => c.actual === c.expected)).toBe(true);
     expect(readPremiereTitleText(again.path)).toEqual(["Beta", "Alpha"]);
+  });
+
+  it.each(["write", "rename"] as const)("cleans its owned staging archive after a %s failure and preserves cached bytes", (phase) => {
+    const directory = join(workspace, `archive-failure-${phase}`);
+    const wanted = bakePremiereTitle(lowerThird, ["Wanted", "Text"], directory);
+    const other = bakePremiereTitle(lowerThird, ["Other", "Text"], join(workspace, `other-${phase}`));
+    writeFileSync(wanted.path, readFileSync(other.path));
+    const before = readFileSync(wanted.path);
+    archiveFault.phase = phase;
+    expect(() => bakePremiereTitle(lowerThird, ["Wanted", "Text"], directory)).toThrow(`archive ${phase} fault`);
+    expect(readFileSync(wanted.path)).toEqual(before);
+    expect(readdirSync(directory).filter(name => name.endsWith(".tmp"))).toEqual([]);
+    expect(archiveFault.stages.size).toBe(0);
+    archiveFault.phase = "";
+    const retry = bakePremiereTitle(lowerThird, ["Wanted", "Text"], directory);
+    expect(retry.checks.every(check => check.actual === check.expected)).toBe(true);
+  });
+
+  it("preserves an unrelated staging archive when exclusive creation collides", () => {
+    archiveFault.phase = "collision";
+    expect(() => bakePremiereTitle(lowerThird, ["Collision", "Text"], join(workspace, "archive-collision"))).toThrow("archive collision");
+    expect(readFileSync(archiveFault.collisionPath, "utf8")).toBe("unrelated stage");
+    expect(archiveFault.stages.size).toBe(0);
   });
 
   it("refuses a linked cache directory instead of writing outside its private cache", () => {
