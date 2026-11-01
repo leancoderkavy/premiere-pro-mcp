@@ -168,6 +168,11 @@
     if (unnestWorkflowApi && typeof unnestWorkflowApi.createUnnestWorkflowDefinitions === "function") {
       Object.assign(definitions, unnestWorkflowApi.createUnnestWorkflowDefinitions({ ppro }));
     }
+    let copyClipsWorkflowApi = deps.CopyClipsWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpCopyClipsWorkflows);
+    if (!copyClipsWorkflowApi && typeof require === "function") copyClipsWorkflowApi = require("./copy-clips-workflows.cjs");
+    if (copyClipsWorkflowApi && typeof copyClipsWorkflowApi.createCopyClipsWorkflowDefinitions === "function") {
+      Object.assign(definitions, copyClipsWorkflowApi.createCopyClipsWorkflowDefinitions({ ppro }));
+    }
     let rippleDeleteWorkflowApi = deps.RippleDeleteWorkflows || (typeof globalThis !== "undefined" && globalThis.PremiereMcpRippleDeleteWorkflows);
     if (!rippleDeleteWorkflowApi && typeof require === "function") rippleDeleteWorkflowApi = require("./ripple-delete-workflows.cjs");
     if (rippleDeleteWorkflowApi && typeof rippleDeleteWorkflowApi.createRippleDeleteWorkflowDefinitions === "function") {

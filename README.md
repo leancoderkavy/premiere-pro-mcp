@@ -16,7 +16,7 @@ Free, MIT licensed, local-first, and published to npm as [`premiere-pro-mcp`](ht
 
 [Website](https://premiere-pro-mcp.com/) · [Recorded demo](https://premiere-pro-mcp.com/demo/) · [Compare servers](https://premiere-pro-mcp.com/compare/) · [Setup guides](https://premiere-pro-mcp.com/blog/how-to-set-up-premiere-pro-mcp/) · [Search tools](https://premiere-pro-mcp.com/tools/) · [Troubleshooting](https://premiere-pro-mcp.com/docs/troubleshooting/) · [Release facts](https://premiere-pro-mcp.com/facts/)
 
-Development source: 446 core tools across 68 modules, 4 resources, and 29 guided workflows. A connected UXP host adds 97 capability-gated tools.
+Development source: 446 core tools across 68 modules, 4 resources, and 29 guided workflows. A connected UXP host adds 98 capability-gated tools.
 
 The [completed AE render handoff](docs/after-effects-render-handoff.md) previews and confirms importing one finished render into an existing Premiere bin, with host and file rechecks and an import receipt.
 
@@ -127,7 +127,7 @@ and repository before configuring a client. The new
 VS Code, or Codex settings that point directly to this installation. It is a
 feature included in v1.15.1 and later.
 
-The current source exposes 446 core tools for supported workflow steps spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 97 documented, capability-gated tools without replacing the production CEP bridge.
+The current source exposes 446 core tools for supported workflow steps spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 98 documented, capability-gated tools without replacing the production CEP bridge.
 
 <a id="latest-release"></a>
 
@@ -959,7 +959,7 @@ Reviewed assistant-editing tools now provide dialogue candidate decisions, quote
 See [Filmcraft improvement ledger](docs/filmcraft-improvements.md) for exact-time
 planning, recovery, job observation, temporal evidence and facility workflows.
 
-## Tools (446 core total; 444 under the default profile; 541 with a connected UXP bridge)
+## Tools (446 core total; 444 under the default profile; 542 with a connected UXP bridge)
 
 The [complete supported-actions catalog](docs/supported-actions.md) lists every
 registered core tool, the two tools restricted behind explicit `unsafe-script`
