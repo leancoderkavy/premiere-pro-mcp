@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- `delete_multiple_project_items` checks every item against one timeline-usage index built in a single pass over all sequences (the scan `get_unused_media` already made, now shared as `__buildTimelineUsageIndex`), instead of walking every sequence once per item. It then deletes in chunks of 25 items per host command with per-chunk readback, sends a progress notification at least every 10 s, and accepts up to 500 `item_ids` (duplicates are deleted once). A failing chunk stops the batch and the reply counts what was deleted before it (`DELETE_CHUNK_STOPPED`), so a partial outcome is never reported as success. `delete_project_item`, `delete_bin`, `delete_sequence` and `find_item_usages` share the index-based usage walk with unchanged results.
+
 ## [1.28.0] - 2026-11-01
 
 ### Added
