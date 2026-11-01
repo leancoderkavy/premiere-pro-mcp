@@ -27,7 +27,8 @@ first.
 Install the published package. On Premiere 25.6+, install the release's UXP
 `.ccx` connector using `uxp-plugin/DISTRIBUTION.md`, and configure the same
 secret of at least 16 characters in the UXP panel and server as
-`PREMIERE_UXP_TOKEN`. UXP is selected automatically when connected.
+`PREMIERE_UXP_TOKEN`. Automatic connection diagnostics select connected UXP;
+CEP-only tools still require the CEP connector.
 
 Install CEP as the compatibility connector for older hosts and operations that
 do not yet have a documented UXP route:
@@ -71,8 +72,8 @@ and open **Window > UXP Plugins > MCP for Adobe Premiere Pro**. When using CEP,
 open **Window > Extensions > MCP for Adobe Premiere Pro** instead.
 
 Set `PREMIERE_BRIDGE_MODE=cep` in the server environment only when CEP must be
-forced while UXP is connected. The default `auto` mode uses connected UXP and
-falls back to CEP before dispatch when UXP is unavailable; failed UXP mutations
+forced while UXP is connected. The default `auto` diagnostic selects connected
+UXP and selects CEP before dispatch when UXP is unavailable; failed UXP mutations
 are never retried through CEP.
 
 ## Client specific convenience paths

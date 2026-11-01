@@ -84,7 +84,7 @@ import { getMogrtStudioTools } from "./tools/mogrt-studio.js";
 import { getRenderHandoffTools } from "./tools/render-handoff.js";
 import { getSendToAfterEffectsTools } from "./tools/send-to-after-effects.js";
 import type { UxpWebSocketBridge } from "./bridge/uxp-websocket-bridge.js";
-import type { PremiereBridgeMode } from "./bridge/transport-selection.js";
+import { resolvePremiereBridgeMode, type PremiereBridgeMode } from "./bridge/transport-selection.js";
 import {
   guardToolHandler,
   isToolPermitted,
@@ -300,7 +300,6 @@ function collectStaticTools(
   const cached = toolCatalogCache.get(cacheKey);
   if (cached) return cached;
 
-  const selectedUxpBridge = bridgeMode === "cep" ? undefined : uxpBridge;
   const tools: Record<string, ToolDef> = {
     ...getDiscoveryTools(bridgeOptions),
     ...getProjectTools(bridgeOptions),
@@ -374,12 +373,13 @@ export function collectTools(
   toolPacks?: ToolPackSelection,
   projectContextRepository = new ProjectContextRepository(),
   mediaWatchRegistry = new MediaWatchRegistry(),
-  bridgeMode: PremiereBridgeMode = "auto",
+  bridgeMode: PremiereBridgeMode = resolvePremiereBridgeMode(),
 ): Record<string, ToolDef> {
   // Streamable HTTP creates an independent McpServer for every request. Most
   // tool definitions are immutable, while context, telemetry, and UXP tools
   // close over server-specific state. Reuse only the former so initialization
   // stays fast without ever leaking one request's project context or bridge.
+  const selectedUxpBridge = bridgeMode === "cep" ? undefined : uxpBridge;
   const tools: Record<string, ToolDef> = {
     ...collectStaticTools(bridgeOptions, capabilities),
     ...getProjectContextTools(bridgeOptions, { repository: projectContextRepository }),
@@ -488,7 +488,7 @@ export function createServer(
     toolPacks,
     projectContextRepository,
     mediaWatchRegistry,
-    serverOptions.bridgeMode ?? "auto",
+    serverOptions.bridgeMode ?? resolvePremiereBridgeMode(),
   );
 
   const premiereInstructions = buildPremiereInstructions(new Set(

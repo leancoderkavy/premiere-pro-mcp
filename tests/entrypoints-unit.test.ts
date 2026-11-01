@@ -346,6 +346,17 @@ describe("stdio CLI entry point", () => {
     expect(mocks.stdioServerTransport).not.toHaveBeenCalled();
   });
 
+  it("forces CEP without starting a configured UXP listener", async () => {
+    process.argv = [process.execPath, "index.js"];
+    process.env.PREMIERE_BRIDGE_MODE = "cep";
+    process.env.PREMIERE_UXP_TOKEN = "a-secure-token-with-length";
+    await import("../src/index.js");
+    await vi.waitFor(() => expect(mocks.serveStdio).toHaveBeenCalledOnce());
+    const { createServer } = await import("../src/server.js");
+    expect(createServer).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ bridgeMode: "cep", uxpBridge: undefined }));
+    expect(mocks.uxpStart).not.toHaveBeenCalled();
+  });
+
   it("starts the authenticated UXP bridge on the first real request and emits debug readiness details", async () => {
     process.argv = [process.execPath, "index.js"];
     process.env.PREMIERE_UXP_TOKEN = "a-secure-token-with-length";

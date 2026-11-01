@@ -338,6 +338,8 @@ export function getHealthTools(
               ...bridgeSelectionStatus(mode, options.uxpBridge),
               requested: args.backend ?? "auto",
               checked: backend,
+              active: backend,
+              fallbackToCep: automatic && mode === "auto" && backend === "cep",
             },
           },
         };

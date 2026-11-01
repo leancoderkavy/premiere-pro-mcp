@@ -68,7 +68,7 @@ describe("health connection diagnostics", () => {
 
     expect(result).toMatchObject({
       success: true,
-      data: { backend: "cep", bridgeSelection: { requested: "auto", checked: "cep" } },
+      data: { backend: "cep", bridgeSelection: { requested: "auto", checked: "cep", active: "cep", fallbackToCep: true } },
     });
     expect(mockedSendCommand).toHaveBeenCalledOnce();
   });

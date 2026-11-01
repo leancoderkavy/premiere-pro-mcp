@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `PREMIERE_BRIDGE_MODE=auto|cep` prefers connected UXP for automatic connection diagnostics and can force CEP by withholding UXP tools. Explicit backend probes never switch; CEP-only tools keep their CEP route, and failed UXP mutations are never retried through CEP (#924).
 - `preview_send_clip_to_after_effects` and `apply_send_clip_to_after_effects` send one Premiere video clip to After Effects, like Premiere's Replace with After Effects Composition: a comp with the sequence size, pixel aspect and frame rate and the clip's exact source range (footage layer audio off) is added to the open, saved AE project and saved, imported back over Dynamic Link and swapped in at the clip's span with `replace_clip`. The clip's linked audio stays. Speed-changed, reversed, offline and non-file clips are refused, and effects or Motion/Opacity changes that the swap would not carry over are listed before approval.
 - `copy_clips_between_sequences_uxp` copies a guarded range with documented UXP clone actions, preserving clip effects and reading back placement, source range and enabled state. Edge clips are parked, trimmed and placed with explicit Undo counts (#942).
 - Optional `export_sequence` audio_check reports decoded first-stream signal, silence, absence or unavailable evidence. expect_signal leaves silent or absent audio unverified without hiding the written output (#936).

@@ -23,10 +23,12 @@ export function selectPremiereBridge(
 
 export function bridgeSelectionStatus(mode: PremiereBridgeMode, bridge?: UxpWebSocketBridge) {
   const uxpConnected = isUxpConnected(bridge);
-  const active = selectPremiereBridge(mode, bridge);
+  const active: PremiereBridgeBackend = mode === "auto" && uxpConnected ? "uxp" : "cep";
   return {
     mode,
     active,
+    scope: "automatic_connection_diagnostic",
+    cepOnlyToolsRemainCep: true,
     uxpConfigured: bridge !== undefined,
     uxpConnected,
     fallbackToCep: mode === "auto" && !uxpConnected,
