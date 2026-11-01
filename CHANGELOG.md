@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Invalid bridge mode startup errors preserve their fixed validation message without logging the configured value or arbitrary exception messages.
 - Node command and helper-file writes establish exclusive ownership before writing, close descriptors on errors, and remove owned partial files while preserving exclusive-create collisions.
 - Partial connector response/heartbeat writes close their exclusive descriptors and clean owned stages, allowing retries after write errors without touching a colliding stage. Automated caption burn-in guidance stops before changing one-sided sequence marks.
 - A stale node ID or other pre-write refusal from an editing tool no longer locks the CEP bridge. Previously `enable_disable_clip` with a clip that no longer existed returned "Clip not found" with an unknown outcome, which recorded `unknown_command_outcome` recovery and blocked every later edit until `inspect_operation_recovery` and `acknowledge_operation_recovery`. Refusals raised before a command changes anything (lookup and validation sites, plus the expected project/target guards) now report `not_applied` through a new `__refuse` helper. They stay unknown when the undo history moved, a marker write was attempted, or an earlier command of the same tool call was already dispatched. Per-command undo and write flags are now reset before the guards run, so a guard refusal no longer inherits the previous command's marker-write state.

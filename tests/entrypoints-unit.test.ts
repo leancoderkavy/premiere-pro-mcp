@@ -338,6 +338,22 @@ describe("stdio CLI entry point", () => {
     );
   });
 
+  it("preserves the fixed bridge-mode validation message without logging its configured value", async () => {
+    process.argv = [process.execPath, "index.js"];
+    process.env.PREMIERE_BRIDGE_MODE = "unsupported-private-value";
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+    await import("../src/index.js");
+    await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(1));
+    expect(mocks.serveStdio).not.toHaveBeenCalled();
+    expect(mocks.uxpStart).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalledWith(
+      "[premiere-pro-mcp] Fatal error:",
+      "PREMIERE_BRIDGE_MODE must be either auto or cep.",
+    );
+    expect(JSON.stringify(error.mock.calls)).not.toContain("unsupported-private-value");
+  });
+
   it("treats an unsubstituted Claude Desktop protocol-mode placeholder as auto", async () => {
     process.argv = [process.execPath, "index.js"];
     process.env.PREMIERE_MCP_PROTOCOL_MODE = "${user_config.premiere_mcp_protocol_mode}";

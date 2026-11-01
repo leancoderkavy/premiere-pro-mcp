@@ -413,7 +413,10 @@ async function main() {
 }
 
 main().catch((err) => {
-  const summary = err instanceof Error && err.message === "PREMIERE_MCP_PROTOCOL_MODE must be either auto or legacy." ? err.message : telemetryErrorType(err);
+  const summary = err instanceof Error && [
+    "PREMIERE_MCP_PROTOCOL_MODE must be either auto or legacy.",
+    "PREMIERE_BRIDGE_MODE must be either auto or cep.",
+  ].includes(err.message) ? err.message : telemetryErrorType(err);
   console.error("[premiere-pro-mcp] Fatal error:", summary);
   process.exit(1);
 });
