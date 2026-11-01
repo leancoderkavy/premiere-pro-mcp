@@ -11,16 +11,25 @@ const send = vi.mocked(sendCommand);
 const tools = getProjectTools({ tempDir: "/tmp/tests", timeoutMs: 1000 });
 const invalidCounts = [undefined, null, NaN, Infinity, -1, 0.5, "2"];
 const scope = "Target-bin item-count increase only; composition identity and rendered content are not verified.";
+const namedScope = "Each requested composition was read back as a new bin item from this .aep (by name and media path); rendered content is not verified.";
 
 function setup(before: unknown, after: unknown, throwsAt?: "before" | "after") {
   let imported = false;
-  const root = { children: { get numItems() {
+  // Indexable children let the named path read each new comp back by name and source .aep.
+  const children: Record<string | number, unknown> = { get numItems() {
     if (throwsAt === (imported ? "after" : "before")) throw new Error("count unreadable");
     return imported ? after : before;
-  } } };
-  const importComps = vi.fn(() => { imported = true; });
+  } };
+  const counted = (value: unknown): value is number => Number.isInteger(value) && (value as number) >= 0;
+  if (counted(before)) for (let i = 0; i < before; i++) children[i] = { nodeId: `old-${i}`, name: `Existing ${i}`, getMediaPath: () => "/media/existing.mp4" };
+  const root = { children };
+  const importComps = vi.fn((path: string, names?: unknown) => {
+    imported = true;
+    const added = Array.isArray(names) ? names as string[] : ["Comp 1"];
+    if (counted(before) && counted(after)) for (let i = before; i < after; i++) children[i] = { nodeId: `new-${i}`, name: `${added[(i - before) % added.length]}/title.aep`, getMediaPath: () => path };
+  });
   const host = { rootItem: root, importAEComps: importComps, importAllAEComps: importComps };
-  function FakeFile(this: { exists: boolean }, _path: string) { this.exists = true; }
+  function FakeFile(this: { exists: boolean; fsName: string }, path: string) { this.exists = true; this.fsName = path; }
   send.mockImplementation(async script => JSON.parse(runInNewContext(getHelpersSource() + "\n" + script, { app: { project: host }, File: FakeFile })));
   return importComps;
 }
@@ -30,12 +39,14 @@ beforeEach(() => vi.clearAllMocks());
 for (const mode of ["all", "named"] as const) {
   const args = { ae_project_path: '/tmp/title"\\\n.aep', ...(mode === "named" ? { comp_names: ['Lower"\\\nThird'] } : {}) };
   describe(`${mode} composition import count readback`, () => {
-    it("reports only the target-bin count evidence after an observed increase", async () => {
+    // Named imports verify each requested comp by name and source; all-comps imports verify the count only.
+    const expectedScope = mode === "named" ? namedScope : scope;
+    it(mode === "named" ? "verifies each requested composition by name and source after an observed increase" : "reports only the target-bin count evidence after an observed increase", async () => {
       const imported = setup(2, 3);
       const result = await tools.import_ae_comps.handler(args);
       expect(imported).toHaveBeenCalledTimes(1);
-      expect(mutationReceipt(result.success, result.data, { dispatched: true }, "import_ae_comps")).toMatchObject({ outcome: "verified", verification: { boundary: scope } });
-      expect(result).toMatchObject({ success: true, data: { verified: true, addedItems: 1, binItemsBefore: 2, binItemsAfter: 3, verificationScope: scope } });
+      expect(mutationReceipt(result.success, result.data, { dispatched: true }, "import_ae_comps")).toMatchObject({ outcome: "verified", verification: { boundary: expectedScope } });
+      expect(result).toMatchObject({ success: true, data: { verified: true, addedItems: 1, binItemsBefore: 2, binItemsAfter: 3, verificationScope: expectedScope } });
       if (mode === "named") expect(imported).toHaveBeenCalledWith(args.ae_project_path, args.comp_names, expect.anything());
       else expect(imported).toHaveBeenCalledWith(args.ae_project_path, expect.anything());
     });
