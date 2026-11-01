@@ -780,11 +780,11 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Sour
 
           var applied = seq.getSettings();
           if (!applied || !applied.videoFrameRate) {
-            return __refuse("Premiere did not return the updated sequence frame rate");
+            return __error("Premiere did not return the updated sequence frame rate");
           }
           var appliedTicks = parseFloat(applied.videoFrameRate.ticks);
           if (!isFinite(appliedTicks) || Math.abs(appliedTicks - requestedTicks) > 1) {
-            return __refuse(
+            return __error(
               "Premiere did not apply the requested frame rate: expected " +
               requestedTicks + " ticks/frame, got " + appliedTicks
             );

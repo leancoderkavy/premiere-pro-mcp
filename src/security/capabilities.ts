@@ -370,6 +370,10 @@ const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, reado
     inspect: ["inspect"],
     apply: ["edit"],
   },
+  copy_clips_between_sequences_uxp: {
+    inspect: ["inspect"],
+    apply: ["edit"],
+  },
   unnest_sequence_uxp: {
     inspect: ["inspect"],
     apply: ["edit"],
@@ -566,7 +570,6 @@ export function capabilityForTool(toolName: string): Capability {
 
 /** Resolve authority at the action level for consolidated multi-action tools. */
 export function capabilitiesForToolInvocation(toolName: string, args: unknown): readonly Capability[] {
-  if (toolName === "export_interchange_uxp" && args && typeof args === "object" && (args as Record<string, unknown>).verify_artifact === true) return ["export", "filesystem"];
   if (toolName === "audit_project_structure" && args && typeof args === "object" && (args as Record<string, unknown>).apply === true) return ["inspect", "edit"];
   // An empty AE render queue only exposes template names through a briefly queued composition.
   if (toolName === "inspect_after_effects_render_templates" && args && typeof args === "object" && (args as Record<string, unknown>).allow_temporary_queue_item === true) return ["inspect", "edit"];

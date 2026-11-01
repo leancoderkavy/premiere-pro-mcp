@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { runInNewContext } from "node:vm";
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
+import { runWithUndoTracking } from "../../src/bridge/undo-tracking.js";
 import type { BridgeOptions } from "../../src/bridge/file-bridge.js";
 
 vi.mock("../../src/bridge/file-bridge.js", () => ({
@@ -14,6 +15,20 @@ import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { getSequenceTools } from "../../src/tools/sequence.js";
 
 describe("duplicate_sequence", () => {
+  it("keeps a failed post-clone readback uncertain even when the undo index did not advance", async () => {
+    const seq = { name: "Original", sequenceID: "orig", clone: vi.fn() };
+    const sequences = { numSequences: 1, 0: seq };
+    vi.mocked(sendCommand).mockImplementation(async (script: string) =>
+      JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
+        app: { enableQE() {}, project: { sequences, activeSequence: seq } },
+        qe: { project: { undoStackIndex: () => 4 } },
+      }))));
+    const result = await runWithUndoTracking(true, () => getSequenceTools({}).duplicate_sequence.handler({ sequence_id: "orig" }));
+    expect(seq.clone).toHaveBeenCalledOnce();
+    expect(result.success).toBe(false);
+    expect(result.data?.mutationOutcome).not.toBe("not_applied");
+  });
+
   it("returns the new copy's id even when an older copy has the same name (live: reruns edited the old copy)", async () => {
     const list: Array<Record<string, unknown>> = [];
     const make = (name: string, id: string) => {

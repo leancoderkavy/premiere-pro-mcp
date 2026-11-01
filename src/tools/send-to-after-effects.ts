@@ -148,8 +148,8 @@ function premiereClipScript(nodeId: string, plan?: Plan): string {
       frameTicks: String(settings.videoFrameRate.ticks), effectsNotCarried: notCarried
     };
     ${plan ? `
-    var keys = ["projectPath", "projectId", "sequenceId", "nodeId", "startTicks", "endTicks", "inTicks", "itemId", "mediaPath", "frameTicks"];
-    var expected = { projectPath: ${pp(plan.projectPath)}, projectId: ${pp(plan.projectId)}, sequenceId: ${pp(plan.sequenceId)}, nodeId: ${pp(plan.nodeId)}, startTicks: ${pp(plan.startTicks)}, endTicks: ${pp(plan.endTicks)}, inTicks: ${pp(plan.inTicks)}, itemId: ${pp(plan.itemId)}, mediaPath: ${pp(plan.mediaPath)}, frameTicks: ${pp(plan.frameTicks)} };
+    var keys = ["projectPath", "projectId", "sequenceId", "nodeId", "startTicks", "endTicks", "inTicks", "itemId", "mediaPath", "frameTicks", "trackIndex", "width", "height", "pixelAspect"];
+    var expected = { projectPath: ${pp(plan.projectPath)}, projectId: ${pp(plan.projectId)}, sequenceId: ${pp(plan.sequenceId)}, nodeId: ${pp(plan.nodeId)}, startTicks: ${pp(plan.startTicks)}, endTicks: ${pp(plan.endTicks)}, inTicks: ${pp(plan.inTicks)}, itemId: ${pp(plan.itemId)}, mediaPath: ${pp(plan.mediaPath)}, frameTicks: ${pp(plan.frameTicks)}, trackIndex: ${pp(String(plan.trackIndex))}, width: ${pp(String(plan.width))}, height: ${pp(String(plan.height))}, pixelAspect: ${pp(String(plan.pixelAspect))} };
     for (var ki = 0; ki < keys.length; ki++) if (String(evidence[keys[ki]]) !== expected[keys[ki]]) return __error("The previewed clip changed (" + keys[ki] + "); preview again. Nothing was changed.");
     if (evidence.effectsNotCarried.join("|") !== ${pp(plan.effectsNotCarried.join("|"))}) return __error("The clip's effects changed since preview; preview again. Nothing was changed.");
     ` : ""}
@@ -300,6 +300,7 @@ export function getSendToAfterEffectsTools(options: BridgeOptions, dependencies:
         let stage = "premiere_recheck";
         const partial: Record<string, unknown> = {};
         try {
+          if (realpathSync(plan.workspace) !== plan.workspace || contained(plan.workspace, plan.aeProjectPath) !== plan.aeProjectPath) throw new Error("The approved workspace or After Effects project path changed; preview again. Nothing was changed.");
           data(await premiere(premiereClipScript(plan.nodeId, plan), options));
           stage = "after_effects_comp";
           const comp = data(await sendAe(aeBuildScript(plan), options));

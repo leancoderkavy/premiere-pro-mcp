@@ -5334,5 +5334,61 @@
       "inspect",
       "filesystem"
     ]
+  },
+  {
+    "tool": "preview_send_clip_to_after_effects",
+    "args": {},
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "apply_send_clip_to_after_effects",
+    "args": {},
+    "required": [
+      "inspect",
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "copy_clips_between_sequences_uxp",
+    "args": {
+      "action": "inspect"
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "copy_clips_between_sequences_uxp",
+    "args": {
+      "action": "apply"
+    },
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "inspect_after_effects_render_templates",
+    "args": {
+      "allow_temporary_queue_item": true
+    },
+    "required": [
+      "inspect",
+      "edit"
+    ]
+  },
+  {
+    "tool": "export_interchange_uxp",
+    "args": {
+      "verify_artifact": true
+    },
+    "required": [
+      "edit",
+      "export",
+      "filesystem"
+    ]
   }
 ]

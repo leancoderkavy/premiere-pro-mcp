@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import vm from "node:vm";
@@ -12,7 +12,7 @@ const TPS = 254016000000;
 const folders: string[] = [];
 afterEach(() => { for (const folder of folders.splice(0)) rmSync(folder, { recursive: true, force: true }); });
 
-interface HostClip { speed?: number; reversed?: boolean; scale?: number; extraEffect?: string; mediaPath?: string; trackType?: string }
+interface HostClip { speed?: number; reversed?: boolean; scale?: number; extraEffect?: string; mediaPath?: string; trackType?: string; width?: number }
 
 /** A Premiere host fake that executes the generated clip-read script for real. */
 function premiereHost(clipOptions: HostClip = {}) {
@@ -29,7 +29,7 @@ function premiereHost(clipOptions: HostClip = {}) {
     getSpeed: () => clipOptions.speed ?? 1, isSpeedReversed: () => clipOptions.reversed ?? false,
     components: Object.assign({ numItems: components.length }, components),
   };
-  const seq = { sequenceID: "seq-1", frameSizeHorizontal: 1920, frameSizeVertical: 1080, getSettings: () => ({ videoPixelAspectRatio: "1:1", videoFrameRate: { ticks: String(TPS / 25) } }) };
+  const seq = { sequenceID: "seq-1", get frameSizeHorizontal() { return clipOptions.width ?? 1920; }, frameSizeVertical: 1080, getSettings: () => ({ videoPixelAspectRatio: "1:1", videoFrameRate: { ticks: String(TPS / 25) } }) };
   function File(this: { fsName: string; exists: boolean }, name: string) { this.fsName = name; this.exists = true; }
   return async (script: string) => {
     parse(`${getHelpersSource()}\n${script}`, { ecmaVersion: 3, allowReserved: "never" });
@@ -145,6 +145,33 @@ describe("send a timeline clip to After Effects", () => {
     writeFileSync(path.join(outside, "other.aep"), "fixture");
     await expect(f.preview({ ae_project_path: path.join(outside, "other.aep") })).rejects.toThrow("approved_workspace_path");
     await expect(f.preview({ extra: true })).rejects.toThrow("Unsupported field");
+  });
+
+  it("refuses changed sequence settings before creating the composition", async () => {
+    const settings = { width: 1920 };
+    const f = fixture(settings);
+    const { data } = await f.preview();
+    settings.width = 1280;
+    const result = await f.apply(data.previewToken);
+    expect(result).toMatchObject({ success: false, data: { failedStage: "premiere_recheck", mutationOutcome: "not_applied" } });
+    expect(result.error).toContain("width");
+    expect(f.calls).toEqual(["premiere_read", "ae_name", "premiere_read"]);
+  });
+
+  it.skipIf(process.platform === "win32")("refuses an AE path retargeted outside the workspace after preview", async () => {
+    const f = fixture();
+    const { data } = await f.preview();
+    const outside = realpathSync(mkdtempSync(path.join(os.tmpdir(), "outside-ae-")));
+    folders.push(outside);
+    const other = path.join(outside, "other.aep");
+    writeFileSync(other, "fixture");
+    const original = path.join(f.root, "motion.aep");
+    unlinkSync(original);
+    symlinkSync(other, original);
+    const result = await f.apply(data.previewToken);
+    expect(result).toMatchObject({ success: false, data: { failedStage: "premiere_recheck", mutationOutcome: "not_applied" } });
+    expect(result.error).toContain("approved_workspace_path");
+    expect(f.calls).toEqual(["premiere_read", "ae_name"]);
   });
 
   it("requires filesystem for preview and edit for apply", () => {

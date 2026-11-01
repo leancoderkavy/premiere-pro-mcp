@@ -1660,7 +1660,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           if (problems.length) {
             state.outcome = "failed";
             state.verified = false;
-            return __refuse(problems.join("; ") + ".", state);
+            return __error(problems.join("; ") + ".", state);
           }
           state.clearedIn = ${clearIn};
           state.clearedOut = ${clearOut};
