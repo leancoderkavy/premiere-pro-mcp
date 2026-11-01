@@ -13,6 +13,8 @@ export async function verifyClaudeRuntime(stage, expectedVersion) {
     ...process.env,
     PREMIERE_BRIDGE_MODE: "cep",
     PREMIERE_MCP_PROTOCOL_MODE: "auto",
+    PREMIERE_MCP_TOOL_PACKS: "full",
+    PREMIERE_MCP_CAPABILITIES: "inspect,edit,export,filesystem",
     POSTHOG_API_KEY: "",
     PREMIERE_TEMP_DIR: runtimeDir,
   };

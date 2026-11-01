@@ -26,7 +26,7 @@ afterEach(async () => {
 describe("Claude bundle runtime identity", () => {
   it("rejects the previously released layout missing the runtime package metadata", async () => {
     const { stage } = await createStage();
-    await expect(validateClaudeStage(stage)).rejects.toThrow("server/package.json");
+    await expect(validateClaudeStage(stage)).rejects.toThrow(path.join("server", "package.json"));
   });
 
   it("rejects a runtime version that differs from the extension manifest", async () => {
