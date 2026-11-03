@@ -4806,6 +4806,28 @@
     ]
   },
   {
+    "tool": "set_track_states",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "set_track_states",
+    "args": {
+      "snapshot": true,
+      "tracks": [
+        {
+          "type": "audio",
+          "index": 0
+        }
+      ]
+    },
+    "required": [
+      "inspect"
+    ]
+  },
+  {
     "tool": "set_time_interpolation",
     "args": {},
     "required": [

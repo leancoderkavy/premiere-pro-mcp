@@ -10,11 +10,11 @@ source catalog may include unreleased actions.
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 446 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 444 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 447 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 445 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 98 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 542 | 444 core plus 98 UXP tools |
+| Default profile with UXP | 543 | 445 core plus 98 UXP tools |
 
 ## How to read support
 
@@ -444,6 +444,7 @@ operation” when the tool has no enum-based mode.
 | `set_start_time` | Default profile | Single operation | Set the start time (timecode offset) for a project item |
 | `set_target_track` | Default profile | `track_type`: `video`, `audio` | Target or untarget one video or audio track for source-patched insert/overwrite edits. Premiere allows several tracks of a type to be targeted at once, so by default (exclusive=true) targeting a track also untargets every other track of the same type. Reads back every track of that type and reports verified only when the readback matches the requested state; otherwise committed_unverified or an error. |
 | `set_time_interpolation` | Default profile | Single operation | Request time interpolation for a clip (Frame Sampling, Frame Blending, Optical Flow) through QE DOM. Premiere exposes no interpolation readback, so the result is committed_unverified and must be checked in Effect Controls. |
+| `set_track_states` | Default profile | Single operation | Set mute, solo and lock on several video or audio tracks of the active sequence in one host command, with per-track readback. Every requested track is read first; if any target is out of range, unreadable or asks for a state this host cannot read and write (solo has no public ExtendScript API and is probed on the QE track), nothing is changed. snapshot: true returns the pre-write state of the same tracks as a restore payload this tool accepts unchanged; with no state fields at all it is a read-only capture. |
 | `set_transcode_on_ingest` | Default profile | Single operation | Request enabling or disabling project transcoding on ingest. Premiere exposes no getter for independent verification, so dispatch is reported as requested_unverified. |
 | `set_uniform_scale` | Default profile | Single operation | Toggle uniform scale on a clip's Motion effect. When enabled, Scale Width and Scale Height are linked. |
 | `set_work_area` | Default profile | Single operation | Set and verify the work-area points, turning the bar on first through the public Sequence API when it is off. Fails when Premiere leaves the points unchanged (26.5.2 ignores these CEP writes; use the UXP set_work_area there) and turns the bar back off if this call turned it on. Unreadable or partial writes report committed_unverified. |
