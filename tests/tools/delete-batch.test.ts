@@ -80,21 +80,21 @@ function project(options: { clipCount?: number; deleteBinNoop?: boolean; rejectS
     return true;
   };
   mockedSendCommand.mockImplementation(async (script: string) => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
-    app: { project: { rootItem: root, sequences, activeSequence: seq, deleteSequence } },
+    app: { project: { documentID: "document-a", rootItem: root, sequences, activeSequence: seq, deleteSequence } },
     Date: function FixedDate(this: { getTime: () => number }) { this.getTime = () => 1000 + bins; },
   }))));
   const footageNames = () => { const out: string[] = []; for (let i = 0; i < footage.children!.numItems; i++) out.push(footage.children![i].name); return out; };
   const rootNames = () => { const out: string[] = []; for (let i = 0; i < root.children!.numItems; i++) out.push(root.children![i].name); return out; };
-  return { clips, walks, footageNames, rootNames };
+  return { clips, walks, footageNames, rootNames, timelineClip };
 }
 
 describe("delete_multiple_project_items used-item index and chunks", () => {
-  it("walks the timelines once per call however many items are checked", async () => {
+  it("walks timelines once for planning and once per chunk", async () => {
     const { clips, walks, footageNames } = project({ clipCount: 5 });
     const result = await getUtilityTools(bridgeOptions).delete_multiple_project_items.handler({ item_ids: clips.map((clip) => clip.nodeId) }) as Result;
     expect(result).toMatchObject({ success: true, data: { deleted: 5, total: 5, planned: 5, verified: true, chunksCompleted: 1, chunkSize: DELETE_BATCH_CHUNK_SIZE, sequencesScanned: 1 } });
-    // The plan builds the index once; the chunk script never scans timelines.
-    expect(walks.video).toBe(1);
+    // Revalidate once per chunk before mutation.
+    expect(walks.video).toBe(2);
     expect(mockedSendCommand).toHaveBeenCalledTimes(2);
     expect(footageNames()).toEqual([]);
   });
@@ -134,7 +134,7 @@ describe("delete_multiple_project_items used-item index and chunks", () => {
       tools.delete_multiple_project_items.handler({ item_ids: clips.map((clip) => clip.nodeId) })) as Result;
     expect(result).toMatchObject({ success: true, data: { deleted: 53, planned: 53, chunksCompleted: 3, verified: true } });
     expect(mockedSendCommand).toHaveBeenCalledTimes(4);
-    expect(walks.video).toBe(1);
+    expect(walks.video).toBe(4);
     expect(footageNames()).toEqual([]);
     // Chunk 1 at 6 s: no notification yet; chunk 2 at 12 s: one; final chunk: always one.
     expect(notify.mock.calls.map(([notification]) => (notification as { params: { progress: number; total?: number } }).params)).toMatchObject([
@@ -220,7 +220,7 @@ describe("shared timeline-usage index", () => {
 it("preserves prior chunk changes when the next chunk safely refuses", async () => {
   const planned = Array.from({ length: DELETE_BATCH_CHUNK_SIZE + 1 }, (_, i) => ({ nodeId: String(i), name: String(i), kind: "sequence", timelineClips: 0 }));
   mockedSendCommand.mockReset();
-  mockedSendCommand.mockResolvedValueOnce({ success: true, data: { planned } });
+  mockedSendCommand.mockResolvedValueOnce({ success: true, data: { planned, projectDocumentId: "document-a" } });
   mockedSendCommand.mockResolvedValueOnce({ success: true, data: { items: planned.slice(0, DELETE_BATCH_CHUNK_SIZE) } });
   mockedSendCommand.mockResolvedValueOnce({ success: false, error: "Refused", data: { mutationOutcome: "not_applied", projectChanged: false, items: [] } });
   const result = await getUtilityTools(bridgeOptions).delete_multiple_project_items.handler({ item_ids: planned.map(item => item.nodeId) }) as Result;
@@ -229,4 +229,18 @@ it("preserves prior chunk changes when the next chunk safely refuses", async () 
   expect(mutationReceipt(false, result.data, { dispatched: true }).outcome).toBe("committed_unverified");
   expect(result.data?.projectChanged).toBe(true);
   expect(result.data?.deleted).toBe(DELETE_BATCH_CHUNK_SIZE);
+});
+
+
+it("rechecks usage of every target before the chunk mutates anything", async () => {
+  const h = project({ clipCount: 2 });
+  const execute = mockedSendCommand.getMockImplementation()!;
+  let calls = 0;
+  mockedSendCommand.mockImplementation(async (...args) => {
+    if (++calls === 2) h.timelineClip.projectItem = h.clips[1];
+    return execute(...args);
+  });
+  const result = await getUtilityTools(bridgeOptions).delete_multiple_project_items.handler({ item_ids: h.clips.map(item => item.nodeId) });
+  expect(result).toMatchObject({ success: false, data: { deleted: 0, mutationOutcome: "not_applied" } });
+  expect(h.footageNames()).toEqual(["Clip 0.mov", "Clip 1.mov"]);
 });

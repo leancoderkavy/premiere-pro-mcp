@@ -347,8 +347,10 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
         if (!Array.isArray(args.item_ids) || args.item_ids.length < 1 || args.item_ids.length > 100 || !args.item_ids.every((id) => typeof id === "string" && id.trim())) {
           return { success: false, error: "item_ids must be an array of 1-100 non-empty node IDs or names" };
         }
-        const idsJson = JSON.stringify(args.item_ids);
+        const idsJson = "[" + args.item_ids.map(id => `"${escapeForExtendScript(id)}"`).join(",") + "]";
         const script = buildToolScript(`
+          var documentId = app.project.documentID;
+          if (typeof documentId !== "string" || !documentId.length) return __refuse("Cannot read project document identity.");
           var ids = ${idsJson};
           var results = [];
           var usedCount = 0;
@@ -405,10 +407,12 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
         if (!Array.isArray(args.item_ids) || args.item_ids.length < 1 || args.item_ids.length > DELETE_BATCH_MAX_ITEMS || !args.item_ids.every((id) => typeof id === "string" && id.trim())) {
           return { success: false, error: `item_ids must be an array of 1-${DELETE_BATCH_MAX_ITEMS} non-empty node IDs or names. No project items were deleted.`, data: { mutationOutcome: "not_applied" } };
         }
-        const idsJson = JSON.stringify(args.item_ids);
+        const idsJson = "[" + args.item_ids.map(id => `"${escapeForExtendScript(id)}"`).join(",") + "]";
         // Phase 1, read-only: resolve every item and check usage and offline
         // media against one index, so a refusal happens before any deletion.
         const planScript = buildToolScript(`
+          var documentId = app.project.documentID;
+          if (typeof documentId !== "string" || !documentId.length) return __refuse("Cannot read project document identity.");
           var ids = ${idsJson};
           var index;
           try { index = __buildTimelineUsageIndex(); } catch (usageError) { return __refuse("Cannot safely determine timeline usage: " + String(usageError)); }
@@ -448,14 +452,14 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
             else if (isSequence) kind = "sequence";
             planned.push({ nodeId: nodeId, name: String(item.name), kind: kind, timelineClips: timelineClips });
           }
-          return __result({ planned: planned, total: ids.length, sequencesScanned: index.sequences.length });
+          return __result({ projectDocumentId: documentId, planned: planned, total: ids.length, sequencesScanned: index.sequences.length });
         `);
         const startedAt = now();
         const plan = await sendCommand(planScript, bridgeOptions);
         if (!plan.success) return plan;
-        const planData = plan.data as { planned?: PlannedDeletion[]; sequencesScanned?: number } | undefined;
+        const planData = plan.data as { projectDocumentId?: string; planned?: PlannedDeletion[]; sequencesScanned?: number } | undefined;
         const planned = planData?.planned;
-        if (!Array.isArray(planned)) {
+        if (!Array.isArray(planned) || typeof planData?.projectDocumentId !== "string" || !planData.projectDocumentId.length) {
           return { success: false, error: "The host did not return a deletion plan. No project items were deleted.", data: { mutationOutcome: "not_applied" } };
         }
         // Phase 2: delete in chunks, one host command each, verifying every
@@ -466,7 +470,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
         for (let offset = 0; offset < planned.length; offset += DELETE_BATCH_CHUNK_SIZE) {
           const chunk = planned.slice(offset, offset + DELETE_BATCH_CHUNK_SIZE).map(({ nodeId, name, kind }) => ({ nodeId, name, kind }));
           const chunkScript = buildToolScript(`
-            var targets = ${JSON.stringify(chunk)};
+            var targets = [${chunk.map(target => `{nodeId:"${escapeForExtendScript(target.nodeId)}",name:"${escapeForExtendScript(target.name)}",kind:"${escapeForExtendScript(target.kind)}"}`).join(",")}];
+            if (app.project.documentID !== "${escapeForExtendScript(planData.projectDocumentId)}") return __error("Project document changed since deletion planning.", { mutationOutcome: "not_applied", projectChanged: false });
             var deleted = [];
             function findReadableItem(id) {
               var found = null;
@@ -496,6 +501,16 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
             function stopped(message, p, uncertain) {
               return __jsonStringify({ success: false, error: message + " " + p + " item(s) in this chunk were deleted before it; the batch stopped.", data: { code: "DELETE_CHUNK_STOPPED", mutationOutcome: uncertain ? "unknown" : (deleted.length > 0 ? "committed_unverified" : "not_applied"), verified: false, projectChanged: uncertain ? null : deleted.length > 0, deletedInChunk: deleted.length, items: deleted } });
             }
+            try {
+              var currentIndex = __buildTimelineUsageIndex();
+              for (var check = 0; check < targets.length; check++) {
+                var currentItem = findReadableItem(targets[check].nodeId);
+                if (!currentItem) continue;
+                var currentUsage = __projectItemUsageFromIndex(currentItem, currentIndex);
+                if (currentUsage.clips > 0 && ${args.confirm_remove_from_sequences === true ? "false" : "true"}) return stopped("Item is now in use: " + targets[check].name, 0);
+                if (currentIndex.sequenceItemIds[currentItem.nodeId] === undefined && __offlineItemsIn(currentItem).length > 0 && ${args.allow_offline === true ? "false" : "true"}) return stopped("Item is now offline: " + targets[check].name, 0);
+              }
+            } catch (safetyError) { return stopped("Cannot revalidate deletion safety: " + String(safetyError), 0); }
             for (var p = 0; p < targets.length; p++) {
               var target = targets[p];
               var mutationAttempted = false;
