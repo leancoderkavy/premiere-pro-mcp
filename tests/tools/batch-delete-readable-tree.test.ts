@@ -19,7 +19,7 @@ function host(after: () => unknown) {
     parse(source, { ecmaVersion: 3, allowReserved: "never" });
     return JSON.parse(String(runInNewContext(source, { app: { project: { rootItem: root, sequences: { numSequences: 0 } } } })));
   });
-  return { bin, removed };
+  return { bin, removed, root };
 }
 beforeEach(() => vi.clearAllMocks());
 
@@ -53,7 +53,42 @@ describe("batch project deletion final tree readback", () => {
     const { removed } = host(after);
     const result = await tool.handler({ item_ids: ['bin"\\id'] });
     expect(removed).toHaveBeenCalledTimes(1);
-    expect(result).toMatchObject({ success: false, data: { verified: false, outcome: "committed_unverified" } });
+    expect(result).toMatchObject({ success: false, data: { verified: false, outcome: "committed_unverified", mutationOutcome: "committed_unverified", deleted: 0, items: [] } });
     expect(mutationReceipt(result.success, result.data, { dispatched: true }, "delete_multiple_project_items").outcome).toBe("committed_unverified");
+  });
+});
+
+describe("batch deletion lookup and aggregate evidence", () => {
+  it("refuses an unreadable tree before the first deletion", async () => {
+    const { root, removed } = host(() => collection([]));
+    const execute = sent.getMockImplementation()!;
+    let calls = 0;
+    sent.mockImplementation(async (...args) => {
+      if (++calls === 2) root.children = undefined;
+      return execute(...args);
+    });
+    const result = await tool.handler({ item_ids: ['bin"\\id'] });
+    expect(removed).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ success: false, data: { mutationOutcome: "not_applied", deleted: 0, projectChanged: false } });
+  });
+
+  it("preserves explicit final-readback evidence through aggregation", async () => {
+    host(() => collection([]));
+    const execute = sent.getMockImplementation()!;
+    let calls = 0;
+    sent.mockImplementation(async (...args) => ++calls === 1 ? execute(...args) : ({
+      success: false,
+      data: { outcome: "committed_unverified", verified: false, items: [] },
+    }));
+    const result = await tool.handler({ item_ids: ['bin"\\id'] });
+    expect(mutationReceipt(false, result.data, { dispatched: true }).outcome).toBe("committed_unverified");
+  });
+
+  it("retains unknown when a mutation throws before returning", async () => {
+    const { bin } = host(() => collection([]));
+    bin.deleteBin = vi.fn(() => { throw new Error("Host disconnected"); });
+    const result = await tool.handler({ item_ids: ['bin"\\id'] });
+    expect(result.success).toBe(false);
+    expect(mutationReceipt(false, result.data, { dispatched: true }).outcome).toBe("unknown");
   });
 });

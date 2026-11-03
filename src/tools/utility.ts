@@ -469,6 +469,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
             var deleted = [];
             function findReadableItem(id) {
               var found = null;
+              var seenIds = {};
               var pending = [app.project.rootItem];
               var visited = 0;
               while (pending.length) {
@@ -481,6 +482,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
                 for (var i = 0; i < count; i++) {
                   var child = children[i];
                   if (!child || typeof child.nodeId !== "string" || !child.nodeId) throw new Error("Unreadable project item");
+                  if (seenIds["$" + child.nodeId]) throw new Error("Duplicate project item node ID");
+                  seenIds["$" + child.nodeId] = true;
                   if (child.nodeId === id) found = child;
                   if (child.type === 2) pending.push(child);
                   else if (child.type !== 1 && child.type !== 4) throw new Error("Unreadable project item type");
@@ -494,7 +497,9 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
             }
             for (var p = 0; p < targets.length; p++) {
               var target = targets[p];
-              var item = findReadableItem(target.nodeId);
+              var item;
+              try { item = findReadableItem(target.nodeId); }
+              catch (lookupError) { return stopped("Project tree could not be read before deletion: " + String(lookupError), deleted.length); }
               // A selected child can already be gone after its selected parent bin is
               // deleted; that still satisfies the requested postcondition.
               if (!item) { deleted.push({ nodeId: target.nodeId, name: target.name, alreadyGone: true }); continue; }
@@ -519,7 +524,12 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
                 var viaBin = __deleteProjectItemViaBin(item);
                 if (!viaBin.ok) return stopped(viaBin.error, p, true);
               }
-              if (findReadableItem(target.nodeId)) return stopped("Premiere did not remove project item: " + target.name + ".", deleted.length);
+              var remainingItem;
+              try { remainingItem = findReadableItem(target.nodeId); }
+              catch (readbackError) {
+                return __jsonStringify({ success: false, error: "Deletion returned, but the project tree could not be read reliably. Inspect the Project panel before retrying. " + String(readbackError), data: { code: "DELETE_CHUNK_UNVERIFIED", verified: false, outcome: "committed_unverified", mutationOutcome: "committed_unverified", projectChanged: null, deletedInChunk: deleted.length, items: deleted } });
+              }
+              if (remainingItem) return stopped("Premiere did not remove project item: " + target.name + ".", deleted.length);
               deleted.push({ nodeId: target.nodeId, name: target.name });
             }
             var remainingIds = {};
@@ -558,13 +568,13 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
             return __result({ deleted: deleted.length, items: deleted });
           `);
           const result = await sendCommand(chunkScript, bridgeOptions);
-          const chunkData = result.data as { items?: DeletedItem[]; mutationOutcome?: string } | undefined;
+          const chunkData = result.data as { items?: DeletedItem[]; mutationOutcome?: string; outcome?: string } | undefined;
           if (Array.isArray(chunkData?.items)) deleted.push(...chunkData.items);
           if (!result.success) {
             return {
               success: false,
-              error: `${result.error || "The deletion chunk failed."} ${deleted.length} of ${planned.length} planned item(s) were deleted before the batch stopped; the rest were not attempted.`,
-              data: { ...(result.data ?? {}), mutationOutcome: chunkData?.mutationOutcome === "not_applied" && deleted.length > 0 ? "changed" : (chunkData?.mutationOutcome ?? "unknown"), projectChanged: deleted.length > 0 ? true : (result.data as Record<string, unknown> | undefined)?.projectChanged, deleted: deleted.length, total: args.item_ids.length, planned: planned.length, items: deleted, chunksCompleted, chunkSize: DELETE_BATCH_CHUNK_SIZE },
+              error: `${result.error || "The deletion chunk failed."} ${deleted.length} of ${planned.length} planned item(s) were deleted before the batch stopped; remaining deletions are not confirmed.`,
+              data: { ...(result.data ?? {}), mutationOutcome: chunkData?.mutationOutcome === "not_applied" && deleted.length > 0 ? "changed" : (chunkData?.mutationOutcome ?? chunkData?.outcome ?? "unknown"), projectChanged: deleted.length > 0 ? true : (result.data as Record<string, unknown> | undefined)?.projectChanged, deleted: deleted.length, total: args.item_ids.length, planned: planned.length, items: deleted, chunksCompleted, chunkSize: DELETE_BATCH_CHUNK_SIZE },
             };
           }
           chunksCompleted++;
