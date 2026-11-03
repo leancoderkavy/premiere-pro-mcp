@@ -1,3 +1,4 @@
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { runInNewContext } from "node:vm";
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
@@ -224,7 +225,8 @@ it("preserves prior chunk changes when the next chunk safely refuses", async () 
   mockedSendCommand.mockResolvedValueOnce({ success: false, error: "Refused", data: { mutationOutcome: "not_applied", projectChanged: false, items: [] } });
   const result = await getUtilityTools(bridgeOptions).delete_multiple_project_items.handler({ item_ids: planned.map(item => item.nodeId) }) as Result;
   expect(result.success).toBe(false);
-  expect(result.data?.mutationOutcome).toBe("changed");
+  expect(result.data?.mutationOutcome).toBe("committed_unverified");
+  expect(mutationReceipt(false, result.data, { dispatched: true }).outcome).toBe("committed_unverified");
   expect(result.data?.projectChanged).toBe(true);
   expect(result.data?.deleted).toBe(DELETE_BATCH_CHUNK_SIZE);
 });

@@ -305,7 +305,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
           if (item.type === 2) {
             item.deleteBin();
           } else if (sequence) {
-            var accepted = app.project.deleteSequence(sequence);
+            mutationAttempted = true;
+                var accepted = app.project.deleteSequence(sequence);
             if (accepted === false) return __error("Premiere rejected deletion of sequence: " + name);
           } else if (item.type === 1 || item.type === 4) {
             var removal = __deleteProjectItemViaBin(item);
@@ -493,10 +494,12 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
               return found;
             }
             function stopped(message, p, uncertain) {
-              return __jsonStringify({ success: false, error: message + " " + p + " item(s) in this chunk were deleted before it; the batch stopped.", data: { code: "DELETE_CHUNK_STOPPED", mutationOutcome: uncertain ? "unknown" : (deleted.length > 0 ? "changed" : "not_applied"), verified: false, projectChanged: uncertain ? null : deleted.length > 0, deletedInChunk: deleted.length, items: deleted } });
+              return __jsonStringify({ success: false, error: message + " " + p + " item(s) in this chunk were deleted before it; the batch stopped.", data: { code: "DELETE_CHUNK_STOPPED", mutationOutcome: uncertain ? "unknown" : (deleted.length > 0 ? "committed_unverified" : "not_applied"), verified: false, projectChanged: uncertain ? null : deleted.length > 0, deletedInChunk: deleted.length, items: deleted } });
             }
             for (var p = 0; p < targets.length; p++) {
               var target = targets[p];
+              var mutationAttempted = false;
+              try {
               var item;
               try { item = findReadableItem(target.nodeId); }
               catch (lookupError) { return stopped("Project tree could not be read before deletion: " + String(lookupError), deleted.length); }
@@ -504,6 +507,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
               // deleted; that still satisfies the requested postcondition.
               if (!item) { deleted.push({ nodeId: target.nodeId, name: target.name, alreadyGone: true }); continue; }
               if (target.kind === "bin") {
+                mutationAttempted = true;
                 item.deleteBin();
               } else if (target.kind === "sequence") {
                 var sequence = null;
@@ -514,6 +518,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
                   } catch (e) {}
                 }
                 if (!sequence) return stopped("Sequence " + target.name + " no longer matches a live sequence.", p);
+                mutationAttempted = true;
                 var accepted = app.project.deleteSequence(sequence);
                 if (accepted === false) {
                   var remaining = findReadableItem(target.nodeId);
@@ -521,6 +526,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
                   return stopped("Premiere rejected deletion of sequence: " + target.name + ".", deleted.length);
                 }
               } else {
+                mutationAttempted = true;
                 var viaBin = __deleteProjectItemViaBin(item);
                 if (!viaBin.ok) return stopped(viaBin.error, p, true);
               }
@@ -531,6 +537,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
               }
               if (remainingItem) return stopped("Premiere did not remove project item: " + target.name + ".", deleted.length);
               deleted.push({ nodeId: target.nodeId, name: target.name });
+              } catch (itemError) { return stopped(String(itemError), deleted.length, mutationAttempted); }
             }
             var remainingIds = {};
             try {
@@ -574,7 +581,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
             return {
               success: false,
               error: `${result.error || "The deletion chunk failed."} ${deleted.length} of ${planned.length} planned item(s) were deleted before the batch stopped; remaining deletions are not confirmed.`,
-              data: { ...(result.data ?? {}), mutationOutcome: chunkData?.mutationOutcome === "not_applied" && deleted.length > 0 ? "changed" : (chunkData?.mutationOutcome ?? chunkData?.outcome ?? "unknown"), projectChanged: deleted.length > 0 ? true : (result.data as Record<string, unknown> | undefined)?.projectChanged, deleted: deleted.length, total: args.item_ids.length, planned: planned.length, items: deleted, chunksCompleted, chunkSize: DELETE_BATCH_CHUNK_SIZE },
+              data: { ...(result.data ?? {}), mutationOutcome: chunkData?.mutationOutcome === "not_applied" && deleted.length > 0 ? "committed_unverified" : (chunkData?.mutationOutcome ?? chunkData?.outcome ?? "unknown"), projectChanged: deleted.length > 0 ? true : (result.data as Record<string, unknown> | undefined)?.projectChanged, deleted: deleted.length, total: args.item_ids.length, planned: planned.length, items: deleted, chunksCompleted, chunkSize: DELETE_BATCH_CHUNK_SIZE },
             };
           }
           chunksCompleted++;
