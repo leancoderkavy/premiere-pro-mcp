@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [1.29.0] - 2026-11-02
 
 ### Changed
 
@@ -12,6 +12,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - `set_track_states` sets mute, solo and lock on up to 64 video or audio tracks of the active sequence in one host command with per-track readback: every target is read first and nothing changes when any target is out of range, unreadable or asks for a state the host cannot read and write (solo has no public ExtendScript accessor and is probed on the QE track, refused before mutation when absent). `snapshot: true` returns `data.restore`, the pre-write state in the shape the tool accepts, so one call captures and the next restores; a snapshot with no state fields is a read-only capture that needs only inspect authority. Mismatched readback reports `not_applied` or `committed_unverified` per track instead of success.
+
+- Compact schema discovery (`PREMIERE_MCP_SCHEMA_PROFILE=compact`) adds memory-only `set_session_guard` for one stdio process. Full schemas remain the default; per-call guards override session values and retain full validation. Stateless HTTP refuses compact mode.
+- `PREMIERE_MCP_TOOL_LIST` selects explicit tools, unions with selected packs, preserves discovery tools, and rejects unknown names. Reviewable `fork/packs/*.txt` lists support focused client configurations.
+- `inspect_timeline_snapshot` can write a versioned JSON snapshot inside an approved private workspace without overwriting an existing file; `return_content: false` returns bounded identity, counts, completeness, byte length and SHA-256 instead of clip content.
+- `audit_project_structure` accepts a target tree with guarded bin placement, rename and empty-bin removal plans.
+
+### Fixed
+
+- Destructive project-item batches fail closed when usage is unreadable, revalidate project identity and timeline usage between chunks, and verify individual deletions before counting progress. Bridge rejection and readback failure retain confirmed earlier progress without claiming the batch succeeded.
+- Structure apply validates placements, project identity and sibling collisions before mutation, then rechecks live sibling state before moves and renames. Empty-bin removal refuses unreadable children.
+- Track-state preflight reports explicit refusals; snapshot-only capture requires inspect authority and is discoverable through MCP without edit authority.
+- Explicit tool selection validates against the full catalog and composes with schema profiles. Session guards remain local operations, retain transport and idempotency semantics, and remain discoverable in compact mode.
+- Snapshot output requires filesystem authority and an already-private approved workspace. Reserve the destination exclusively before host inspection and verify descriptor identity; do not change existing directory permissions or overwrite collisions.
+
+### Verification boundary
+
+- Compatible feature additions from the six integrated feature branches (compact schemas/session guards, explicit tool selection, snapshot files, chunked deletion, structure plans, and track-state snapshots), plus integration safety fixes. Automated checks establish package behavior only; no live Premiere/After Effects host validation is claimed.
+- This is release preparation. Client install pins and the README latest-published heading remain on verified npm `1.28.0` until publication; version `1.29.0` metadata does not establish npm availability, signed connector delivery or deployment.
 
 ## [1.28.0] - 2026-11-01
 
