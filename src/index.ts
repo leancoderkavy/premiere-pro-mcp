@@ -142,7 +142,7 @@ const args = process.argv.slice(2);
 try {
   const client = parseClientConfigAction(args);
   if (client) {
-    process.stdout.write(renderClientConfig(client, process.execPath, __filename));
+    process.stdout.write(renderClientConfig(client, process.execPath, __filename, process.platform, args.includes("--fast")));
     process.exit(0);
   }
 } catch (error) {
@@ -168,7 +168,7 @@ Usage:
   premiere-pro-mcp --doctor --apply-fixes Apply only safe planned local fixes; requires explicit Premiere-closed confirmation where needed
   premiere-pro-mcp --doctor --apply-fixes --confirm-premiere-closed Confirm Premiere is fully closed before a connector repair
   premiere-pro-mcp --support-bundle  Print a privacy-safe, machine-readable support bundle
-  premiere-pro-mcp --print-client-config <claude|cursor|vscode|codex> Print configuration for this installed copy; writes no files
+  premiere-pro-mcp --print-client-config <claude|cursor|vscode|codex> [--fast] Print configuration for this installed copy; --fast selects essential tools; writes no files
   premiere-pro-mcp --check-update    Check npm for a newer released local server
   premiere-pro-mcp --update          Update an npm global install and refresh the CEP connector
   premiere-pro-mcp --help          Show this help message
