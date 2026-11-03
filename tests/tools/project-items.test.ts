@@ -78,7 +78,7 @@ function project(options: { startTimeWritable?: boolean; existingBin?: string; d
     return true;
   };
   mockedSendCommand.mockImplementation(async (script: string) => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
-    app: { project: { rootItem: root, sequences, activeSequence: seq, deleteSequence } },
+    app: { project: { documentID: "fixture-project", rootItem: root, sequences, activeSequence: seq, deleteSequence } },
     // A fixed clock, so the temporary bin name ("mcp-delete-1000") is predictable.
     Date: function FixedDate(this: { getTime: () => number }) { this.getTime = () => 1000; },
     Time: function Time(this: { ticks: string; seconds: number }) { let s = 0; Object.defineProperty(this, "seconds", { get: () => s, set: (v: number) => { s = v; } }); Object.defineProperty(this, "ticks", { get: () => String(Math.round(s * 254016000000)) }); },

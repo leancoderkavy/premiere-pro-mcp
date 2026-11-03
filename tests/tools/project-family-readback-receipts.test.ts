@@ -61,7 +61,7 @@ describe("project and sequence readback receipts", () => {
     const root: any = { type: 2, nodeId: "root", name: "Root", children: collection([]) };
     const bin = { type: 2, nodeId: "bin", name: 'Bin"\\name', children: collection([]), deleteBin() { if (!ignored) root.children = collection([]); } };
     root.children = collection([bin]);
-    bridge({ app: { project: { rootItem: root, sequences: collection([], "numSequences") } } });
+    bridge({ app: { project: { documentID: "fixture-project", rootItem: root, sequences: collection([], "numSequences") } } });
     const result = await utility.delete_multiple_project_items.handler({ item_ids: ["bin"] });
     expect(result.success).toBe(!ignored);
     expect(receipt(result, "delete_multiple_project_items").outcome === "verified").toBe(!ignored);
