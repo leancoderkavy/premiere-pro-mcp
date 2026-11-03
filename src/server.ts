@@ -476,6 +476,8 @@ export interface ServerOptions {
   bridgeMode?: PremiereBridgeMode;
   /** Overrides PREMIERE_MCP_SCHEMA_PROFILE (full or compact) for this server instance. */
   schemaProfile?: string;
+  /** Request-scoped transports cannot retain client-isolated session guards. */
+  statelessHttp?: boolean;
   /** Overrides PREMIERE_MCP_TOOL_LIST for this server instance. */
   toolList?: string;
 }
@@ -550,8 +552,11 @@ export function createServer(
   const schemaProfile: SchemaProfileSelection = serverOptions.schemaProfile === undefined
     ? resolveSchemaProfile()
     : resolveSchemaProfile(serverOptions.schemaProfile, "explicit");
+  if (serverOptions.statelessHttp && schemaProfile.compactGuards) {
+    throw new Error("Compact schema/session guards are unavailable on stateless HTTP; use the full profile and per-call guards.");
+  }
   // The session guard is per server instance, like idempotency keys: one per
-  // stdio process, one per HTTP session. It is only settable under the compact
+  // stdio process. Stateless HTTP must not enable it. It is only settable under the compact
   // profile, where set_session_guard is registered.
   const sessionGuard = new SessionGuardStore();
   const toolPacks = resolveToolSelection(bridgeOptions, serverOptions, capabilities);
@@ -667,12 +672,26 @@ export function createServer(
       }, async () => {
         const startedAt = Date.now();
         const { idempotency_key: idempotencyKey, ...callArgs } = (args ?? {}) as Record<string, unknown>;
+        const { expected_project_path: callProjectPath, expected_cep_target: callTarget, ...restArgs } = callArgs;
+        // A per-call guard always wins; the session guard fills in when a
+        // call omits one. The session guard tool itself runs unguarded and
+        // receives the guard values as its own arguments.
+        const isSessionGuardTool = name === SESSION_GUARD_TOOL_NAME;
+        const stored: { expected_project_path?: string; expected_cep_target?: unknown } = isSessionGuardTool ? {} : sessionGuard.get();
+        const toolArgs = isSessionGuardTool ? callArgs : restArgs;
+        const expected_project_path = isSessionGuardTool ? undefined : (callProjectPath ?? stored.expected_project_path);
+        const expected_cep_target = isSessionGuardTool ? undefined : (callTarget ?? stored.expected_cep_target);
+        const effectiveArgs = isSessionGuardTool ? callArgs : {
+          ...restArgs,
+          ...(expected_project_path !== undefined ? { expected_project_path } : {}),
+          ...(expected_cep_target !== undefined ? { expected_cep_target } : {}),
+        };
         const mutating = capabilitiesForToolInvocation(name, callArgs).some(capability => capability !== "inspect");
         // Claim synchronously, before any await, so two concurrent retries
         // cannot both start. Read-only invocations are never deduplicated.
         const operation: { entry: OperationLogEntry | null } = { entry: null };
         const claim: IdempotencyClaim | null = mutating && typeof idempotencyKey === "string"
-          ? claimIdempotencyKey(name, idempotencyKey, callArgs, () => (operation.entry = beginOperation(name, startedAt)).sequence, startedAt, idempotencyNamespace)
+          ? claimIdempotencyKey(name, idempotencyKey, effectiveArgs, () => (operation.entry = beginOperation(name, startedAt)).sequence, startedAt, idempotencyNamespace)
           : null;
         if (claim && claim.kind !== "new") return idempotencyResponse(name, claim) as CallToolResult;
         if (claim && operation.entry) operation.entry.idempotencyKeyHash = claim.record.keyHashPrefix;
@@ -694,15 +713,6 @@ export function createServer(
             // export tools such as import_*, relink_*, consolidate_* that add
             // project items). Only inspect-only calls skip it.
             const tracksUndo = capabilitiesForToolInvocation(name, callArgs).some((capability) => capability !== "inspect");
-            const { expected_project_path: callProjectPath, expected_cep_target: callTarget, ...restArgs } = callArgs;
-            // A per-call guard always wins; the session guard fills in when a
-            // call omits one. The session guard tool itself runs unguarded and
-            // receives the guard values as its own arguments.
-            const isSessionGuardTool = name === SESSION_GUARD_TOOL_NAME;
-            const stored: { expected_project_path?: string; expected_cep_target?: unknown } = isSessionGuardTool ? {} : sessionGuard.get();
-            const toolArgs = isSessionGuardTool ? callArgs : restArgs;
-            const expected_project_path = isSessionGuardTool ? undefined : (callProjectPath ?? stored.expected_project_path);
-            const expected_cep_target = isSessionGuardTool ? undefined : (callTarget ?? stored.expected_cep_target);
             const work = () => runWithExpectedHostTarget(expected_cep_target,
               () => runWithUndoTracking(tracksUndo, () => guardedHandler(toolArgs)));
             const usesHost = deriveToolOperationalCapability(name, tool, capabilities).backends.some(backend => ["cep", "extendscript", "qe", "uxp"].includes(backend));

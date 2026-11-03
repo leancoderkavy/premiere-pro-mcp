@@ -337,6 +337,33 @@ describe("compact schema profile", () => {
     }
   });
 
+  it("rejects compact guards for request-scoped HTTP servers", () => {
+    expect(() => createServer({}, { schemaProfile: "compact", statelessHttp: true }))
+      .toThrow(/unavailable on stateless HTTP/);
+    expect(() => createServer({}, { schemaProfile: "full", statelessHttp: true })).not.toThrow();
+  });
+
+  it("hashes effective session guards and honors equivalent per-call overrides", async () => {
+    const { client, close } = await connect("compact");
+    try {
+      await client.callTool({ name: "set_session_guard", arguments: { expected_project_path: "/a.prproj" } });
+      const argumentsA = { idempotency_key: "guard-snapshot" };
+      const first = await client.callTool({ name: "set_mock_undo_tracking", arguments: argumentsA });
+      expect(first.isError).toBeFalsy();
+      await client.callTool({ name: "set_session_guard", arguments: { expected_project_path: "/b.prproj" } });
+      const changed = await client.callTool({ name: "set_mock_undo_tracking", arguments: argumentsA });
+      expect(JSON.stringify(changed)).toContain("IDEMPOTENCY_KEY_REUSED");
+      const equivalent = await client.callTool({ name: "set_mock_undo_tracking", arguments: { ...argumentsA, expected_project_path: "/a.prproj" } });
+      expect(equivalent.isError).toBeFalsy();
+      expect(JSON.stringify(equivalent)).toContain('"replayed":true');
+      await client.callTool({ name: "set_session_guard", arguments: { clear: true } });
+      const cleared = await client.callTool({ name: "set_mock_undo_tracking", arguments: argumentsA });
+      expect(JSON.stringify(cleared)).toContain("IDEMPOTENCY_KEY_REUSED");
+    } finally {
+      await close();
+    }
+  });
+
   it("refuses an unknown profile at construction", () => {
     expect(() => createServer({}, { schemaProfile: "tiny" })).toThrow(/Unknown Premiere MCP schema profile/);
   });
