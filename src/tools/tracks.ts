@@ -353,7 +353,7 @@ export function getTrackTools(bridgeOptions: BridgeOptions) {
         const snapshot = args.snapshot === true;
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __refuse("No active sequence");
+          if (!seq) return __refuse("No active sequence", { mutationOutcome: "not_applied", timelineChanged: false });
           var requests = ${JSON.stringify(requests)};
           var snapshot = ${snapshot ? "true" : "false"};
           var fields = ["muted", "solo", "locked"];
