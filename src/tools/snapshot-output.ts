@@ -11,6 +11,10 @@ import { ensurePrivateBridgeDirectory } from "../bridge/file-bridge.js";
  */
 export function reserveSnapshotOutput(target: string) {
   const parent = path.dirname(target);
+  const initial = lstatSync(parent);
+  if (process.platform !== "win32" && (initial.mode & 0o077) !== 0) {
+    throw new Error("Snapshot output requires an existing private directory (mode 0700); permissions were not changed");
+  }
   ensurePrivateBridgeDirectory(parent);
   const canonical = realpathSync(parent);
   const directory = lstatSync(parent);
