@@ -71,15 +71,16 @@ function fakeProject(options: { moveNoop?: string[]; createBinFails?: boolean; c
   const clip = (nodeId: string, name: string, mediaPath?: string): Node => movable({ nodeId, name, type: 1, getMediaPath: () => mediaPath ?? "" });
   const sequence = (nodeId: string, name: string): Node => movable({ nodeId, name, type: 1, isSequence: () => true, getMediaPath: () => "" });
   const root = bin("root", "Project");
+  const project = { rootItem: root, name: "Feature.prproj", documentID: "doc-1", sequences: { numSequences: 0 } };
   mockedSendCommand.mockImplementation(async (script: string) => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
-    app: { project: { rootItem: root, name: "Feature.prproj", documentID: "doc-1", sequences: { numSequences: 0 } } },
+    app: { project },
   }))));
   const pathOf = (node: Node): string => {
     const names: string[] = [];
     for (let current = node.parent; current && current !== root; current = current.parent) names.unshift(current.name);
     return names.join("/") || "/";
   };
-  return { root, bin, clip, sequence, add, pathOf };
+  return { root, bin, clip, sequence, add, pathOf, project };
 }
 
 function standardProject(options: Parameters<typeof fakeProject>[0] = {}) {
@@ -626,4 +627,57 @@ describe("explicit structure rule safety", () => {
     expect(result.success).toBe(true);
     expect(result.data!.compliant).toBe(false);
   });
+});
+
+ describe("structure identity and sibling safety", () => {
+  it.each(["doc-2", ""])("refuses switched or unavailable apply identity %s", async identity => {
+    const p = standardProject();
+    const plan = evaluateProjectStructure((await sendCommand(projectStructureCaptureScript(), bridgeOptions)).data, rules);
+    p.project.documentID = identity; // same project name and node IDs
+    expect(await sendCommand(projectStructureApplyScript(plan), bridgeOptions)).toMatchObject({ success: false, data: { mutationOutcome: "not_applied" } });
+    expect(p.pathOf(p.a)).toBe("/");
+    expect(p.root.children!.numItems).toBe(4);
+  });
+  it("keeps missing-identity audits read-only and available", async () => {
+    const p = standardProject();
+    p.project.documentID = "";
+    const audit = await tools().audit_project_structure.handler({ rules }) as Result;
+    expect(audit).toMatchObject({ success: true, data: { applyReady: false, project: { id: "" } } });
+  });
+  it.each([
+    { rename: [{ item_id: "a", name: "B" }] },
+    { rename: [{ item_id: "a", name: "X" }, { item_id: "b", name: "X" }] },
+    { target_tree: [{ bin: "Dest", items: ["a", "b"] }], rename: [{ item_id: "a", name: "X" }, { item_id: "b", name: "X" }] },
+  ])("refuses planned bin collisions before mutation %j", async rules => {
+    const p = fakeProject();
+    const a = p.bin("a", "A"), b = p.bin("b", "B");
+    p.add(p.root, a); p.add(p.root, b);
+    const audit = await tools().audit_project_structure.handler({ rules }) as Result;
+    expect(audit.data!.invalidPlanReasons.join(" ")).toContain("collide");
+    expect(await tools().audit_project_structure.handler({ rules, apply: true, plan_token: audit.data!.planToken })).toMatchObject({ success: false });
+    expect(a.name).toBe("A"); expect(p.root.children!.numItems).toBe(2);
+  });
+  it.each([true, false])("blocks duplicate moved bins but permits clips (bin=%s)", async isBin => {
+    const p = fakeProject();
+    const dest = p.bin("dest", "Dest"); p.add(p.root, dest);
+    p.add(p.root, isBin ? p.bin("a", "Same") : p.clip("a", "Same"));
+    p.add(dest, isBin ? p.bin("b", "Same") : p.clip("b", "Same"));
+    const audit = await tools().audit_project_structure.handler({ rules: { target_tree: [{ bin: "Dest", items: ["a"] }] } }) as Result;
+    expect(audit.data!.applyReady).toBe(!isBin);
+  });
+});
+
+it("rejects a project switch after the handler capture await", async () => {
+  const p = standardProject();
+  const audit = await tools().audit_project_structure.handler({ rules }) as Result;
+  const handler = getProjectStructureAuditTools(bridgeOptions, {
+    captureSnapshot: async () => {
+      const captured = await sendCommand(projectStructureCaptureScript(), bridgeOptions);
+      p.project.documentID = "different-document";
+      return captured;
+    },
+  }).audit_project_structure.handler;
+  expect(await handler({ rules, apply: true, plan_token: audit.data!.planToken })).toMatchObject({ success: false, data: { mutationOutcome: "not_applied" } });
+  expect(p.pathOf(p.a)).toBe("/");
+  expect(p.root.children!.numItems).toBe(4);
 });

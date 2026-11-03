@@ -506,6 +506,40 @@ export function evaluateProjectStructure(rawSnapshot: unknown, rawRules: unknown
   }
   const plannedRenames = renames.slice(0, MAX_STRUCTURE_RENAMES);
   const plannedRemovals = removals.slice(0, MAX_STRUCTURE_REMOVALS);
+  // Simulate bin operations in apply order, including newly created destinations.
+  // Clips and sequences may legitimately share names and are excluded.
+  const virtualBins = new Map(snapshot.items.filter(item => item.kind === "bin").map(item => [item.id, { ...item }]));
+  const targetIds = new Map<string, string>();
+  for (const path of allTargetPaths) {
+    let parentId = ROOT_ID;
+    let prefix = "";
+    for (const name of path.split("/")) {
+      prefix = prefix ? `${prefix}/${name}` : name;
+      const existing = [...virtualBins.values()].find(bin => bin.parentId === parentId && bin.name === name);
+      const id = existing?.id ?? `virtual:${prefix}`;
+      if (!existing) virtualBins.set(id, { id, name, parentId, kind: "bin" });
+      parentId = id;
+    }
+    targetIds.set(path, parentId);
+  }
+  const changeBin = (id: string, parentId: string, name: string) => {
+    const bin = virtualBins.get(id);
+    if (!bin) return;
+    if ([...virtualBins.values()].some(other => other.id !== id && other.parentId === parentId && other.name === name)) {
+      invalidPlanReasons.push(`Bin ${id} would collide with sibling bin ${name}`);
+    }
+    bin.parentId = parentId;
+    bin.name = name;
+  };
+  for (const move of plannedMoves) changeBin(move.item_id, targetIds.get(move.target_bin_path)!, move.item_name);
+  for (const removal of plannedRemovals) virtualBins.delete(removal.item_id);
+  for (const rename of plannedRenames) {
+    const bin = virtualBins.get(rename.item_id);
+    if (bin) changeBin(bin.id, bin.parentId, rename.to_name);
+  }
+  if (!snapshot.project.id.trim() && (plannedMoves.length || binsToCreate.length || plannedRenames.length || plannedRemovals.length)) {
+    invalidPlanReasons.push("Project documentID is unavailable; mutation requires stable project identity");
+  }
   const unresolvedItemIds = [...unresolved];
   const ambiguousTargets = [...ambiguous.entries()].map(([target_bin_path, ambiguous_at]) => ({ target_bin_path, ambiguous_at }));
   const planToken = createHash("sha256").update(JSON.stringify({
@@ -604,7 +638,6 @@ export function projectStructureCaptureScript(maxItems: number = MAX_STRUCTURE_A
     walk(project.rootItem, "${ROOT_ID}", 0);
     var projectId = "";
     try { if (project.documentID) projectId = String(project.documentID); } catch (eId) {}
-    if (!projectId) projectId = String(project.name);
     return __result({ project: { id: projectId, name: String(project.name) }, items: items, truncated: truncated, skippedReferences: skippedReferences });
   `);
 }
@@ -613,7 +646,7 @@ export function projectStructureCaptureScript(maxItems: number = MAX_STRUCTURE_A
  * Apply a reviewed plan: resolve every target path read-only first (refusing on
  * a duplicate bin name at any level), create missing bins, then move each item
  * whose parent is unchanged since the audit and read back its parent bin.
- * Never deletes or renames anything.
+ * Empty-bin removals and renames follow moves with postcondition readback.
  */
 export function projectStructureApplyScript(plan: StructurePlan): string {
   const targets = [...new Set([...plan.moves.map((move) => move.target_bin_path), ...(plan.targetBins ?? [])])];
@@ -625,6 +658,9 @@ export function projectStructureApplyScript(plan: StructurePlan): string {
   const renameLiteral = (plan.renames ?? []).map((rename) => `{itemId:${quote(rename.item_id)},fromName:${quote(rename.from_name)},toName:${quote(rename.to_name)}}`).join(",\n");
   return buildToolScript(`
     if (!app.project || !app.project.rootItem) return __error("No project is open");
+    var activeId = "";
+    try { if (app.project.documentID) activeId = String(app.project.documentID); } catch (eIdentity) {}
+    if (!activeId || activeId !== ${quote(plan.project.id)}) return __error("Project identity changed or documentID is unavailable; nothing was changed", { outcome: "failed", mutationOutcome: "not_applied" });
     var root = app.project.rootItem;
     var targets = [${targetLiteral}];
     var moves = [${moveLiteral}];
