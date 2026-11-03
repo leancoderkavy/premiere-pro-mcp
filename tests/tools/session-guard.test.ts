@@ -1,3 +1,5 @@
+import { deriveToolOperationalCapability } from "../../src/tool-capability-report.js";
+import { resolveCapabilities } from "../../src/security/capabilities.js";
 import { describe, expect, it } from "vitest";
 import { getSessionGuardTools, SessionGuardStore } from "../../src/tools/session-guard.js";
 
@@ -41,4 +43,9 @@ describe("set_session_guard", () => {
     const mixed = await handler({ clear: true, expected_project_path: "/c.prproj" });
     expect(mixed.success).toBe(false);
   });
+});
+
+it("reports session guard as local without requiring a Premiere host", () => {
+  const tool = getSessionGuardTools(new SessionGuardStore()).set_session_guard;
+  expect(deriveToolOperationalCapability("set_session_guard", tool, resolveCapabilities("inspect"))).toMatchObject({ backends: ["local"], hostVerificationRequired: false });
 });
