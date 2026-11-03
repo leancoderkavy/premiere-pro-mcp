@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { createServer, resolveToolSelection } from "../src/server.js";
@@ -27,6 +27,12 @@ async function listToolNames(toolList: string, toolPacks?: string): Promise<stri
 }
 
 describe("PREMIERE_MCP_TOOL_LIST", () => {
+  it("lists track snapshots for inspect-only clients", async () => {
+    vi.stubEnv("PREMIERE_MCP_CAPABILITIES", "inspect");
+    try {
+      expect(await listToolNames("set_track_states")).toContain("set_track_states");
+    } finally { vi.unstubAllEnvs(); }
+  });
   it("accepts the session guard in explicit lists only for compact profiles", () => {
     expect(() => createServer({}, { toolList: "set_session_guard,ping", schemaProfile: "compact", telemetry: quietTelemetry })).not.toThrow();
     expect(() => resolveToolSelection({}, { toolList: "set_session_guard", schemaProfile: "full" })).toThrow(/unknown tool/);
