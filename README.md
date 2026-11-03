@@ -722,7 +722,6 @@ full-catalog mode and cannot be combined with another pack. `ping` and
 `get_capabilities` remain listed for diagnosis, and every registered call still
 passes through the same capability guard; a pack never grants authority.
 
-<<<<<<< HEAD
 ### Compact schema profile
 
 Every tool accepts two optional host guards per call, `expected_project_path`
@@ -734,7 +733,6 @@ session, memory only). Every later call applies the stored guards exactly as if
 the client had passed them; a per-call value still wins and is still validated
 against the full guard schema. `full` is the default and changes nothing. The
 profile is a listing decision only: enforcement is unchanged under both.
-=======
 For a session that needs a handful of specific tools rather than a whole pack,
 set `PREMIERE_MCP_TOOL_LIST` to a comma-separated list of tool names, for
 example `PREMIERE_MCP_TOOL_LIST=get_project_info,get_bin_contents,save_project`.
@@ -744,7 +742,6 @@ startup error so a typo never silently drops a tool. UXP tool names are
 accepted without `PREMIERE_UXP_TOKEN`; they register once the UXP bridge is
 configured. `fork/packs/*.txt` hold reviewable one-name-per-line lists
 (`PREMIERE_MCP_TOOL_LIST="$(grep -v '^#' fork/packs/cleanup.txt | paste -sd, -)"`).
->>>>>>> origin/review-946
 
 Every listed tool now declares the same machine-readable result envelope through
 MCP `outputSchema`: `ok`, `tool`, plus `data` on success or `error` on failure.

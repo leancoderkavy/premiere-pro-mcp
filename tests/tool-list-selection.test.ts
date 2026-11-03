@@ -27,6 +27,11 @@ async function listToolNames(toolList: string, toolPacks?: string): Promise<stri
 }
 
 describe("PREMIERE_MCP_TOOL_LIST", () => {
+  it("accepts the session guard in explicit lists only for compact profiles", () => {
+    expect(() => createServer({}, { toolList: "set_session_guard,ping", schemaProfile: "compact", telemetry: quietTelemetry })).not.toThrow();
+    expect(() => resolveToolSelection({}, { toolList: "set_session_guard", schemaProfile: "full" })).toThrow(/unknown tool/);
+  });
+
   it("registers only the listed tools plus the two diagnostics", async () => {
     const names = await listToolNames("get_project_info,get_bin_contents,save_project");
     expect(names).toEqual(["get_bin_contents", "get_capabilities", "get_project_info", "ping", "save_project"]);

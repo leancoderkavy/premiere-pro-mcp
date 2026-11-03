@@ -474,10 +474,8 @@ export interface ServerOptions {
   toolPacks?: string;
   /** Selects connected UXP by default, or forces the CEP compatibility bridge. */
   bridgeMode?: PremiereBridgeMode;
-<<<<<<< HEAD
   /** Overrides PREMIERE_MCP_SCHEMA_PROFILE (full or compact) for this server instance. */
   schemaProfile?: string;
-=======
   /** Overrides PREMIERE_MCP_TOOL_LIST for this server instance. */
   toolList?: string;
 }
@@ -490,7 +488,7 @@ export interface ServerOptions {
  */
 export function resolveToolSelection(
   bridgeOptions: BridgeOptions,
-  serverOptions: Pick<ServerOptions, "toolPacks" | "toolList" | "uxpBridge"> = {},
+  serverOptions: Pick<ServerOptions, "toolPacks" | "toolList" | "uxpBridge" | "schemaProfile"> = {},
   capabilities = resolveCapabilities(),
 ): ToolPackSelection {
   const explicit = serverOptions.toolPacks !== undefined || serverOptions.toolList !== undefined;
@@ -501,6 +499,8 @@ export function resolveToolSelection(
   );
   if (!selection.explicitTools?.length) return selection;
   const known = new Set<string>(Object.keys(collectTools(bridgeOptions, capabilities, serverOptions.uxpBridge)));
+  const profile = serverOptions.schemaProfile === undefined ? resolveSchemaProfile() : resolveSchemaProfile(serverOptions.schemaProfile, "explicit");
+  if (profile.profile === "compact") known.add(SESSION_GUARD_TOOL_NAME);
   if (!serverOptions.uxpBridge) {
     // getUxpTools only closes over the bridge inside handlers, so an absent
     // bridge is enough to enumerate the names it would register.
@@ -514,7 +514,6 @@ export function resolveToolSelection(
     );
   }
   return selection;
->>>>>>> origin/review-946
 }
 
 /**
@@ -548,10 +547,6 @@ export function createServer(
   const idempotencyNamespace = randomUUID();
 
   const capabilities = resolveCapabilities();
-<<<<<<< HEAD
-  const toolPacks = serverOptions.toolPacks === undefined
-    ? resolveToolPacks()
-    : resolveToolPacks(serverOptions.toolPacks, "explicit");
   const schemaProfile: SchemaProfileSelection = serverOptions.schemaProfile === undefined
     ? resolveSchemaProfile()
     : resolveSchemaProfile(serverOptions.schemaProfile, "explicit");
@@ -559,9 +554,7 @@ export function createServer(
   // stdio process, one per HTTP session. It is only settable under the compact
   // profile, where set_session_guard is registered.
   const sessionGuard = new SessionGuardStore();
-=======
   const toolPacks = resolveToolSelection(bridgeOptions, serverOptions, capabilities);
->>>>>>> origin/review-946
   const telemetry = serverOptions.telemetry ?? getTelemetry();
   // Context consumers must share a single in-memory backend as well as the
   // durable backends; independent repository instances would otherwise make
