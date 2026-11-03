@@ -281,7 +281,7 @@ export function resolveToolPacks(
     // An explicit list adds nothing to the full catalog; it only narrows when
     // no pack (or a non-full pack) is selected.
     if (packsConfigured || explicitTools.length === 0) {
-      return { source: resolvedSource, selected: [], fullCatalog: true };
+      return { source: resolvedSource, selected: [], fullCatalog: true, ...(explicitTools.length ? { explicitTools } : {}) };
     }
     return { source: resolvedSource, selected: [], fullCatalog: false, explicitTools };
   }

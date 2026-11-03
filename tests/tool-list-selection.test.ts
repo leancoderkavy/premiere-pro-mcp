@@ -46,6 +46,10 @@ describe("PREMIERE_MCP_TOOL_LIST", () => {
       .toThrow(/unknown tool/);
   });
 
+  it("rejects unknown names even with the full catalog", () => {
+    expect(() => resolveToolSelection({}, { toolPacks: "full", toolList: "not_a_tool" })).toThrow(/unknown tool/);
+  });
+
   it("accepts UXP tool names without a UXP bridge and registers them only with one", async () => {
     const selection = resolveToolSelection({ timeoutMs: 50 }, { toolList: "manage_track_state_uxp,save_project" });
     expect(selection.explicitTools).toEqual(["manage_track_state_uxp", "save_project"]);

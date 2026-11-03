@@ -65,8 +65,8 @@ describe("workflow tool packs", () => {
   it("keeps the full catalog when full is selected alongside a list", () => {
     const selection = resolveToolPacks("full", "explicit", "create_bin");
     expect(selection.fullCatalog).toBe(true);
-    expect(selection.explicitTools).toBeUndefined();
-    expect(buildToolPackReport(selection).explicitTools).toEqual([]);
+    expect(selection.explicitTools).toEqual(["create_bin"]);
+    expect(buildToolPackReport(selection).explicitTools).toEqual(["create_bin"]);
   });
 
   it("accepts newline-separated pack files and rejects malformed names", () => {
