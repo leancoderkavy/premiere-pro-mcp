@@ -492,6 +492,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
                 var viaBin = __deleteProjectItemViaBin(item);
                 if (!viaBin.ok) return stopped(viaBin.error, p);
               }
+              if (__findProjectItemByNodeId(target.nodeId)) return stopped("Premiere did not remove project item: " + target.name + ".", deleted.length);
               deleted.push({ nodeId: target.nodeId, name: target.name });
             }
             var remainingIds = {};

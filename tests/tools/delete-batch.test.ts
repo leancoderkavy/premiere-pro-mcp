@@ -169,6 +169,14 @@ describe("delete_multiple_project_items used-item index and chunks", () => {
     expect(rootNames()).not.toContain("Footage");
   });
 
+  it("does not count a bin whose delete returned without removing it", async () => {
+    project();
+    const original = mockedSendCommand.getMockImplementation()!;
+    mockedSendCommand.mockImplementation(async (script, options) => original(script.replace("item.deleteBin();", "/* host no-op */"), options));
+    const result = await getUtilityTools(bridgeOptions).delete_multiple_project_items.handler({ item_ids: ["Footage", "Edit"], confirm_remove_from_sequences: true }) as Result;
+    expect(result).toMatchObject({ success: false, data: { deleted: 0, code: "DELETE_CHUNK_STOPPED" } });
+  });
+
   it("caps a call at 500 items and validates ids before contacting Premiere", async () => {
     const tools = getUtilityTools(bridgeOptions);
     for (const item_ids of [[], Array.from({ length: DELETE_BATCH_MAX_ITEMS + 1 }, (_, i) => `id-${i}`), ["ok", " "]]) {
