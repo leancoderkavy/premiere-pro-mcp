@@ -24,6 +24,7 @@ import { getTimelineEditorialTools } from "../../src/tools/timeline-editorial.js
 import { getInterchangeWorkflowTools } from "../../src/tools/interchange-workflows.js";
 import { getTemporalRenderEvidenceTools } from "../../src/tools/temporal-render-evidence.js";
 import { getOperationRecoveryTools } from "../../src/tools/operation-recovery.js";
+import { getSessionGuardTools, SessionGuardStore } from "../../src/tools/session-guard.js";
 import { getEditorialReviewTools } from "../../src/tools/editorial-review.js";
 
 // Import all tool modules
@@ -101,6 +102,7 @@ const ALL_MODULES: Array<{
   { name: "interchange-workflows", getter: getInterchangeWorkflowTools, minTools: 8 },
   { name: "temporal-render-evidence", getter: getTemporalRenderEvidenceTools, minTools: 1 },
   { name: "operation-recovery", getter: opts => getOperationRecoveryTools(undefined, opts), minTools: 2 },
+  { name: "session-guard", getter: () => getSessionGuardTools(new SessionGuardStore()), minTools: 1 },
   { name: "editorial-review", getter: getEditorialReviewTools, minTools: 5 },
   { name: "discovery", getter: getDiscoveryTools, minTools: 8 },
   { name: "project", getter: getProjectTools, minTools: 20 },
@@ -247,8 +249,8 @@ describe("Total Tool Count", () => {
     expect(total).toBe(433);
   });
 
-  it("there are 59 directly enumerated modules", () => {
-    expect(ALL_MODULES.length).toBe(59);
+  it("there are 60 directly enumerated modules", () => {
+    expect(ALL_MODULES.length).toBe(60);
   });
 });
 

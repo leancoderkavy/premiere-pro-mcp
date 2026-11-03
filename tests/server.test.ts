@@ -255,6 +255,93 @@ describe("unknown tool arguments", () => {
   });
 });
 
+describe("compact schema profile", () => {
+  async function connect(schemaProfile?: string) {
+    const server = createServer({}, schemaProfile === undefined ? {} : { schemaProfile });
+    const client = new Client({ name: "schema-profile-test", version: "1.0.0" });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+    return { server, client, close: async () => { await client.close(); await server.close(); } };
+  }
+  const guardOf = (result: Awaited<ReturnType<Client["callTool"]>>) =>
+    JSON.parse((result.content as { text: string }[])[0].text) as { guard?: string | null; args: Record<string, unknown> };
+
+  it("omits the per-call guards from every listed tool and adds set_session_guard", async () => {
+    const compact = await connect("compact");
+    const full = await connect();
+    try {
+      const listed = (await compact.client.listTools()).tools;
+      const mock = listed.find((tool) => tool.name === "get_mock_undo_tracking");
+      expect(mock?.inputSchema.properties).not.toHaveProperty("expected_project_path");
+      expect(mock?.inputSchema.properties).not.toHaveProperty("expected_cep_target");
+      expect(listed.map((tool) => tool.name)).toContain("set_session_guard");
+      const guardTool = listed.find((tool) => tool.name === "set_session_guard");
+      expect(guardTool?.inputSchema.properties).toHaveProperty("expected_project_path");
+      expect(guardTool?.inputSchema.properties).toHaveProperty("expected_cep_target");
+      const fullListed = (await full.client.listTools()).tools;
+      expect(fullListed.map((tool) => tool.name)).not.toContain("set_session_guard");
+      const size = (tools: typeof listed, name: string) => JSON.stringify(tools.find((tool) => tool.name === name)?.inputSchema).length;
+      expect(size(listed, "set_mock_undo_tracking")).toBeLessThan(size(fullListed, "set_mock_undo_tracking") - 2000);
+    } finally {
+      await compact.close();
+      await full.close();
+    }
+  });
+
+  it("still honors a per-call guard the listing omits and rejects a misspelled one", async () => {
+    const { client, close } = await connect("compact");
+    try {
+      const result = await client.callTool({ name: "get_mock_undo_tracking", arguments: { expected_project_path: "/per-call.prproj" } });
+      expect(guardOf(result)).toMatchObject({ guard: "/per-call.prproj", args: {} });
+      const relative = await client.callTool({ name: "get_mock_undo_tracking", arguments: { expected_project_path: "relative.prproj" } })
+        .then((value) => JSON.stringify(value), (error: Error) => error.message);
+      expect(relative).toMatch(/expected_project_path|minLength|pattern|must/);
+      const unknown = await client.callTool({ name: "mock_discovery_tool", arguments: { name: "x", expected_projekt_path: "/x.prproj" } })
+        .then((value) => JSON.stringify(value), (error: Error) => error.message);
+      expect(unknown).toContain("unknown argument expected_projekt_path");
+    } finally {
+      await close();
+    }
+  });
+
+  it("applies the session guard to later calls, lets a per-call value override, and clears", async () => {
+    const { client, close } = await connect("compact");
+    try {
+      const unguarded = await client.callTool({ name: "get_mock_undo_tracking", arguments: {} });
+      expect(guardOf(unguarded).guard ?? null).toBeNull();
+      const set = await client.callTool({ name: "set_session_guard", arguments: { expected_project_path: "/session.prproj" } });
+      expect(set.isError).toBeFalsy();
+      const guarded = await client.callTool({ name: "get_mock_undo_tracking", arguments: {} });
+      expect(guardOf(guarded)).toMatchObject({ guard: "/session.prproj", args: {} });
+      const overridden = await client.callTool({ name: "get_mock_undo_tracking", arguments: { expected_project_path: "/override.prproj" } });
+      expect(guardOf(overridden)).toMatchObject({ guard: "/override.prproj", args: {} });
+      const cleared = await client.callTool({ name: "set_session_guard", arguments: { clear: true } });
+      expect(cleared.isError).toBeFalsy();
+      const after = await client.callTool({ name: "get_mock_undo_tracking", arguments: {} });
+      expect(guardOf(after).guard ?? null).toBeNull();
+    } finally {
+      await close();
+    }
+  });
+
+  it("keeps the session guard per server instance", async () => {
+    const first = await connect("compact");
+    const second = await connect("compact");
+    try {
+      await first.client.callTool({ name: "set_session_guard", arguments: { expected_project_path: "/first.prproj" } });
+      const other = await second.client.callTool({ name: "get_mock_undo_tracking", arguments: {} });
+      expect(guardOf(other).guard ?? null).toBeNull();
+    } finally {
+      await first.close();
+      await second.close();
+    }
+  });
+
+  it("refuses an unknown profile at construction", () => {
+    expect(() => createServer({}, { schemaProfile: "tiny" })).toThrow(/Unknown Premiere MCP schema profile/);
+  });
+});
+
 describe("undo tracking is scoped to tools that change the project", () => {
   it("tracks for a mutating tool and not for a read-only one", async () => {
     const server = createServer({});

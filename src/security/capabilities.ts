@@ -62,6 +62,8 @@ const INSPECT_TOOL_NAMES = new Set([
   "inspect_workflow_job",
   "wait_workflow_job",
   "inspect_operation_recovery",
+  // Local-only: stores the session guard in server memory, sends nothing to Premiere.
+  "set_session_guard",
   "convert_timeline_time",
   "predict_timeline_edit",
   "verify_timeline_postconditions",

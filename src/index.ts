@@ -179,6 +179,7 @@ Environment variables:
   PREMIERE_TIMEOUT_MS   Command timeout in ms (default: 30000)
   PREMIERE_MCP_CAPABILITIES  Comma-separated authority profile
   PREMIERE_MCP_TOOL_PACKS    Comma-separated discovery packs: full, essential, inspection, delivery, captions
+  PREMIERE_MCP_SCHEMA_PROFILE  full (default) or compact; compact drops the per-tool host guards from tools/list and adds set_session_guard
   PREMIERE_MCP_DEBUG    Set to 1/true to enable verbose stderr diagnostics
   PREMIERE_MCP_PROTOCOL_MODE  auto (default) or legacy; use legacy only when a client cannot complete modern MCP negotiation
   PREMIERE_UXP_TOKEN    Enable the authenticated local UXP bridge (minimum 16 characters)
