@@ -587,7 +587,18 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
             }
             return __result({ deleted: deleted.length, items: deleted });
           `);
-          const result = await sendCommand(chunkScript, bridgeOptions);
+          let result: Awaited<ReturnType<typeof sendCommand>>;
+          try { result = await sendCommand(chunkScript, bridgeOptions); }
+          catch {
+            return {
+              success: false,
+              error: "Deletion batch interrupted; the current chunk outcome is unknown. Inspect the project before retrying.",
+              data: { code: "DELETE_CHUNK_INTERRUPTED", mutationOutcome: "unknown", verified: false,
+                projectChanged: deleted.length > 0 ? true : null, deleted: deleted.length,
+                total: args.item_ids.length, planned: planned.length, items: deleted,
+                chunksCompleted, chunkSize: DELETE_BATCH_CHUNK_SIZE },
+            };
+          }
           const chunkData = result.data as { items?: DeletedItem[]; mutationOutcome?: string; outcome?: string } | undefined;
           if (Array.isArray(chunkData?.items)) deleted.push(...chunkData.items);
           if (!result.success) {

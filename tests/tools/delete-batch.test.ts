@@ -244,3 +244,16 @@ it("rechecks usage of every target before the chunk mutates anything", async () 
   expect(result).toMatchObject({ success: false, data: { deleted: 0, mutationOutcome: "not_applied" } });
   expect(h.footageNames()).toEqual(["Clip 0.mov", "Clip 1.mov"]);
 });
+
+ it("preserves confirmed chunks when a later bridge call rejects", async () => {
+  const planned = Array.from({ length: DELETE_BATCH_CHUNK_SIZE + 1 }, (_, i) => ({ nodeId: String(i), name: String(i), kind: "sequence", timelineClips: 0 }));
+  mockedSendCommand.mockReset();
+  mockedSendCommand.mockResolvedValueOnce({ success: true, data: { planned, projectDocumentId: "document-a" } });
+  mockedSendCommand.mockResolvedValueOnce({ success: true, data: { items: planned.slice(0, DELETE_BATCH_CHUNK_SIZE) } });
+  mockedSendCommand.mockRejectedValueOnce(new Error("cancelled"));
+  const result = await getUtilityTools(bridgeOptions).delete_multiple_project_items.handler({ item_ids: planned.map(item => item.nodeId) }) as Result;
+  expect(result).toMatchObject({ success: false, data: { deleted: DELETE_BATCH_CHUNK_SIZE, chunksCompleted: 1, projectChanged: true, mutationOutcome: "unknown" } });
+  expect(result.data?.items).toHaveLength(DELETE_BATCH_CHUNK_SIZE);
+  expect(mutationReceipt(false, result.data, { dispatched: true }).outcome).toBe("unknown");
+  expect(mockedSendCommand).toHaveBeenCalledTimes(3);
+ });
