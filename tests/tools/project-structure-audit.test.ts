@@ -464,6 +464,29 @@ describe("audit_project_structure target_tree, rename, and remove_empty", () => 
     expect(p.stems.name).toBe("Music stems");
   });
 
+  it("refuses deletion when the empty bin count becomes unreadable", async () => {
+    const p = tidyProject();
+    const plan = evaluateProjectStructure((await sendCommand(projectStructureCaptureScript(), bridgeOptions)).data, { remove_empty: true });
+    const deleteBin = vi.fn();
+    p.empty.deleteBin = deleteBin;
+    Object.defineProperty(p.empty.children!, "numItems", { get() { throw new Error("unreadable"); } });
+    const result = await sendCommand(projectStructureApplyScript(plan), bridgeOptions) as Result;
+    expect(deleteBin).not.toHaveBeenCalled();
+    expect(result.data!.removals).toContainEqual(expect.objectContaining({ item_id: "empty", status: "failed", reason: "children_unreadable" }));
+  });
+
+  it("does not verify removal when the parent count becomes unreadable", async () => {
+    const p = tidyProject();
+    const plan = evaluateProjectStructure((await sendCommand(projectStructureCaptureScript(), bridgeOptions)).data, { remove_empty: true });
+    p.empty.deleteBin = () => {
+      Object.defineProperty(p.root.children!, "numItems", { get() { throw new Error("unreadable"); } });
+    };
+    plan.removals = plan.removals.filter(r => r.item_id === "empty");
+    const result = await sendCommand(projectStructureApplyScript(plan), bridgeOptions) as Result;
+    expect(result.data!.removedCount).toBe(0);
+    expect(result.data!.removals[0]).toMatchObject({ status: "failed", reason: "parent_readback_unreadable" });
+  });
+
   it("skips a rename when the name changed since the audit", async () => {
     const p = tidyProject();
     const plan = evaluateProjectStructure((await sendCommand(projectStructureCaptureScript(), bridgeOptions)).data, { rename: [{ item_id: "seq-stems", name: "MUSIC STEMS" }] });

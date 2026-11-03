@@ -680,6 +680,12 @@ export function projectStructureApplyScript(plan: StructurePlan): string {
       results.push(entry);
     }
 
+    function strictChildCount(bin) {
+      try {
+        var count = bin.children.numItems;
+        return typeof count === "number" && isFinite(count) && count >= 0 && Math.floor(count) === count ? count : null;
+      } catch (eCount) { return null; }
+    }
     // Phase 4: delete only bins that are still empty now; read back the parent's children.
     var removalResults = [];
     var removedCount = 0;
@@ -691,15 +697,20 @@ export function projectStructureApplyScript(plan: StructurePlan): string {
       if (!__isBinItem(binToRemove)) { rEntry.reason = "not_a_bin"; removalResults.push(rEntry); continue; }
       var removeParent = removal.parentId === "${ROOT_ID}" ? root : __findProjectItemByNodeId(removal.parentId);
       if (!removeParent || !__isDirectChild(removeParent, binToRemove)) { rEntry.reason = "moved_since_audit"; removalResults.push(rEntry); continue; }
-      if (__childCount(binToRemove) !== 0) { rEntry.reason = "not_empty"; rEntry.childCount = __childCount(binToRemove); removalResults.push(rEntry); continue; }
+      var removalChildCount = strictChildCount(binToRemove);
+      if (removalChildCount === null) { rEntry.reason = "children_unreadable"; removalResults.push(rEntry); continue; }
+      if (removalChildCount !== 0) { rEntry.reason = "not_empty"; rEntry.childCount = removalChildCount; removalResults.push(rEntry); continue; }
       try { binToRemove.deleteBin(); } catch (eDelete) { rEntry.hostError = String(eDelete); }
       var stillThere = false;
-      var parentCount = __childCount(removeParent);
+      var parentCount = strictChildCount(removeParent);
+      var readbackReliable = parentCount !== null;
       for (var pc = 0; pc < parentCount; pc++) {
         var survivor = __childAt(removeParent, pc);
-        if (survivor && __nodeIdOf(survivor) === removal.itemId) { stillThere = true; break; }
+        if (!survivor || !__nodeIdOf(survivor)) { readbackReliable = false; break; }
+        if (__nodeIdOf(survivor) === removal.itemId) { stillThere = true; break; }
       }
-      if (stillThere) { rEntry.reason = "parent_readback_mismatch"; } else { rEntry.status = "verified"; removedCount++; }
+      if (!readbackReliable || strictChildCount(removeParent) !== parentCount) { rEntry.reason = "parent_readback_unreadable"; }
+      else if (stillThere) { rEntry.reason = "parent_readback_mismatch"; } else { rEntry.status = "verified"; removedCount++; }
       removalResults.push(rEntry);
     }
 
