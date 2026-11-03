@@ -349,8 +349,6 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
         }
         const idsJson = "[" + args.item_ids.map(id => `"${escapeForExtendScript(id)}"`).join(",") + "]";
         const script = buildToolScript(`
-          var documentId = app.project.documentID;
-          if (typeof documentId !== "string" || !documentId.length) return __refuse("Cannot read project document identity.");
           var ids = ${idsJson};
           var results = [];
           var usedCount = 0;
