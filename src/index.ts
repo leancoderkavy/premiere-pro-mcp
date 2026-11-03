@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { StdioServerTransport, serveStdio } from "@modelcontextprotocol/server/stdio";
-import { createServer } from "./server.js";
+import { createServer, resolveToolSelection } from "./server.js";
 import { cleanupTempDir, getTempDir } from "./bridge/file-bridge.js";
 import { getTelemetry, telemetryErrorType } from "./telemetry.js";
 import { execFileSync, spawnSync } from "child_process";
@@ -179,7 +179,11 @@ Environment variables:
   PREMIERE_TIMEOUT_MS   Command timeout in ms (default: 30000)
   PREMIERE_MCP_CAPABILITIES  Comma-separated authority profile
   PREMIERE_MCP_TOOL_PACKS    Comma-separated discovery packs: full, essential, inspection, delivery, captions
+<<<<<<< HEAD
   PREMIERE_MCP_SCHEMA_PROFILE  full (default) or compact; compact drops the per-tool host guards from tools/list and adds set_session_guard
+=======
+  PREMIERE_MCP_TOOL_LIST     Comma-separated tool names to list (unions with the packs; ping and get_capabilities stay listed; an unknown name is a startup error)
+>>>>>>> origin/review-946
   PREMIERE_MCP_DEBUG    Set to 1/true to enable verbose stderr diagnostics
   PREMIERE_MCP_PROTOCOL_MODE  auto (default) or legacy; use legacy only when a client cannot complete modern MCP negotiation
   PREMIERE_UXP_TOKEN    Enable the authenticated local UXP bridge (minimum 16 characters)
@@ -376,6 +380,17 @@ async function main() {
       ),
       onError: (error) => console.error("[premiere-pro-mcp] UXP bridge failed to start:", telemetryErrorType(error)),
     });
+  }
+
+  // An unknown PREMIERE_MCP_TOOL_LIST name is a configuration mistake. Report it
+  // once on stderr and exit instead of surfacing it as a JSON-RPC error on the
+  // first request, where clients tend to hide the message.
+  try {
+    resolveToolSelection(bridgeOptions, { uxpBridge });
+  } catch (error) {
+    console.error(`[premiere-pro-mcp] ${error instanceof Error ? error.message : String(error)}`);
+    if (uxpBridge) await uxpBridge.stop();
+    process.exit(1);
   }
 
   const serverHandle = protocolMode === "legacy"
