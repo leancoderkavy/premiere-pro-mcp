@@ -817,7 +817,59 @@ function __isClipDisabled(clip) {
 }
 
 // How many timeline clips, in every sequence, use this project item.
-function __projectItemUsage(item) {
+// One pass over every sequence: which project items sit on which tracks.
+// __projectItemUsage used to walk every sequence per queried item, so checking
+// N items cost N full timeline scans; delete_multiple_project_items and
+// get_unused_media build this index once per call instead.
+function __buildTimelineUsageIndex() {
+  var index = { sequences: [], usedIds: {}, sequenceItemIds: {} };
+  var sequenceCount = 0;
+  try { sequenceCount = app.project.sequences.numSequences; } catch (eCount) { throw new Error("Timeline usage could not be read: " + String(eCount)); }
+  if (typeof sequenceCount !== "number" || !isFinite(sequenceCount) || sequenceCount < 0 || Math.floor(sequenceCount) !== sequenceCount) throw new Error("Unreadable timeline collection count.");
+    for (var sq = 0; sq < sequenceCount; sq++) {
+    var sequenceEntry = { name: "", sequenceId: "", itemId: "", tracks: [] };
+    var liveSequence = null;
+    try { liveSequence = app.project.sequences[sq]; } catch (eSeq) { throw new Error("Timeline usage could not be read: " + String(eSeq)); }
+    if (!liveSequence) throw new Error("Timeline sequence could not be read.");
+    try { sequenceEntry.name = String(liveSequence.name); } catch (eName) { throw new Error("Timeline usage could not be read: " + String(eName)); }
+    try { sequenceEntry.sequenceId = String(liveSequence.sequenceID); } catch (eId) { throw new Error("Timeline usage could not be read: " + String(eId)); }
+    try { if (liveSequence.projectItem) sequenceEntry.itemId = String(liveSequence.projectItem.nodeId); } catch (eSeqItem) { throw new Error("Timeline usage could not be read: " + String(eSeqItem)); }
+    var groups = [];
+    try { groups.push(liveSequence.videoTracks); } catch (eVideo) { throw new Error("Timeline usage could not be read: " + String(eVideo)); }
+    try { groups.push(liveSequence.audioTracks); } catch (eAudio) { throw new Error("Timeline usage could not be read: " + String(eAudio)); }
+    for (var g = 0; g < groups.length; g++) {
+      var trackCount = 0;
+      try { trackCount = groups[g].numTracks; } catch (eTracks) { throw new Error("Timeline usage could not be read: " + String(eTracks)); }
+      if (typeof trackCount !== "number" || !isFinite(trackCount) || trackCount < 0 || Math.floor(trackCount) !== trackCount) throw new Error("Unreadable timeline collection count.");
+    for (var t = 0; t < trackCount; t++) {
+        var trackEntry = { type: g === 0 ? "video" : "audio", index: t, clips: 0, byItem: {} };
+        var clipCount = 0;
+        try { clipCount = groups[g][t].clips.numItems; } catch (eClips) { throw new Error("Timeline usage could not be read: " + String(eClips)); }
+        if (typeof clipCount !== "number" || !isFinite(clipCount) || clipCount < 0 || Math.floor(clipCount) !== clipCount) throw new Error("Unreadable timeline collection count.");
+    for (var c = 0; c < clipCount; c++) {
+          try {
+            var sourceItem = groups[g][t].clips[c].projectItem;
+            var sourceId = sourceItem ? String(sourceItem.nodeId || "") : "";
+            if (!sourceId) throw new Error("Timeline clip source could not be read.");
+            trackEntry.clips++;
+            if (sourceId) {
+              trackEntry.byItem[sourceId] = (trackEntry.byItem[sourceId] || 0) + 1;
+              index.usedIds[sourceId] = true;
+            }
+          } catch (eClip) { throw new Error("Timeline usage could not be read: " + String(eClip)); }
+        }
+        if (trackEntry.clips > 0) sequenceEntry.tracks.push(trackEntry);
+      }
+    }
+    if (sequenceEntry.itemId) index.sequenceItemIds[sequenceEntry.itemId] = sq;
+    index.sequences.push(sequenceEntry);
+  }
+  return index;
+}
+
+// Usage of one item (or everything inside a bin) read from the index: same
+// shape and rules as a live walk, without touching the timelines again.
+function __projectItemUsageFromIndex(item, index) {
   // A bin's usage is the usage of everything inside it: deleting the bin
   // deletes its contents and their timeline clips.
   var wanted = {};
@@ -831,32 +883,26 @@ function __projectItemUsage(item) {
   collect(item);
   var queryId = String(item.nodeId);
   var usage = { clips: 0, sequences: [], details: [] };
-  for (var sq = 0; sq < app.project.sequences.numSequences; sq++) {
-    var sequenceInUse = app.project.sequences[sq];
-    var detail = { sequence: String(sequenceInUse.name), sequenceId: String(sequenceInUse.sequenceID), clips: 0, tracks: [] };
-    var sequenceItemId = "";
-    try {
-      if (sequenceInUse.projectItem) sequenceItemId = String(sequenceInUse.projectItem.nodeId);
-    } catch (eSeqItem) {}
+  for (var sq = 0; sq < index.sequences.length; sq++) {
+    var sequenceEntry = index.sequences[sq];
+    var detail = { sequence: sequenceEntry.name, sequenceId: sequenceEntry.sequenceId, clips: 0, tracks: [] };
     // A sequence stored in the queried bin is deleted with the bin, including
     // every clip on it. Those clips usually point at media in another bin, so
     // matching only wanted media node IDs would miss the entire timeline.
-    var countAllClips = sequenceItemId !== "" && wanted[sequenceItemId] && sequenceItemId !== queryId;
-    var groups = [sequenceInUse.videoTracks, sequenceInUse.audioTracks];
-    for (var g = 0; g < groups.length; g++) {
-      for (var t = 0; t < groups[g].numTracks; t++) {
-        var trackClips = groups[g][t].clips;
-        var onTrack = 0;
-        for (var c = 0; c < trackClips.numItems; c++) {
-          try {
-            if (countAllClips) onTrack++;
-            else if (trackClips[c].projectItem && wanted[String(trackClips[c].projectItem.nodeId)]) onTrack++;
-          } catch (eUse) {}
+    var countAllClips = sequenceEntry.itemId !== "" && wanted[sequenceEntry.itemId] && sequenceEntry.itemId !== queryId;
+    for (var t = 0; t < sequenceEntry.tracks.length; t++) {
+      var trackEntry = sequenceEntry.tracks[t];
+      var onTrack = 0;
+      if (countAllClips) {
+        onTrack = trackEntry.clips;
+      } else {
+        for (var sourceId in trackEntry.byItem) {
+          if (wanted[sourceId]) onTrack += trackEntry.byItem[sourceId];
         }
-        if (onTrack > 0) {
-          detail.tracks.push({ type: g === 0 ? "video" : "audio", index: t, clips: onTrack });
-          detail.clips += onTrack;
-        }
+      }
+      if (onTrack > 0) {
+        detail.tracks.push({ type: trackEntry.type, index: trackEntry.index, clips: onTrack });
+        detail.clips += onTrack;
       }
     }
     if (detail.clips > 0) {
@@ -866,6 +912,10 @@ function __projectItemUsage(item) {
     }
   }
   return usage;
+}
+
+function __projectItemUsage(item) {
+  return __projectItemUsageFromIndex(item, __buildTimelineUsageIndex());
 }
 
 // Names of offline (missing-media) clip/file items at or inside this item.

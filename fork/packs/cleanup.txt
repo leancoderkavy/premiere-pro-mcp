@@ -1,0 +1,16 @@
+# Bin cleanup on an open project: gate, inspect, audit, delete, save.
+verify_premiere_connection
+get_premiere_state
+get_bridge_telemetry
+inspect_operation_recovery
+get_last_operations
+get_project_info
+get_bin_contents
+find_project_item_by_name
+audit_project_structure
+get_unused_media
+consolidate_duplicates
+delete_multiple_project_items
+delete_bin
+create_project_backup
+save_project

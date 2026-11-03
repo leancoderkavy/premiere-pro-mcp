@@ -103,7 +103,7 @@ const oauthResourceServer = httpAuth.oauth ? new OAuthResourceServer(httpAuth.oa
 const projectContextRepository = new ProjectContextRepository();
 const mediaWatchRegistry = new MediaWatchRegistry();
 const mcpHandler = createMcpHandler(
-  () => createServer(bridgeOptions, { telemetry, contextRepository: projectContextRepository, mediaWatchRegistry }),
+  () => createServer(bridgeOptions, { telemetry, contextRepository: projectContextRepository, mediaWatchRegistry, statelessHttp: true }),
   {
     onerror: (error) => console.error("[premiere-pro-mcp] MCP handler error:", telemetryErrorType(error)),
   },

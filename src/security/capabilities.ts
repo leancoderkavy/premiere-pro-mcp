@@ -62,6 +62,8 @@ const INSPECT_TOOL_NAMES = new Set([
   "inspect_workflow_job",
   "wait_workflow_job",
   "inspect_operation_recovery",
+  // Local-only: stores the session guard in server memory, sends nothing to Premiere.
+  "set_session_guard",
   "convert_timeline_time",
   "predict_timeline_edit",
   "verify_timeline_postconditions",
@@ -571,6 +573,13 @@ export function capabilityForTool(toolName: string): Capability {
 /** Resolve authority at the action level for consolidated multi-action tools. */
 export function capabilitiesForToolInvocation(toolName: string, args: unknown): readonly Capability[] {
   if (toolName === "audit_project_structure" && args && typeof args === "object" && (args as Record<string, unknown>).apply === true) return ["inspect", "edit"];
+  // set_track_states with snapshot and no state field anywhere only reads the tracks back.
+  if (toolName === "set_track_states" && args && typeof args === "object" && (args as Record<string, unknown>).snapshot === true) {
+    const tracks = (args as Record<string, unknown>).tracks;
+    const readOnly = Array.isArray(tracks) && tracks.length > 0 && tracks.every(track => track && typeof track === "object"
+      && (track as Record<string, unknown>).muted === undefined && (track as Record<string, unknown>).solo === undefined && (track as Record<string, unknown>).locked === undefined);
+    if (readOnly) return ["inspect"];
+  }
   // An empty AE render queue only exposes template names through a briefly queued composition.
   if (toolName === "inspect_after_effects_render_templates" && args && typeof args === "object" && (args as Record<string, unknown>).allow_temporary_queue_item === true) return ["inspect", "edit"];
   // Inline caption retiming is pure computation; reading input_path or writing
@@ -578,6 +587,7 @@ export function capabilitiesForToolInvocation(toolName: string, args: unknown): 
   if (toolName === "retime_caption_file" && args && typeof args === "object" && ((args as Record<string, unknown>).input_path !== undefined || (args as Record<string, unknown>).output_path !== undefined)) return ["inspect", "filesystem"];
   if (toolName === "prepare_transcript_workflow" && args && typeof args === "object" && (args as Record<string, unknown>).start_if_missing === true) return ["inspect", "edit", "filesystem"];
   const inputRecord = args && typeof args === "object" && !Array.isArray(args) ? args as Record<string, unknown> : undefined;
+  if (toolName === "inspect_timeline_snapshot" && inputRecord?.output_path !== undefined) return ["inspect", "filesystem"];
   if (toolName === "export_sequence_edl" && inputRecord?.output_path === undefined) return ["export"];
   if (toolName === "close_project") return inputRecord?.save_first === false ? ["edit"] : ["edit", "filesystem"];
   if (toolName === "set_offline" && inputRecord?.offline === false) return ["edit", "filesystem"];
@@ -608,6 +618,7 @@ export function capabilitiesForToolInvocation(toolName: string, args: unknown): 
  * per-call decision still comes from capabilitiesForToolInvocation.
  */
 export function toolMayChangeState(toolName: string): boolean {
+  if (toolName === "inspect_timeline_snapshot") return true;
   // Argument-dependent escalations handled specially above.
   if (toolName === "export_interchange_uxp" || toolName === "prepare_transcript_workflow" || toolName === "set_metadata" || toolName === "audit_project_structure" || toolName === "retime_caption_file" || toolName === "inspect_after_effects_render_templates") return true;
   const actionMap = ACTION_CAPABILITIES[toolName];
@@ -638,6 +649,7 @@ export function isToolPermitted(
   config: CapabilityConfig,
 ): boolean {
   if (ALWAYS_LISTED_TOOL_NAMES.has(toolName)) return true;
+  if (toolName === "set_track_states") return config.capabilities.has("inspect") || config.capabilities.has("edit");
   if (toolName === "export_sequence_edl") return config.capabilities.has("export");
   const exactRequirements = TOOL_CAPABILITY_REQUIREMENTS[toolName];
   if (exactRequirements) {

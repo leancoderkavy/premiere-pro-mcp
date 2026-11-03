@@ -48,6 +48,67 @@ describe("reachable timeline/editorial contracts", () => {
     await expect(tools.inspect_timeline_snapshot.handler({ sequence_id: "s", max_clips: 1001 })).rejects.toThrow();
     await expect(getTimelineEditorialTools({}, { capabilities: resolveCapabilities("edit"), send }).inspect_timeline_snapshot.handler({ sequence_id: "s" })).rejects.toThrow("inspect");
   });
+  it("writes the snapshot to a .json file inside an approved workspace with sha256 and optional content (T2.3)", async () => {
+    const { createHash } = await import("node:crypto");
+    const { readFileSync, existsSync, realpathSync } = await import("node:fs");
+    const clip = { nodeId: "clip", projectItem: { nodeId: "source", isSequence: () => false }, start: { ticks: "0" }, end: { ticks: time(2) }, inPoint: { ticks: time(1) }, outPoint: { ticks: time(3) }, disabled: false, getLinkedItems: () => null, getSpeed: () => 1, isSpeedReversed: () => false };
+    const tracks = Object.assign([{ clips: Object.assign([clip], { numItems: 1 }), isLocked: () => false }], { numTracks: 1 });
+    const seq = { sequenceID: "s", timebase: time(1 / 24), zeroPoint: "0", videoTracks: tracks, audioTracks: Object.assign([], { numTracks: 0 }) };
+    const send = vi.fn(async (script: string) => vm.runInNewContext(script, { app: { project: { documentID: "p" } }, __findSequence: () => seq, __isCurrentProjectSequence: () => true, __result: success, __error: failure }));
+    const tools = getTimelineEditorialTools({}, { send });
+    const { makePrivateBridgeTempDir } = await import("../helpers/temp-dir.js");
+    const workspace = realpathSync(makePrivateBridgeTempDir("snapshot-to-file-"));
+    const inline = await tools.inspect_timeline_snapshot.handler({ sequence_id: "s" });
+    // Validation happens before Premiere is contacted.
+    const before = send.mock.calls.length;
+    await expect(tools.inspect_timeline_snapshot.handler({ sequence_id: "s", output_path: path.join(workspace, "a.json") })).rejects.toThrow("approved_workspace_path is required");
+    await expect(tools.inspect_timeline_snapshot.handler({ sequence_id: "s", approved_workspace_path: workspace })).rejects.toThrow("only accepted together");
+    await expect(tools.inspect_timeline_snapshot.handler({ sequence_id: "s", return_content: false })).rejects.toThrow("needs output_path");
+    await expect(tools.inspect_timeline_snapshot.handler({ sequence_id: "s", output_path: path.join(workspace, "a.txt"), approved_workspace_path: workspace })).rejects.toThrow(".json extension");
+    await expect(tools.inspect_timeline_snapshot.handler({ sequence_id: "s", output_path: path.join(path.dirname(workspace), "escape.json"), approved_workspace_path: workspace })).rejects.toThrow("contained within");
+    expect(send.mock.calls.length).toBe(before);
+    await expect(getTimelineEditorialTools({}, { capabilities: resolveCapabilities("inspect"), send }).inspect_timeline_snapshot.handler({ sequence_id: "s", output_path: path.join(workspace, "denied.json"), approved_workspace_path: workspace })).rejects.toThrow("filesystem");
+    expect(send.mock.calls.length).toBe(before);
+    const target = path.join(workspace, "snapshot.json");
+    const written = await tools.inspect_timeline_snapshot.handler({ sequence_id: "s", output_path: target, approved_workspace_path: workspace, return_content: false });
+    expect(existsSync(target)).toBe(true);
+    const file = readFileSync(target, "utf8");
+    expect(written).toMatchObject({ success: true, data: { written: true, output_path: target, content_omitted: true, clip_count: 1, track_count: 1, transition_count: 0, marker_count: 0, revision: inline.data.revision, sequence_id: "s", bytes: Buffer.byteLength(file, "utf8"), sha256: createHash("sha256").update(file).digest("hex") } });
+    expect(written.data).not.toHaveProperty("clips"); expect(written.data).not.toHaveProperty("tracks"); expect(written.data).not.toHaveProperty("snapshot");
+    expect(JSON.parse(file)).toEqual(inline.data);
+    // The file round-trips through the strict snapshot validator used by the prediction tools.
+    expect(await tools.verify_timeline_postconditions.handler({ expected: JSON.parse(file), actual: inline.data })).toMatchObject({ success: true });
+    // Existing files are never overwritten.
+    await expect(tools.inspect_timeline_snapshot.handler({ sequence_id: "s", output_path: target, approved_workspace_path: workspace })).rejects.toThrow("will not be overwritten");
+    expect(readFileSync(target, "utf8")).toBe(file);
+    // return_content defaults to true: the snapshot rides along under data.snapshot.
+    const full = await tools.inspect_timeline_snapshot.handler({ sequence_id: "s", output_path: path.join(workspace, "full.json"), approved_workspace_path: workspace });
+    expect(full).toMatchObject({ success: true, data: { written: true, content_omitted: false, snapshot: inline.data } });
+    // Revision mismatch leaves only an empty reservation, never snapshot bytes.
+    const unwritten = path.join(workspace, "stale.json");
+    expect(await tools.inspect_timeline_snapshot.handler({ sequence_id: "s", output_path: unwritten, approved_workspace_path: workspace, expected_revision: "wrong" })).toMatchObject({ success: false });
+    expect(readFileSync(unwritten, "utf8")).toBe("");
+    // Substitute the parent while the host request is pending. Neither inode gets bytes.
+    const { renameSync, symlinkSync } = await import("node:fs");
+    const outside = makePrivateBridgeTempDir("snapshot-outside-");
+    const moved = workspace + "-moved";
+    const originalSend = send.getMockImplementation()!;
+    send.mockImplementationOnce(async (script: string) => {
+      try { renameSync(workspace, moved); } catch (error) {
+        expect(process.platform).toBe("win32");
+        expect(["EPERM", "EACCES", "EBUSY"]).toContain((error as NodeJS.ErrnoException).code);
+        throw error;
+      }
+      symlinkSync(outside, workspace, process.platform === "win32" ? "junction" : "dir");
+      return originalSend(script);
+    });
+    await expect(tools.inspect_timeline_snapshot.handler({ sequence_id: "s", output_path: path.join(workspace, "race.json"), approved_workspace_path: workspace })).rejects.toThrow();
+    expect(existsSync(path.join(outside, "race.json"))).toBe(false);
+    // Windows may deny renaming a directory containing the reserved open handle.
+    const reservedParent = existsSync(moved) ? moved : workspace;
+    expect(readFileSync(path.join(reservedParent, "race.json"), "utf8")).toBe("");
+    if (!existsSync(moved)) expect(process.platform).toBe("win32");
+  });
   it("reads track targeting and mute from the DOM, and sync lock from QE only for the active sequence", async () => {
     // Live 26.5.2: these were always null, so predict_timeline_edit refused every sync_locked ripple.
     const clip = { nodeId: "clip", projectItem: { nodeId: "source", isSequence: () => false }, start: { ticks: "0" }, end: { ticks: time(2) }, inPoint: { ticks: "0" }, outPoint: { ticks: time(2) }, disabled: false, getLinkedItems: () => null, getSpeed: () => 1, isSpeedReversed: () => false };

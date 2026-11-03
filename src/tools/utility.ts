@@ -6,6 +6,7 @@ import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 import { applyScratchDisks } from "./scratch-disks.js";
 import { readScratchDisks } from "./project-file.js";
 import { createSourceFreezeFrameTool, type SourceFreezeFrameDependencies } from "./source-freeze-frame.js";
+import { reportProgress } from "../workflows/invocation-context.js";
 
 // Shared set-up for lift/extract: resolve the sequence in/out range, refuse a
 // range that spans the whole sequence (Premiere reports cleared marks as
@@ -228,7 +229,23 @@ export function sequenceFrameTicks(frameRate: number): { ticks: number; ntsc: bo
   return { ticks, ntsc: false, exactFrameRate: TICKS_PER_SECOND_EXACT / ticks };
 }
 
-export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: SourceFreezeFrameDependencies = {}) {
+export interface UtilityToolDependencies extends SourceFreezeFrameDependencies {
+  /** Clock for the delete batch progress interval; tests inject a fake one. */
+  now?: () => number;
+}
+
+/** delete_multiple_project_items: items per host command, so one slow chunk never holds one command open for minutes. */
+export const DELETE_BATCH_CHUNK_SIZE = 25;
+/** delete_multiple_project_items: hard cap per call. */
+export const DELETE_BATCH_MAX_ITEMS = 500;
+/** delete_multiple_project_items: a progress notification at least this often while chunks run. */
+export const DELETE_BATCH_PROGRESS_INTERVAL_MS = 10_000;
+
+interface PlannedDeletion { nodeId: string; name: string; kind: "bin" | "sequence" | "item"; timelineClips: number }
+interface DeletedItem { nodeId: string; name: string; alreadyGone?: boolean }
+
+export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: UtilityToolDependencies = {}) {
+  const now = dependencies.now ?? Date.now;
   return {
     delete_project_item: {
       description:
@@ -288,7 +305,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Sour
           if (item.type === 2) {
             item.deleteBin();
           } else if (sequence) {
-            var accepted = app.project.deleteSequence(sequence);
+            mutationAttempted = true;
+                var accepted = app.project.deleteSequence(sequence);
             if (accepted === false) return __error("Premiere rejected deletion of sequence: " + name);
           } else if (item.type === 1 || item.type === 4) {
             var removal = __deleteProjectItemViaBin(item);
@@ -329,7 +347,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Sour
         if (!Array.isArray(args.item_ids) || args.item_ids.length < 1 || args.item_ids.length > 100 || !args.item_ids.every((id) => typeof id === "string" && id.trim())) {
           return { success: false, error: "item_ids must be an array of 1-100 non-empty node IDs or names" };
         }
-        const idsJson = JSON.stringify(args.item_ids);
+        const idsJson = "[" + args.item_ids.map(id => `"${escapeForExtendScript(id)}"`).join(",") + "]";
         const script = buildToolScript(`
           var ids = ${idsJson};
           var results = [];
@@ -358,7 +376,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Sour
 
     delete_multiple_project_items: {
       description:
-        "Delete several project items (bins, sequences, clips or files) and read back that each is gone. Every item is checked before any is deleted. " +
+        "Delete several project items (bins, sequences, clips or files) and read back that each is gone. Every item is checked before any is deleted, against one timeline-usage index built in a single pass over every sequence (the same scan get_unused_media uses), so 100 items cost one scan instead of 100. " +
+        "Deletions then run in chunks of " + DELETE_BATCH_CHUNK_SIZE + " items per host command with per-chunk readback and a progress notification at least every " + DELETE_BATCH_PROGRESS_INTERVAL_MS / 1000 + " s; up to " + DELETE_BATCH_MAX_ITEMS + " items per call. A chunk that fails stops the batch and the reply counts what was deleted before it. " +
         "organize_project_items_uxp with action 'remove' (authenticated UXP bridge) is the preferred, documented route; this CEP fallback deletes clips and files through a temporary bin, which cannot be undone here. " +
         "Items (or bins whose contents are) used on a timeline are refused unless confirm_remove_from_sequences is true. Nested sequences count as in use on the parent timeline.",
       parameters: {
@@ -367,7 +386,9 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Sour
           item_ids: {
             type: "array",
             items: { type: "string" },
-            description: "Array of node IDs or names of items to delete",
+            minItems: 1,
+            maxItems: DELETE_BATCH_MAX_ITEMS,
+            description: "Node IDs or names of items to delete (1-" + DELETE_BATCH_MAX_ITEMS + "); duplicates are deleted once",
           },
           confirm_remove_from_sequences: {
             type: "boolean",
@@ -381,99 +402,234 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Sour
         required: ["item_ids"],
       },
       handler: async (args: { item_ids: string[]; confirm_remove_from_sequences?: boolean; allow_offline?: boolean }) => {
-        const idsJson = JSON.stringify(args.item_ids);
-        const script = buildToolScript(`
+        if (!Array.isArray(args.item_ids) || args.item_ids.length < 1 || args.item_ids.length > DELETE_BATCH_MAX_ITEMS || !args.item_ids.every((id) => typeof id === "string" && id.trim())) {
+          return { success: false, error: `item_ids must be an array of 1-${DELETE_BATCH_MAX_ITEMS} non-empty node IDs or names. No project items were deleted.`, data: { mutationOutcome: "not_applied" } };
+        }
+        const idsJson = "[" + args.item_ids.map(id => `"${escapeForExtendScript(id)}"`).join(",") + "]";
+        // Phase 1, read-only: resolve every item and check usage and offline
+        // media against one index, so a refusal happens before any deletion.
+        const planScript = buildToolScript(`
+          var documentId = app.project.documentID;
+          if (typeof documentId !== "string" || !documentId.length) return __refuse("Cannot read project document identity.");
           var ids = ${idsJson};
+          var index;
+          try { index = __buildTimelineUsageIndex(); } catch (usageError) { return __refuse("Cannot safely determine timeline usage: " + String(usageError)); }
           var planned = [];
+          var seen = {};
           for (var i = 0; i < ids.length; i++) {
             var item = __findProjectItem(ids[i]);
             if (!item) return __error("Item not found: " + ids[i] + ". No project items were deleted.");
             if (item === app.project.rootItem) return __error("The project root cannot be deleted. No project items were deleted.");
-            var sequence = null;
-            for (var s = 0; s < app.project.sequences.numSequences; s++) {
-              var candidate = app.project.sequences[s];
-              try {
-                if (candidate.projectItem && String(candidate.projectItem.nodeId) === String(item.nodeId)) {
-                  sequence = candidate;
-                  break;
-                }
-              } catch (e) {}
-            }
-            if (item.type !== 2 && !sequence && item.type !== 1 && item.type !== 4) {
+            var nodeId = item.nodeId;
+            if (typeof nodeId !== "string" || nodeId.length === 0) return __error("A project item has no readable node ID. No project items were deleted.", { mutationOutcome: "not_applied", verified: false, projectChanged: false });
+            if (seen[nodeId]) continue;
+            seen[nodeId] = true;
+            var isSequence = index.sequenceItemIds[nodeId] !== undefined;
+            if (item.type !== 2 && !isSequence && item.type !== 1 && item.type !== 4) {
               return __error(
                 "Legacy CEP cannot safely delete project item: " + item.name + ". " +
                 "No project items were deleted; use organize_project_items_uxp with action 'remove' for generic project-item deletion."
               );
             }
+            var timelineClips = 0;
             if (item.type === 2 || item.type === 1 || item.type === 4) {
-              var itemUsage = __projectItemUsage(item);
+              var itemUsage = __projectItemUsageFromIndex(item, index);
+              timelineClips = itemUsage.clips;
               if (itemUsage.clips > 0 && ${args.confirm_remove_from_sequences === true ? "false" : "true"}) {
                 return __jsonStringify({ success: false, error: item.name + (item.type === 2 ? " holds media used by " : " is used by ") + itemUsage.clips + " timeline clip(s) in " + itemUsage.sequences.join(", ") + ". Deleting it would remove those clips too, and this cannot be undone here. No project items were deleted; pass confirm_remove_from_sequences: true to delete anyway.", data: { code: "ITEM_IN_USE", item: String(item.name), usages: itemUsage.details } });
               }
-              if (!sequence) {
+              if (!isSequence) {
                 var offlineItems = __offlineItemsIn(item);
                 if (offlineItems.length > 0 && ${args.allow_offline === true ? "false" : "true"}) {
                   return __jsonStringify({ success: false, error: "Offline media in " + item.name + ": " + offlineItems.join(", ") + ". Premiere can open a modal while deleting missing media, which blocks the bridge. No project items were deleted; use organize_project_items_uxp with action 'remove', the Project panel, or pass allow_offline: true.", data: { code: "ITEM_OFFLINE", item: String(item.name), offlineItems: offlineItems } });
                 }
               }
             }
-            var itemNodeId = item.nodeId;
-            if (typeof itemNodeId !== "string" || itemNodeId.length === 0) return __error("A project item has no readable node ID. No project items were deleted.", { mutationOutcome: "not_applied", verified: false, projectChanged: false });
-            planned.push({ nodeId: itemNodeId, name: item.name, item: item, sequence: sequence });
+            var kind = "item";
+            if (item.type === 2) kind = "bin";
+            else if (isSequence) kind = "sequence";
+            planned.push({ nodeId: nodeId, name: String(item.name), kind: kind, timelineClips: timelineClips });
           }
-          for (var p = 0; p < planned.length; p++) {
-            var target = planned[p];
-            // A selected child can already be gone after its selected parent bin is
-            // deleted; that still satisfies the requested postcondition.
-            if (!__findProjectItem(target.nodeId)) continue;
-            if (target.item.type === 2) {
-              target.item.deleteBin();
-            } else if (target.sequence) {
-              var accepted = app.project.deleteSequence(target.sequence);
-              if (accepted === false) return __error("Premiere rejected deletion of sequence: " + target.name);
-            } else {
-              var viaBin = __deleteProjectItemViaBin(target.item);
-              if (!viaBin.ok) return __error(viaBin.error + (p || viaBin.changed ? " The project changed: " + p + " item(s) before this one were deleted." : " No project items were deleted."));
-            }
-          }
-          var remainingIds = {};
-          try {
-            var pendingBins = [app.project.rootItem];
-            var walkedItems = 0;
-            while (pendingBins.length) {
-              var parent = pendingBins.pop();
-              if (!parent || !parent.children) throw new Error("A project bin has no readable children collection.");
-              var children = parent.children;
-              var childCount = children.numItems;
-              if (typeof childCount !== "number" || !isFinite(childCount) || childCount < 0 || Math.floor(childCount) !== childCount) throw new Error("A project bin has an unreadable item count.");
-              walkedItems += childCount;
-              if (walkedItems > 100000) throw new Error("The project tree exceeds the 100000-item readback limit.");
-              for (var childIndex = 0; childIndex < childCount; childIndex++) {
-                var child = children[childIndex];
-                if (!child) throw new Error("A project item could not be read.");
-                var childId = child.nodeId;
-                if (typeof childId !== "string" || childId.length === 0) throw new Error("A project item has no readable node ID.");
-                if (remainingIds["$" + childId]) throw new Error("A project item node ID occurred more than once during readback.");
-                remainingIds["$" + childId] = true;
-                var childType = child.type;
-                if (childType !== 1 && childType !== 2 && childType !== 4) throw new Error("A project item has an unreadable type.");
-                if (childType === 2) pendingBins.push(child);
-              }
-              if (children.numItems !== childCount) throw new Error("A project bin changed during readback.");
-            }
-          } catch (treeReadError) {
-            return __error("Deletion was attempted, but the final project tree could not be read reliably. Inspect the Project panel before retrying. " + String(treeReadError), { verified: false, outcome: "committed_unverified", projectChanged: null });
-          }
-          var deleted = [];
-          for (var q = 0; q < planned.length; q++) {
-            if (remainingIds["$" + planned[q].nodeId]) {
-              return __error("Premiere did not remove project item: " + planned[q].name + ". The batch is not reported as successful.");
-            }
-            deleted.push({ nodeId: planned[q].nodeId, name: planned[q].name });
-          }
-          return __result({ deleted: deleted.length, total: ids.length, items: deleted, verified: true });
+          return __result({ projectDocumentId: documentId, planned: planned, total: ids.length, sequencesScanned: index.sequences.length });
         `);
-        return sendCommand(script, bridgeOptions);
+        const startedAt = now();
+        const plan = await sendCommand(planScript, bridgeOptions);
+        if (!plan.success) return plan;
+        const planData = plan.data as { projectDocumentId?: string; planned?: PlannedDeletion[]; sequencesScanned?: number } | undefined;
+        const planned = planData?.planned;
+        if (!Array.isArray(planned) || typeof planData?.projectDocumentId !== "string" || !planData.projectDocumentId.length) {
+          return { success: false, error: "The host did not return a deletion plan. No project items were deleted.", data: { mutationOutcome: "not_applied" } };
+        }
+        // Phase 2: delete in chunks, one host command each, verifying every
+        // chunk before the next so a failure names what is already gone.
+        const deleted: DeletedItem[] = [];
+        let chunksCompleted = 0;
+        let lastProgressAt = startedAt;
+        for (let offset = 0; offset < planned.length; offset += DELETE_BATCH_CHUNK_SIZE) {
+          const chunk = planned.slice(offset, offset + DELETE_BATCH_CHUNK_SIZE).map(({ nodeId, name, kind }) => ({ nodeId, name, kind }));
+          const chunkScript = buildToolScript(`
+            var targets = [${chunk.map(target => `{nodeId:"${escapeForExtendScript(target.nodeId)}",name:"${escapeForExtendScript(target.name)}",kind:"${escapeForExtendScript(target.kind)}"}`).join(",")}];
+            if (app.project.documentID !== "${escapeForExtendScript(planData.projectDocumentId)}") return __error("Project document changed since deletion planning.", { mutationOutcome: "not_applied", projectChanged: false });
+            var deleted = [];
+            function findReadableItem(id) {
+              var found = null;
+              var seenIds = {};
+              var pending = [app.project.rootItem];
+              var visited = 0;
+              while (pending.length) {
+                var bin = pending.pop();
+                var children = bin.children;
+                var count = children.numItems;
+                if (typeof count !== "number" || !isFinite(count) || count < 0 || Math.floor(count) !== count) throw new Error("Unreadable project tree");
+                visited += count;
+                if (visited > 100000) throw new Error("Project tree readback limit exceeded");
+                for (var i = 0; i < count; i++) {
+                  var child = children[i];
+                  if (!child || typeof child.nodeId !== "string" || !child.nodeId) throw new Error("Unreadable project item");
+                  if (seenIds["$" + child.nodeId]) throw new Error("Duplicate project item node ID");
+                  seenIds["$" + child.nodeId] = true;
+                  if (child.nodeId === id) found = child;
+                  if (child.type === 2) pending.push(child);
+                  else if (child.type !== 1 && child.type !== 4) throw new Error("Unreadable project item type");
+                }
+                if (children.numItems !== count) throw new Error("Project tree changed during readback");
+              }
+              return found;
+            }
+            function stopped(message, p, uncertain) {
+              return __jsonStringify({ success: false, error: message + " " + p + " item(s) in this chunk were deleted before it; the batch stopped.", data: { code: "DELETE_CHUNK_STOPPED", mutationOutcome: uncertain ? "unknown" : (deleted.length > 0 ? "committed_unverified" : "not_applied"), verified: false, projectChanged: uncertain ? null : deleted.length > 0, deletedInChunk: deleted.length, items: deleted } });
+            }
+            try {
+              var currentIndex = __buildTimelineUsageIndex();
+              for (var check = 0; check < targets.length; check++) {
+                var currentItem = findReadableItem(targets[check].nodeId);
+                if (!currentItem) continue;
+                var currentUsage = __projectItemUsageFromIndex(currentItem, currentIndex);
+                if (currentUsage.clips > 0 && ${args.confirm_remove_from_sequences === true ? "false" : "true"}) return stopped("Item is now in use: " + targets[check].name, 0);
+                if (currentIndex.sequenceItemIds[currentItem.nodeId] === undefined && __offlineItemsIn(currentItem).length > 0 && ${args.allow_offline === true ? "false" : "true"}) return stopped("Item is now offline: " + targets[check].name, 0);
+              }
+            } catch (safetyError) { return stopped("Cannot revalidate deletion safety: " + String(safetyError), 0); }
+            for (var p = 0; p < targets.length; p++) {
+              var target = targets[p];
+              var mutationAttempted = false;
+              try {
+              var item;
+              try { item = findReadableItem(target.nodeId); }
+              catch (lookupError) { return stopped("Project tree could not be read before deletion: " + String(lookupError), deleted.length); }
+              // A selected child can already be gone after its selected parent bin is
+              // deleted; that still satisfies the requested postcondition.
+              if (!item) { deleted.push({ nodeId: target.nodeId, name: target.name, alreadyGone: true }); continue; }
+              if (target.kind === "bin") {
+                mutationAttempted = true;
+                item.deleteBin();
+              } else if (target.kind === "sequence") {
+                var sequence = null;
+                for (var s = 0; s < app.project.sequences.numSequences; s++) {
+                  var candidate = app.project.sequences[s];
+                  try {
+                    if (candidate.projectItem && String(candidate.projectItem.nodeId) === target.nodeId) { sequence = candidate; break; }
+                  } catch (e) {}
+                }
+                if (!sequence) return stopped("Sequence " + target.name + " no longer matches a live sequence.", p);
+                mutationAttempted = true;
+                var accepted = app.project.deleteSequence(sequence);
+                if (accepted === false) {
+                  var remaining = findReadableItem(target.nodeId);
+                  if (!remaining) deleted.push({ nodeId: target.nodeId, name: target.name });
+                  return stopped("Premiere rejected deletion of sequence: " + target.name + ".", deleted.length);
+                }
+              } else {
+                mutationAttempted = true;
+                var viaBin = __deleteProjectItemViaBin(item);
+                if (!viaBin.ok) return stopped(viaBin.error, p, true);
+              }
+              var remainingItem;
+              try { remainingItem = findReadableItem(target.nodeId); }
+              catch (readbackError) {
+                return __jsonStringify({ success: false, error: "Deletion returned, but the project tree could not be read reliably. Inspect the Project panel before retrying. " + String(readbackError), data: { code: "DELETE_CHUNK_UNVERIFIED", verified: false, outcome: "committed_unverified", mutationOutcome: "committed_unverified", projectChanged: null, deletedInChunk: deleted.length, items: deleted } });
+              }
+              if (remainingItem) return stopped("Premiere did not remove project item: " + target.name + ".", deleted.length);
+              deleted.push({ nodeId: target.nodeId, name: target.name });
+              } catch (itemError) { return stopped(String(itemError), deleted.length, mutationAttempted); }
+            }
+            var remainingIds = {};
+            try {
+              var pendingBins = [app.project.rootItem];
+              var walkedItems = 0;
+              while (pendingBins.length) {
+                var parent = pendingBins.pop();
+                if (!parent || !parent.children) throw new Error("A project bin has no readable children collection.");
+                var children = parent.children;
+                var childCount = children.numItems;
+                if (typeof childCount !== "number" || !isFinite(childCount) || childCount < 0 || Math.floor(childCount) !== childCount) throw new Error("A project bin has an unreadable item count.");
+                walkedItems += childCount;
+                if (walkedItems > 100000) throw new Error("The project tree exceeds the 100000-item readback limit.");
+                for (var childIndex = 0; childIndex < childCount; childIndex++) {
+                  var child = children[childIndex];
+                  if (!child) throw new Error("A project item could not be read.");
+                  var childId = child.nodeId;
+                  if (typeof childId !== "string" || childId.length === 0) throw new Error("A project item has no readable node ID.");
+                  if (remainingIds["$" + childId]) throw new Error("A project item node ID occurred more than once during readback.");
+                  remainingIds["$" + childId] = true;
+                  var childType = child.type;
+                  if (childType !== 1 && childType !== 2 && childType !== 4) throw new Error("A project item has an unreadable type.");
+                  if (childType === 2) pendingBins.push(child);
+                }
+                if (children.numItems !== childCount) throw new Error("A project bin changed during readback.");
+              }
+            } catch (treeReadError) {
+              return __jsonStringify({ success: false, error: "Deletion was attempted, but the final project tree could not be read reliably. Inspect the Project panel before retrying. " + String(treeReadError), data: { code: "DELETE_CHUNK_UNVERIFIED", verified: false, outcome: "committed_unverified", projectChanged: null, deletedInChunk: deleted.length, items: deleted } });
+            }
+            for (var q = 0; q < targets.length; q++) {
+              if (remainingIds["$" + targets[q].nodeId]) {
+                return __jsonStringify({ success: false, error: "Premiere did not remove project item: " + targets[q].name + ". The batch is not reported as successful.", data: { code: "DELETE_CHUNK_UNVERIFIED", deletedInChunk: deleted.length, items: deleted } });
+              }
+            }
+            return __result({ deleted: deleted.length, items: deleted });
+          `);
+          let result: Awaited<ReturnType<typeof sendCommand>>;
+          try { result = await sendCommand(chunkScript, bridgeOptions); }
+          catch {
+            return {
+              success: false,
+              error: "Deletion batch interrupted; the current chunk outcome is unknown. Inspect the project before retrying.",
+              data: { code: "DELETE_CHUNK_INTERRUPTED", mutationOutcome: "unknown", verified: false,
+                projectChanged: deleted.length > 0 ? true : null, deleted: deleted.length,
+                total: args.item_ids.length, planned: planned.length, items: deleted,
+                chunksCompleted, chunkSize: DELETE_BATCH_CHUNK_SIZE },
+            };
+          }
+          const chunkData = result.data as { items?: DeletedItem[]; mutationOutcome?: string; outcome?: string } | undefined;
+          if (Array.isArray(chunkData?.items)) deleted.push(...chunkData.items);
+          if (!result.success) {
+            return {
+              success: false,
+              error: `${result.error || "The deletion chunk failed."} ${deleted.length} of ${planned.length} planned item(s) were deleted before the batch stopped; remaining deletions are not confirmed.`,
+              data: { ...(result.data ?? {}), mutationOutcome: chunkData?.mutationOutcome === "not_applied" && deleted.length > 0 ? "committed_unverified" : (chunkData?.mutationOutcome ?? chunkData?.outcome ?? "unknown"), projectChanged: deleted.length > 0 ? true : (result.data as Record<string, unknown> | undefined)?.projectChanged, deleted: deleted.length, total: args.item_ids.length, planned: planned.length, items: deleted, chunksCompleted, chunkSize: DELETE_BATCH_CHUNK_SIZE },
+            };
+          }
+          chunksCompleted++;
+          const finished = offset + DELETE_BATCH_CHUNK_SIZE >= planned.length;
+          const tick = now();
+          if (finished || tick - lastProgressAt >= DELETE_BATCH_PROGRESS_INTERVAL_MS) {
+            lastProgressAt = tick;
+            await reportProgress(deleted.length, planned.length, `Deleted ${deleted.length} of ${planned.length} project item(s), each chunk read back.`);
+          }
+        }
+        return {
+          success: true,
+          data: {
+            deleted: deleted.length,
+            total: args.item_ids.length,
+            planned: planned.length,
+            items: deleted,
+            verified: true,
+            chunksCompleted,
+            chunkSize: DELETE_BATCH_CHUNK_SIZE,
+            sequencesScanned: planData?.sequencesScanned,
+            elapsedMs: Math.max(0, now() - startedAt),
+          },
+        };
       },
     },
 
@@ -1130,28 +1286,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Sour
         const paging = parseMediaReportPaging(args);
         if ("error" in paging) return { success: false, error: paging.error };
         const script = buildToolScript(`
-          // First, collect all project item nodeIds used in any sequence
-          var usedIds = {};
-          function scanTracks(tracks) {
-            var trackCount = 0;
-            try { trackCount = tracks.numTracks; } catch(e) {}
-            for (var t = 0; t < trackCount; t++) {
-              var clipCount = 0;
-              try { clipCount = tracks[t].clips.numItems; } catch(e) {}
-              for (var c = 0; c < clipCount; c++) {
-                try {
-                  var src = tracks[t].clips[c].projectItem;
-                  var srcId = __nodeIdOf(src);
-                  if (src && srcId) usedIds[srcId] = true;
-                } catch(e) {}
-              }
-            }
-          }
-          for (var s = 0; s < app.project.sequences.numSequences; s++) {
-            var seq = app.project.sequences[s];
-            scanTracks(seq.videoTracks);
-            scanTracks(seq.audioTracks);
-          }
+          // One pass over every sequence (shared with delete_multiple_project_items).
+          var usedIds = __buildTimelineUsageIndex().usedIds;
 
           var needle = "${escapeForExtendScript(paging.contains)}".toLowerCase();
           var offset = ${paging.offset};

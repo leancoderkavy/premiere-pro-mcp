@@ -16,7 +16,7 @@ Free, MIT licensed, local-first, and published to npm as [`premiere-pro-mcp`](ht
 
 [Website](https://premiere-pro-mcp.com/) · [Recorded demo](https://premiere-pro-mcp.com/demo/) · [Compare servers](https://premiere-pro-mcp.com/compare/) · [Setup guides](https://premiere-pro-mcp.com/blog/how-to-set-up-premiere-pro-mcp/) · [Search tools](https://premiere-pro-mcp.com/tools/) · [Troubleshooting](https://premiere-pro-mcp.com/docs/troubleshooting/) · [Release facts](https://premiere-pro-mcp.com/facts/)
 
-Development source: 446 core tools across 68 modules, 4 resources, and 29 guided workflows. A connected UXP host adds 98 capability-gated tools.
+Development source: 447 core tools across 68 modules, 4 resources, and 29 guided workflows. A connected UXP host adds 98 capability-gated tools.
 
 The [completed AE render handoff](docs/after-effects-render-handoff.md) previews and confirms importing one finished render into an existing Premiere bin, with host and file rechecks and an import receipt.
 
@@ -127,7 +127,7 @@ and repository before configuring a client. The new
 VS Code, or Codex settings that point directly to this installation. It is a
 feature included in v1.15.1 and later.
 
-The current source exposes 446 core tools for supported workflow steps spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 98 documented, capability-gated tools without replacing the production CEP bridge.
+The current source exposes 447 core tools for supported workflow steps spanning the supported ExtendScript, QE DOM, local media and interchange analysis, revisioned project-context retrieval, safe edit-planning, project-intake preview, review handoff, connection verification, and guarded After Effects MOGRT authoring, batch, library, render-queue, inspection, and Premiere-handoff workflows. A compatible, authenticated UXP panel adds 98 documented, capability-gated tools without replacing the production CEP bridge.
 
 <a id="latest-release"></a>
 
@@ -722,6 +722,27 @@ full-catalog mode and cannot be combined with another pack. `ping` and
 `get_capabilities` remain listed for diagnosis, and every registered call still
 passes through the same capability guard; a pack never grants authority.
 
+### Compact schema profile
+
+Every tool accepts two optional host guards per call, `expected_project_path`
+and `expected_cep_target`, and by default every listed `inputSchema` carries
+both (about 3,100 characters per tool). Set `PREMIERE_MCP_SCHEMA_PROFILE=compact`
+to omit them from `tools/list` and register one extra tool, `set_session_guard`,
+that stores them once for the MCP stdio session (one process, memory only).
+Stateless HTTP rejects the compact profile; use full schemas and per-call guards there. Every later call applies the stored guards exactly as if
+the client had passed them; a per-call value still wins and is still validated
+against the full guard schema. `full` is the default and changes nothing. The
+profile is a listing decision only: enforcement is unchanged under both.
+For a session that needs a handful of specific tools rather than a whole pack,
+set `PREMIERE_MCP_TOOL_LIST` to a comma-separated list of tool names, for
+example `PREMIERE_MCP_TOOL_LIST=get_project_info,get_bin_contents,save_project`.
+The list unions with `PREMIERE_MCP_TOOL_PACKS` when both are set, `ping` and
+`get_capabilities` stay listed, and a name that matches no registered tool is a
+startup error so a typo never silently drops a tool. UXP tool names are
+accepted without `PREMIERE_UXP_TOKEN`; they register once the UXP bridge is
+configured. `fork/packs/*.txt` hold reviewable one-name-per-line lists
+(`PREMIERE_MCP_TOOL_LIST="$(grep -v '^#' fork/packs/cleanup.txt | paste -sd, -)"`).
+
 Every listed tool now declares the same machine-readable result envelope through
 MCP `outputSchema`: `ok`, `tool`, plus `data` on success or `error` on failure.
 The tool-specific `data` shape remains versioned by the individual tool result,
@@ -969,7 +990,7 @@ Reviewed assistant-editing tools now provide dialogue candidate decisions, quote
 See [Filmcraft improvement ledger](docs/filmcraft-improvements.md) for exact-time
 planning, recovery, job observation, temporal evidence and facility workflows.
 
-## Tools (446 core total; 444 under the default profile; 542 with a connected UXP bridge)
+## Tools (447 core total; 445 under the default profile; 543 with a connected UXP bridge)
 
 The [complete supported-actions catalog](docs/supported-actions.md) lists every
 registered core tool, the two tools restricted behind explicit `unsafe-script`
@@ -1468,7 +1489,7 @@ premiere-pro-mcp/
 ├── src/
 │   ├── index.ts                 # Entry point — stdio transport setup
 │   ├── http-server.ts           # Entry point — HTTP/SSE transport (Fly.io / remote)
-│   ├── server.ts                # MCP server — registers 446 tools, filtered by authority profile
+│   ├── server.ts                # MCP server — registers 447 tools, filtered by authority profile
 │   ├── bridge/
 │   │   ├── file-bridge.ts       # File-based IPC (write .jsx, poll .json)
 │   │   └── script-builder.ts    # ExtendScript generator with ES3 helpers

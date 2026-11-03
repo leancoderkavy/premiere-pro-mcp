@@ -56,6 +56,7 @@ export interface ToolOperationalCapability {
 }
 
 const LOCAL_TOOLS = new Set([
+  "set_session_guard",
   "get_capabilities",
   "create_editorial_context_pack",
   "create_editorial_plan",

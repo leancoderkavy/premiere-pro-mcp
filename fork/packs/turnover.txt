@@ -1,0 +1,16 @@
+# Audio and picture turnover: gate, sequence readback, track and level fixes, AAF and XML export.
+verify_premiere_connection
+get_premiere_state
+get_bridge_telemetry
+list_sequences
+get_active_sequence
+get_full_sequence_info
+find_project_item_by_name
+manage_track_state_uxp
+manage_clip_effects_uxp
+set_clips_volume
+export_aaf_uxp
+export_as_fcp_xml
+export_sequence_job_start
+get_export_job_status
+save_project
