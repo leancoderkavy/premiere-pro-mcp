@@ -14,6 +14,15 @@ const MAX_NAME_LENGTH = 255;
 const MAX_PATH_SEGMENTS = 16;
 const MAX_TREE_DEPTH = 32;
 const ROOT_ID = "root";
+/** Explicit target_tree bins per call. */
+export const MAX_TARGET_TREE_BINS = 500;
+/** Item node IDs across the whole target_tree per call. */
+export const MAX_TARGET_TREE_ITEMS = 2_000;
+/** Renames planned (and applied) per call. */
+export const MAX_STRUCTURE_RENAMES = 200;
+/** Empty bins removed per call; re-audit for the next batch. */
+export const MAX_STRUCTURE_REMOVALS = 200;
+const MAX_NODE_ID_LENGTH = 255;
 
 export interface ProjectStructureRules {
   allowed_root_names?: string[];
@@ -21,6 +30,9 @@ export interface ProjectStructureRules {
   sequences_bin?: string;
   max_depth?: number;
   forbid_empty_bins?: boolean;
+  target_tree?: Array<{ bin: string; items?: string[] }>;
+  rename?: Array<{ item_id: string; name: string }>;
+  remove_empty?: boolean;
 }
 
 interface NormalizedRules {
@@ -29,6 +41,9 @@ interface NormalizedRules {
   sequencesBin?: string[];
   maxDepth?: number;
   forbidEmptyBins: boolean;
+  targetTree?: Array<{ path: string[]; items: string[] }>;
+  renames?: Array<{ itemId: string; name: string }>;
+  removeEmpty: boolean;
 }
 
 export type StructureItemKind = "bin" | "sequence" | "clip" | "file" | "other";
@@ -49,7 +64,7 @@ export interface StructureSnapshot {
   skippedReferences: number;
 }
 
-export type StructureRule = "allowed_root_names" | "extension_bins" | "sequences_bin" | "max_depth" | "forbid_empty_bins";
+export type StructureRule = "allowed_root_names" | "extension_bins" | "sequences_bin" | "max_depth" | "forbid_empty_bins" | "target_tree" | "rename" | "remove_empty";
 
 export interface StructureViolation {
   item_id: string;
@@ -69,7 +84,21 @@ export interface StructureMove {
   from_parent_id: string;
   from_bin_path: string;
   target_bin_path: string;
-  rule: "extension_bins" | "sequences_bin";
+  rule: "extension_bins" | "sequences_bin" | "target_tree";
+}
+
+export interface StructureRename {
+  item_id: string;
+  item_kind: StructureItemKind;
+  from_name: string;
+  to_name: string;
+}
+
+export interface StructureRemoval {
+  item_id: string;
+  item_name: string;
+  bin_path: string;
+  parent_id: string;
 }
 
 export interface StructurePlan {
@@ -85,6 +114,16 @@ export interface StructurePlan {
   movesTruncated: boolean;
   binsToCreate: string[];
   ambiguousTargets: Array<{ target_bin_path: string; ambiguous_at: string }>;
+  /** Bins named by target_tree that must exist after apply (created when missing). */
+  targetBins: string[];
+  renames: StructureRename[];
+  renamesTotal: number;
+  renamesTruncated: boolean;
+  removals: StructureRemoval[];
+  removalsTotal: number;
+  removalsTruncated: boolean;
+  /** Node IDs named by target_tree or rename that the walk did not find. */
+  unresolvedItemIds: string[];
   planToken: string;
 }
 
@@ -113,7 +152,14 @@ function parseBinPath(value: unknown, label: string): string[] {
   });
 }
 
-const RULE_KEYS = new Set(["allowed_root_names", "extension_bins", "sequences_bin", "max_depth", "forbid_empty_bins"]);
+const RULE_KEYS = new Set(["allowed_root_names", "extension_bins", "sequences_bin", "max_depth", "forbid_empty_bins", "target_tree", "rename", "remove_empty"]);
+
+function checkNodeId(value: unknown, label: string): string {
+  if (typeof value !== "string" || !value.length) fail(`${label} must be a non-empty node ID string`);
+  if (value.length > MAX_NODE_ID_LENGTH) fail(`${label} must be at most ${MAX_NODE_ID_LENGTH} characters`);
+  if (/[\u0000-\u001f\u007f]/.test(value)) fail(`${label} must not contain control characters`);
+  return value;
+}
 
 /** Strict, bounded validation: unknown keys and out-of-range values are rejected. */
 export function validateStructureRules(value: unknown): NormalizedRules {
@@ -121,7 +167,66 @@ export function validateStructureRules(value: unknown): NormalizedRules {
   const input = value as Record<string, unknown>;
   const unknown = Object.keys(input).filter((key) => !RULE_KEYS.has(key));
   if (unknown.length) fail(`rules has unknown key(s) ${unknown.join(", ")}; accepted keys are ${[...RULE_KEYS].join(", ")}`);
-  const rules: NormalizedRules = { forbidEmptyBins: false };
+  const rules: NormalizedRules = { forbidEmptyBins: false, removeEmpty: false };
+
+  if (input.target_tree !== undefined) {
+    const tree = input.target_tree;
+    if (!Array.isArray(tree) || !tree.length) fail("rules.target_tree must be a non-empty array of { bin, items? } entries");
+    if (tree.length > MAX_TARGET_TREE_BINS) fail(`rules.target_tree may have at most ${MAX_TARGET_TREE_BINS} bins`);
+    const seenPaths = new Set<string>();
+    const seenItems = new Set<string>();
+    let itemCount = 0;
+    rules.targetTree = tree.map((entry, index) => {
+      const label = `rules.target_tree[${index}]`;
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) fail(`${label} must be an object with bin and optional items`);
+      const record = entry as Record<string, unknown>;
+      const unknownKeys = Object.keys(record).filter((key) => key !== "bin" && key !== "items");
+      if (unknownKeys.length) fail(`${label} has unknown key(s) ${unknownKeys.join(", ")}; accepted keys are bin, items`);
+      const path = parseBinPath(record.bin, `${label}.bin`);
+      const key = path.join("/");
+      if (seenPaths.has(key)) fail(`${label}.bin ${key} is listed more than once`);
+      seenPaths.add(key);
+      const items: string[] = [];
+      if (record.items !== undefined) {
+        if (!Array.isArray(record.items)) fail(`${label}.items must be an array of node IDs`);
+        record.items.forEach((id, itemIndex) => {
+          const nodeId = checkNodeId(id, `${label}.items[${itemIndex}]`);
+          if (seenItems.has(nodeId)) fail(`${label}.items[${itemIndex}] ${nodeId} is listed under more than one bin`);
+          seenItems.add(nodeId);
+          items.push(nodeId);
+        });
+        itemCount += items.length;
+        if (itemCount > MAX_TARGET_TREE_ITEMS) fail(`rules.target_tree may name at most ${MAX_TARGET_TREE_ITEMS} items in total`);
+      }
+      return { path, items };
+    });
+  }
+
+  if (input.rename !== undefined) {
+    const list = input.rename;
+    if (!Array.isArray(list) || !list.length) fail("rules.rename must be a non-empty array of { item_id, name } entries");
+    if (list.length > MAX_STRUCTURE_RENAMES) fail(`rules.rename may have at most ${MAX_STRUCTURE_RENAMES} entries`);
+    const seen = new Set<string>();
+    rules.renames = list.map((entry, index) => {
+      const label = `rules.rename[${index}]`;
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) fail(`${label} must be an object with item_id and name`);
+      const record = entry as Record<string, unknown>;
+      const unknownKeys = Object.keys(record).filter((key) => key !== "item_id" && key !== "name");
+      if (unknownKeys.length) fail(`${label} has unknown key(s) ${unknownKeys.join(", ")}; accepted keys are item_id, name`);
+      const itemId = checkNodeId(record.item_id, `${label}.item_id`);
+      if (seen.has(itemId)) fail(`${label}.item_id ${itemId} is renamed more than once`);
+      seen.add(itemId);
+      const name = checkName(record.name, `${label}.name`);
+      if (name.trim() !== name) fail(`${label}.name must not have leading or trailing spaces`);
+      if (name.includes("/")) fail(`${label}.name must not contain "/" (it is the bin path separator)`);
+      return { itemId, name };
+    });
+  }
+
+  if (input.remove_empty !== undefined) {
+    if (typeof input.remove_empty !== "boolean") fail("rules.remove_empty must be a boolean");
+    rules.removeEmpty = input.remove_empty;
+  }
 
   if (input.allowed_root_names !== undefined) {
     const names = input.allowed_root_names;
@@ -152,7 +257,7 @@ export function validateStructureRules(value: unknown): NormalizedRules {
     const depth = input.max_depth;
     if (typeof depth !== "number" || !Number.isInteger(depth) || depth < 1 || depth > MAX_TREE_DEPTH) fail(`rules.max_depth must be an integer from 1 through ${MAX_TREE_DEPTH}`);
     rules.maxDepth = depth;
-    const targets = [...(rules.extensionBins ?? []).map((rule) => rule.path), ...(rules.sequencesBin ? [rules.sequencesBin] : [])];
+    const targets = [...(rules.extensionBins ?? []).map((rule) => rule.path), ...(rules.sequencesBin ? [rules.sequencesBin] : []), ...(rules.targetTree ?? []).map((entry) => entry.path)];
     const tooDeep = targets.find((path) => path.length > depth);
     if (tooDeep) fail(`target bin ${tooDeep.join("/")} is deeper than rules.max_depth ${depth}; the plan would create a violation`);
   }
@@ -162,8 +267,8 @@ export function validateStructureRules(value: unknown): NormalizedRules {
     rules.forbidEmptyBins = input.forbid_empty_bins;
   }
 
-  if (!rules.allowedRootNames && !rules.extensionBins && !rules.sequencesBin && rules.maxDepth === undefined && !rules.forbidEmptyBins) {
-    fail("rules must set at least one of allowed_root_names, extension_bins, sequences_bin, max_depth, or forbid_empty_bins: true");
+  if (!rules.allowedRootNames && !rules.extensionBins && !rules.sequencesBin && rules.maxDepth === undefined && !rules.forbidEmptyBins && !rules.targetTree && !rules.renames && !rules.removeEmpty) {
+    fail("rules must set at least one of allowed_root_names, extension_bins, sequences_bin, max_depth, forbid_empty_bins: true, target_tree, rename, or remove_empty: true");
   }
   return rules;
 }
@@ -304,16 +409,84 @@ export function evaluateProjectStructure(rawSnapshot: unknown, rawRules: unknown
     }
   }
 
+  // Explicit tree: every listed bin must exist; every listed item must sit directly in its bin.
+  const unresolved = new Set<string>();
+  const targetBins: string[] = [];
+  for (const entry of rules.targetTree ?? []) {
+    const target = entry.path.join("/");
+    targetBins.push(target);
+    const resolution = resolve(entry.path);
+    if (resolution.status === "ambiguous") ambiguous.set(target, resolution.at);
+    for (const itemId of entry.items) {
+      const item = byId.get(itemId);
+      if (!item) { unresolved.add(itemId); continue; }
+      if (resolution.status === "exists" && item.parentId === resolution.binId) continue;
+      const violation: StructureViolation = {
+        item_id: item.id,
+        item_name: item.name,
+        item_kind: item.kind,
+        current_bin_path: binPathOfParent(item),
+        rule: "target_tree",
+        detail: `target_tree places this ${item.kind} directly in ${target}`,
+        proposed_target_bin: target,
+      };
+      if (resolution.status === "ambiguous") {
+        violation.target_ambiguous = true;
+        violation.detail += `, but more than one bin is named ${resolution.at}; rename one before applying`;
+      } else if (item.kind === "bin" && resolution.status === "exists" && isWithin(resolution.binId, item.id)) {
+        violation.detail += `, but that bin is the item itself or nested inside it; not planned`;
+      } else {
+        moves.push({ item_id: item.id, item_name: item.name, item_kind: item.kind, from_parent_id: item.parentId, from_bin_path: violation.current_bin_path, target_bin_path: target, rule: "target_tree" });
+      }
+      violations.push(violation);
+    }
+  }
+
+  const renames: StructureRename[] = [];
+  for (const entry of rules.renames ?? []) {
+    const item = byId.get(entry.itemId);
+    if (!item) { unresolved.add(entry.itemId); continue; }
+    if (item.name === entry.name) continue;
+    violations.push({ item_id: item.id, item_name: item.name, item_kind: item.kind, current_bin_path: binPathOfParent(item), rule: "rename", detail: `rename to ${entry.name}` });
+    renames.push({ item_id: item.id, item_kind: item.kind, from_name: item.name, to_name: entry.name });
+  }
+
   const plannedMoves = moves.slice(0, MAX_STRUCTURE_MOVES);
-  const binsToCreate = [...new Set(plannedMoves.map((move) => move.target_bin_path))].filter((path) => resolve(path.split("/")).status === "missing");
+  const allTargetPaths = [...new Set([...plannedMoves.map((move) => move.target_bin_path), ...targetBins])];
+  const binsToCreate = allTargetPaths.filter((path) => resolve(path.split("/")).status === "missing");
+
+  // Bins that must survive apply: every existing prefix of a target path, bins placed by target_tree, and renamed bins.
+  const protectedBins = new Set<string>([...(rules.renames ?? []).map((entry) => entry.itemId), ...(rules.targetTree ?? []).flatMap((entry) => entry.items)]);
+  for (const path of allTargetPaths) {
+    const segments = path.split("/");
+    for (let end = 1; end <= segments.length; end++) {
+      const resolution = resolve(segments.slice(0, end));
+      if (resolution.status === "exists") protectedBins.add(resolution.binId);
+    }
+  }
+  const removals: StructureRemoval[] = [];
+  if (rules.removeEmpty) {
+    for (const item of snapshot.items) {
+      if (item.kind !== "bin" || item.childCount !== 0 || protectedBins.has(item.id)) continue;
+      violations.push({ item_id: item.id, item_name: item.name, item_kind: item.kind, current_bin_path: binPathOfParent(item), rule: "remove_empty", detail: "Bin is empty; apply deletes it if it is still empty" });
+      removals.push({ item_id: item.id, item_name: item.name, bin_path: pathOf(item.id), parent_id: item.parentId });
+    }
+  }
+  const plannedRenames = renames.slice(0, MAX_STRUCTURE_RENAMES);
+  const plannedRemovals = removals.slice(0, MAX_STRUCTURE_REMOVALS);
+  const unresolvedItemIds = [...unresolved];
   const ambiguousTargets = [...ambiguous.entries()].map(([target_bin_path, ambiguous_at]) => ({ target_bin_path, ambiguous_at }));
   const planToken = createHash("sha256").update(JSON.stringify({
-    version: 1,
+    version: 2,
     projectId: snapshot.project.id,
     truncated: snapshot.truncated,
     rules,
     moves: plannedMoves.map((move) => [move.item_id, move.from_parent_id, move.target_bin_path]),
     binsToCreate,
+    targetBins,
+    renames: plannedRenames.map((rename) => [rename.item_id, rename.from_name, rename.to_name]),
+    removals: plannedRemovals.map((removal) => [removal.item_id, removal.parent_id]),
+    unresolvedItemIds,
     ambiguousTargets,
   })).digest("hex");
 
@@ -330,6 +503,14 @@ export function evaluateProjectStructure(rawSnapshot: unknown, rawRules: unknown
     movesTruncated: moves.length > MAX_STRUCTURE_MOVES,
     binsToCreate,
     ambiguousTargets,
+    targetBins,
+    renames: plannedRenames,
+    renamesTotal: renames.length,
+    renamesTruncated: renames.length > MAX_STRUCTURE_RENAMES,
+    removals: plannedRemovals,
+    removalsTotal: removals.length,
+    removalsTruncated: removals.length > MAX_STRUCTURE_REMOVALS,
+    unresolvedItemIds,
     planToken,
   };
 }
@@ -401,16 +582,20 @@ export function projectStructureCaptureScript(maxItems: number = MAX_STRUCTURE_A
  * Never deletes or renames anything.
  */
 export function projectStructureApplyScript(plan: StructurePlan): string {
-  const targets = [...new Set(plan.moves.map((move) => move.target_bin_path))];
+  const targets = [...new Set([...plan.moves.map((move) => move.target_bin_path), ...(plan.targetBins ?? [])])];
   const targetIndex = new Map(targets.map((path, index) => [path, index]));
   const quote = (value: string) => `"${escapeForExtendScript(value)}"`;
   const targetLiteral = targets.map((path) => `[${path.split("/").map(quote).join(",")}]`).join(",");
   const moveLiteral = plan.moves.map((move) => `{itemId:${quote(move.item_id)},name:${quote(move.item_name)},fromParentId:${quote(move.from_parent_id)},target:${targetIndex.get(move.target_bin_path)}}`).join(",\n");
+  const removalLiteral = (plan.removals ?? []).map((removal) => `{itemId:${quote(removal.item_id)},name:${quote(removal.item_name)},parentId:${quote(removal.parent_id)},path:${quote(removal.bin_path)}}`).join(",\n");
+  const renameLiteral = (plan.renames ?? []).map((rename) => `{itemId:${quote(rename.item_id)},fromName:${quote(rename.from_name)},toName:${quote(rename.to_name)}}`).join(",\n");
   return buildToolScript(`
     if (!app.project || !app.project.rootItem) return __error("No project is open");
     var root = app.project.rootItem;
     var targets = [${targetLiteral}];
     var moves = [${moveLiteral}];
+    var removals = [${removalLiteral}];
+    var renames = [${renameLiteral}];
 
     function joinPath(segments, end) {
       var out = "";
@@ -494,7 +679,63 @@ export function projectStructureApplyScript(plan: StructurePlan): string {
       }
       results.push(entry);
     }
-    return __result({ createdBins: createdBins, moves: results, verifiedCount: verifiedCount, attempted: moves.length });
+
+    function strictChildCount(bin) {
+      try {
+        var count = bin.children.numItems;
+        return typeof count === "number" && isFinite(count) && count >= 0 && Math.floor(count) === count ? count : null;
+      } catch (eCount) { return null; }
+    }
+    // Phase 4: delete only bins that are still empty now; read back the parent's children.
+    var removalResults = [];
+    var removedCount = 0;
+    for (var r = 0; r < removals.length; r++) {
+      var removal = removals[r];
+      var rEntry = { item_id: removal.itemId, item_name: removal.name, bin_path: removal.path, status: "failed" };
+      var binToRemove = __findProjectItemByNodeId(removal.itemId);
+      if (!binToRemove) { rEntry.reason = "bin_not_found"; removalResults.push(rEntry); continue; }
+      if (!__isBinItem(binToRemove)) { rEntry.reason = "not_a_bin"; removalResults.push(rEntry); continue; }
+      var removeParent = removal.parentId === "${ROOT_ID}" ? root : __findProjectItemByNodeId(removal.parentId);
+      if (!removeParent || !__isDirectChild(removeParent, binToRemove)) { rEntry.reason = "moved_since_audit"; removalResults.push(rEntry); continue; }
+      var removalChildCount = strictChildCount(binToRemove);
+      if (removalChildCount === null) { rEntry.reason = "children_unreadable"; removalResults.push(rEntry); continue; }
+      if (removalChildCount !== 0) { rEntry.reason = "not_empty"; rEntry.childCount = removalChildCount; removalResults.push(rEntry); continue; }
+      try { binToRemove.deleteBin(); } catch (eDelete) { rEntry.hostError = String(eDelete); }
+      var stillThere = false;
+      var parentCount = strictChildCount(removeParent);
+      var readbackReliable = parentCount !== null;
+      for (var pc = 0; pc < parentCount; pc++) {
+        var survivor = __childAt(removeParent, pc);
+        if (!survivor || !__nodeIdOf(survivor)) { readbackReliable = false; break; }
+        if (__nodeIdOf(survivor) === removal.itemId) { stillThere = true; break; }
+      }
+      if (!readbackReliable || strictChildCount(removeParent) !== parentCount) { rEntry.reason = "parent_readback_unreadable"; }
+      else if (stillThere) { rEntry.reason = "parent_readback_mismatch"; } else { rEntry.status = "verified"; removedCount++; }
+      removalResults.push(rEntry);
+    }
+
+    // Phase 5: rename last, so target paths above were resolved against the audited names.
+    var renameResults = [];
+    var renamedCount = 0;
+    for (var n = 0; n < renames.length; n++) {
+      var rename = renames[n];
+      var nEntry = { item_id: rename.itemId, from_name: rename.fromName, to_name: rename.toName, status: "failed" };
+      var toRename = __findProjectItemByNodeId(rename.itemId);
+      if (!toRename) { nEntry.reason = "item_not_found"; renameResults.push(nEntry); continue; }
+      if (String(toRename.name) !== rename.fromName) { nEntry.reason = "renamed_since_audit"; nEntry.current_name = String(toRename.name); renameResults.push(nEntry); continue; }
+      try { toRename.name = rename.toName; } catch (eRename) { nEntry.hostError = String(eRename); }
+      var readback = __findProjectItemByNodeId(rename.itemId);
+      if (readback && String(readback.name) === rename.toName) { nEntry.status = "verified"; renamedCount++; }
+      else { nEntry.reason = "name_readback_mismatch"; if (readback) nEntry.current_name = String(readback.name); }
+      renameResults.push(nEntry);
+    }
+
+    return __result({
+      createdBins: createdBins,
+      moves: results, verifiedCount: verifiedCount, attempted: moves.length,
+      removals: removalResults, removedCount: removedCount, removalsAttempted: removals.length,
+      renames: renameResults, renamedCount: renamedCount, renamesAttempted: renames.length
+    });
   `);
 }
 
@@ -513,11 +754,11 @@ export function getProjectStructureAuditTools(bridgeOptions: BridgeOptions, depe
   return {
     audit_project_structure: {
       description:
-        `Audit the Project panel against explicit layout rules (allowed root names, extension-to-bin placement, a sequences bin, maximum bin depth, empty bins) and report violations by node ID. ` +
-        `Read-only by default (inspect authority): walks up to ${MAX_STRUCTURE_AUDIT_ITEMS} items, reports truncation, and returns at most ${MAX_STRUCTURE_MOVES} proposed moves plus a plan_token bound to the project, rules, and those exact moves. ` +
+        `Audit the Project panel against explicit layout rules (allowed root names, extension-to-bin placement, a sequences bin, maximum bin depth, empty bins, an explicit target_tree of bins with item node IDs, renames, remove_empty) and report violations by node ID. ` +
+        `Read-only by default (inspect authority): walks up to ${MAX_STRUCTURE_AUDIT_ITEMS} items, reports truncation, and returns at most ${MAX_STRUCTURE_MOVES} proposed moves, ${MAX_STRUCTURE_RENAMES} renames and ${MAX_STRUCTURE_REMOVALS} empty-bin removals plus a plan_token bound to the project, rules, and those exact operations. ` +
         `With apply: true (edit authority) it requires that plan_token, re-reads the project and refuses if the plan changed, the walk was truncated, or any target path is ambiguous (two bins with one name at a level). ` +
-        `It then creates missing target bins and moves only the planned items, reading back each item's parent bin; outcome is verified only when every move is verified, otherwise partial or failed with per-item details. ` +
-        `It never deletes, renames, or moves bins; root-name, depth, and empty-bin findings are report-only.`,
+        `It then creates missing target bins, moves only the planned items (reading back each parent), deletes only remove_empty bins that are still empty (reading back the parent's children), then renames (reading back each name); target paths are resolved against the audited names, so renames run last. ` +
+        `Outcome is verified only when every planned operation is verified, otherwise partial or failed with per-item details. Without target_tree, rename, or remove_empty it never deletes, renames, or moves bins; root-name, depth, and forbid_empty_bins findings are report-only.`,
       parameters: {
         type: "object" as const,
         additionalProperties: false,
@@ -554,7 +795,41 @@ export function getProjectStructureAuditTools(bridgeOptions: BridgeOptions, depe
               },
               forbid_empty_bins: {
                 type: "boolean",
-                description: "Report bins with no children. Report-only: this tool never deletes bins.",
+                description: "Report bins with no children. Report-only; use remove_empty: true to delete them on apply.",
+              },
+              target_tree: {
+                type: "array",
+                minItems: 1,
+                maxItems: MAX_TARGET_TREE_BINS,
+                description: `Explicit layout: each entry names a slash-separated bin path that must exist (created on apply when missing) and the node IDs of items (clips, sequences, or bins) that must sit directly in it. Items elsewhere get a proposed move; a node ID the walk does not find is listed in unresolvedItemIds and never moved. Each node ID may appear under one bin only. Up to ${MAX_TARGET_TREE_BINS} bins and ${MAX_TARGET_TREE_ITEMS} items.`,
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  required: ["bin"],
+                  properties: {
+                    bin: { type: "string", minLength: 1, maxLength: 1024, description: "Slash-separated bin path from the project root, e.g. \"00 SEQUENCES/01 STRINGOUTS\"." },
+                    items: { type: "array", items: { type: "string", minLength: 1, maxLength: MAX_NODE_ID_LENGTH }, description: "Node IDs (from get_bin_contents, list_project_items, or a previous audit) that belong directly in this bin." },
+                  },
+                },
+              },
+              rename: {
+                type: "array",
+                minItems: 1,
+                maxItems: MAX_STRUCTURE_RENAMES,
+                description: `Items or bins to rename by node ID, applied last with name readback. A name equal to the current one is a no-op. Target paths in other rules are resolved against the names seen at audit time. Up to ${MAX_STRUCTURE_RENAMES} entries.`,
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  required: ["item_id", "name"],
+                  properties: {
+                    item_id: { type: "string", minLength: 1, maxLength: MAX_NODE_ID_LENGTH, description: "Node ID of the item or bin to rename." },
+                    name: { type: "string", minLength: 1, maxLength: MAX_NAME_LENGTH, description: "New Project-panel name; no leading or trailing spaces, no \"/\"." },
+                  },
+                },
+              },
+              remove_empty: {
+                type: "boolean",
+                description: `Plan deletion of bins that have no children at audit time, except bins on a target path or named in rename. Apply deletes only bins that are still empty, reading back the parent's children. Up to ${MAX_STRUCTURE_REMOVALS} per call; audit again for bins emptied by this apply.`,
               },
             },
           },
@@ -590,13 +865,16 @@ export function getProjectStructureAuditTools(bridgeOptions: BridgeOptions, depe
                 applied: false,
                 outcome: "audited",
                 compliant: plan.violationsTotal === 0,
-                applyReady: plan.moves.length > 0 && !plan.truncated && plan.ambiguousTargets.length === 0,
+                applyReady: (plan.moves.length > 0 || plan.binsToCreate.length > 0 || plan.renames.length > 0 || plan.removals.length > 0) && !plan.truncated && plan.ambiguousTargets.length === 0,
                 ...plan,
                 limitations: [
                   "Audit only; nothing in Premiere changed.",
-                  "Root-name, depth, and empty-bin findings are report-only; apply never deletes, renames, or moves bins.",
+                  "Root-name, depth, and forbid_empty_bins findings are report-only; apply moves, renames, or deletes bins only through target_tree, rename, and remove_empty.",
                   ...(plan.truncated ? [`The project walk stopped at ${MAX_STRUCTURE_AUDIT_ITEMS} items or ${MAX_TREE_DEPTH} levels; findings are incomplete and apply is refused.`] : []),
                   ...(plan.movesTruncated ? [`Only the first ${MAX_STRUCTURE_MOVES} of ${plan.movesTotal} moves are planned; apply this batch, then audit again.`] : []),
+                  ...(plan.renamesTruncated ? [`Only the first ${MAX_STRUCTURE_RENAMES} of ${plan.renamesTotal} renames are planned; apply this batch, then audit again.`] : []),
+                  ...(plan.removalsTruncated ? [`Only the first ${MAX_STRUCTURE_REMOVALS} of ${plan.removalsTotal} empty-bin removals are planned; apply this batch, then audit again.`] : []),
+                  ...(plan.unresolvedItemIds.length ? [`${plan.unresolvedItemIds.length} node ID(s) named in target_tree or rename were not found in the project walk and are not planned; see unresolvedItemIds.`] : []),
                 ],
               },
             };
@@ -606,17 +884,35 @@ export function getProjectStructureAuditTools(bridgeOptions: BridgeOptions, depe
           if (plan.planToken !== args.plan_token) return refusal("The project or rules changed since the audit, so the reviewed plan no longer matches; audit again and review the new plan.", { planToken: plan.planToken });
           if (plan.truncated) return refusal(`The project walk was truncated at ${MAX_STRUCTURE_AUDIT_ITEMS} items or ${MAX_TREE_DEPTH} levels, so the plan cannot be applied safely.`);
           if (plan.ambiguousTargets.length) return refusal(`Target bin path(s) are ambiguous: ${plan.ambiguousTargets.map((target) => target.ambiguous_at).join(", ")}. Rename the duplicate bins, then audit again.`, { ambiguousTargets: plan.ambiguousTargets });
-          if (!plan.moves.length) return { success: true, data: { applied: false, outcome: "verified", detail: "No moves were planned.", createdBins: [], moves: [], verifiedCount: 0, attempted: 0 } };
+          if (!plan.moves.length && !plan.binsToCreate.length && !plan.renames.length && !plan.removals.length) {
+            return { success: true, data: { applied: false, outcome: "verified", detail: "No moves, bins, renames, or removals were planned.", createdBins: [], moves: [], verifiedCount: 0, attempted: 0, removals: [], removedCount: 0, removalsAttempted: 0, renames: [], renamedCount: 0, renamesAttempted: 0 } };
+          }
 
           const result = await sendCommand(projectStructureApplyScript(plan), { ...bridgeOptions, mutationOnTimeout: true });
           if (!result.success) return result;
-          const data = result.data as { createdBins?: unknown[]; moves?: Array<{ status?: string }>; verifiedCount?: number; attempted?: number };
+          const data = result.data as { createdBins?: unknown[]; moves?: Array<{ status?: string }>; verifiedCount?: number; attempted?: number; removedCount?: number; removalsAttempted?: number; renamedCount?: number; renamesAttempted?: number };
           const attempted = data.attempted ?? plan.moves.length;
           const verifiedCount = data.verifiedCount ?? 0;
-          const outcome = verifiedCount === attempted ? "verified" : verifiedCount > 0 ? "partial" : "failed";
-          const summary = { applied: verifiedCount > 0 || (data.createdBins?.length ?? 0) > 0, outcome, ...data, movesRemaining: plan.movesTotal - plan.moves.length };
+          const removalsAttempted = data.removalsAttempted ?? plan.removals.length;
+          const removedCount = data.removedCount ?? 0;
+          const renamesAttempted = data.renamesAttempted ?? plan.renames.length;
+          const renamedCount = data.renamedCount ?? 0;
+          const done = verifiedCount + removedCount + renamedCount;
+          const planned = attempted + removalsAttempted + renamesAttempted;
+          const outcome = done === planned ? "verified" : done > 0 ? "partial" : "failed";
+          const summary = {
+            applied: done > 0 || (data.createdBins?.length ?? 0) > 0,
+            outcome,
+            ...data,
+            movesRemaining: plan.movesTotal - plan.moves.length,
+            removalsRemaining: plan.removalsTotal - plan.removals.length,
+            renamesRemaining: plan.renamesTotal - plan.renames.length,
+          };
           if (outcome === "verified") return { success: true, data: summary };
-          return { success: false, error: `${verifiedCount} of ${attempted} planned move(s) verified${outcome === "partial" ? "; the project changed" : ""}. See data.moves for per-item reasons; audit again before retrying.`, data: summary };
+          const parts = [`${verifiedCount} of ${attempted} planned move(s)`];
+          if (removalsAttempted) parts.push(`${removedCount} of ${removalsAttempted} empty-bin removal(s)`);
+          if (renamesAttempted) parts.push(`${renamedCount} of ${renamesAttempted} rename(s)`);
+          return { success: false, error: `${parts.join(", ")} verified${outcome === "partial" ? "; the project changed" : ""}. See data.moves, data.removals, and data.renames for per-item reasons; audit again before retrying.`, data: summary };
         } catch (error) {
           return { success: false, error: errorMessage(error) };
         }

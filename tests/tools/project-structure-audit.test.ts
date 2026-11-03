@@ -31,7 +31,7 @@ beforeEach(() => vi.clearAllMocks());
 type Node = { nodeId: string; name: string; type: number; children?: { numItems: number; [i: number]: Node }; parent?: Node; [key: string]: unknown };
 
 /** Fake Premiere project tree that evaluates the generated ExtendScript. */
-function fakeProject(options: { moveNoop?: string[]; createBinFails?: boolean; createInRoot?: boolean } = {}) {
+function fakeProject(options: { moveNoop?: string[]; createBinFails?: boolean; createInRoot?: boolean; deleteNoop?: string[]; renameNoop?: string[] } = {}) {
   let counter = 0;
   const kids = (bin: Node) => bin.children!;
   const remove = (bin: Node, child: Node) => {
@@ -43,6 +43,10 @@ function fakeProject(options: { moveNoop?: string[]; createBinFails?: boolean; c
   };
   const add = (bin: Node, child: Node) => { kids(bin)[kids(bin).numItems] = child; kids(bin).numItems++; child.parent = bin; };
   const movable = (node: Node) => {
+    if (options.renameNoop?.includes(node.nodeId)) {
+      const fixed = node.name;
+      Object.defineProperty(node, "name", { get: () => fixed, set: () => undefined, enumerable: true });
+    }
     node.moveBin = (target: Node) => {
       if (options.moveNoop?.includes(node.nodeId)) return;
       remove(node.parent!, node);
@@ -52,6 +56,10 @@ function fakeProject(options: { moveNoop?: string[]; createBinFails?: boolean; c
   };
   const bin = (nodeId: string, name: string): Node => {
     const node = movable({ nodeId, name, type: 2, children: { numItems: 0 } });
+    node.deleteBin = () => {
+      if (options.deleteNoop?.includes(node.nodeId)) return;
+      remove(node.parent!, node);
+    };
     node.createBin = (childName: string) => {
       if (options.createBinFails) return null;
       const created = bin(`new-${++counter}`, childName);
@@ -341,5 +349,198 @@ describe("audit_project_structure validation and authority", () => {
 
   it("is registered through the project-intake module", () => {
     expect(Object.keys(getProjectIntakeTools(bridgeOptions))).toContain("audit_project_structure");
+  });
+});
+
+describe("audit_project_structure target_tree, rename, and remove_empty", () => {
+  function tidyProject(options: Parameters<typeof fakeProject>[0] = {}) {
+    const p = fakeProject(options);
+    const sequences = p.bin("seqs", "00 SEQUENCES");
+    const roughcuts = p.bin("rc", "03 ROUGHCUTS");
+    const old = p.bin("zold", "zOLD");
+    const empty = p.bin("empty", "Untitled Bin");
+    const emptyKept = p.bin("kept", "02 LINES");
+    const stray = p.sequence("seq-stray", "Cut v3");
+    const stems = p.sequence("seq-stems", "Music stems");
+    const music = p.bin("music", "comps");
+    p.add(p.root, sequences); p.add(sequences, roughcuts); p.add(roughcuts, old); p.add(root(p), empty); p.add(root(p), emptyKept);
+    p.add(p.root, stray); p.add(p.root, music); p.add(music, stems);
+    return { ...p, sequences, roughcuts, old, empty, emptyKept, stray, stems, music };
+  }
+  const root = (p: ReturnType<typeof fakeProject>) => p.root;
+  const tidyRules = {
+    target_tree: [
+      { bin: "00 SEQUENCES/03 ROUGHCUTS", items: ["seq-stray", "zold"] },
+      { bin: "00 SEQUENCES/02 LINES", items: ["kept"] },
+      { bin: "00 SEQUENCES/01 STRINGOUTS" },
+      { bin: "02 AUDIO/02 MUSIC", items: ["music"] },
+    ],
+    rename: [{ item_id: "seq-stems", name: "MUSIC STEMS" }, { item_id: "rc", name: "03 ROUGHCUTS" }],
+    remove_empty: true,
+  };
+
+  it("plans explicit placements, renames, and removals with a token, without changing Premiere", async () => {
+    const p = tidyProject();
+    const audit = await tools().audit_project_structure.handler({ rules: tidyRules }) as Result;
+    expect(audit.success).toBe(true);
+    expect(audit.data).toMatchObject({ applied: false, applyReady: true, compliant: false, unresolvedItemIds: [] });
+    expect(audit.data!.moves).toEqual([
+      expect.objectContaining({ item_id: "seq-stray", target_bin_path: "00 SEQUENCES/03 ROUGHCUTS", rule: "target_tree" }),
+      expect.objectContaining({ item_id: "kept", item_kind: "bin", target_bin_path: "00 SEQUENCES/02 LINES", rule: "target_tree" }),
+      expect.objectContaining({ item_id: "music", item_kind: "bin", target_bin_path: "02 AUDIO/02 MUSIC", rule: "target_tree" }),
+    ]);
+    expect(audit.data!.targetBins).toEqual(["00 SEQUENCES/03 ROUGHCUTS", "00 SEQUENCES/02 LINES", "00 SEQUENCES/01 STRINGOUTS", "02 AUDIO/02 MUSIC"]);
+    expect(audit.data!.binsToCreate).toEqual(["00 SEQUENCES/02 LINES", "02 AUDIO/02 MUSIC", "00 SEQUENCES/01 STRINGOUTS"]);
+    // rc already has the requested name: no-op, not planned.
+    expect(audit.data!.renames).toEqual([{ item_id: "seq-stems", item_kind: "sequence", from_name: "Music stems", to_name: "MUSIC STEMS" }]);
+    // zOLD is empty but is placed by target_tree; 02 LINES is empty but is a target path and placed; Untitled Bin goes.
+    expect(audit.data!.removals).toEqual([{ item_id: "empty", item_name: "Untitled Bin", bin_path: "Untitled Bin", parent_id: "root" }]);
+    expect(audit.data!.violations).toContainEqual(expect.objectContaining({ item_id: "empty", rule: "remove_empty" }));
+    expect(audit.data!.violations).toContainEqual(expect.objectContaining({ item_id: "seq-stems", rule: "rename" }));
+    expect(p.pathOf(p.stray)).toBe("/");
+    expect(mockedSendCommand).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies the whole tidy in one call with readback and re-audits compliant", async () => {
+    const p = tidyProject();
+    const audit = await tools().audit_project_structure.handler({ rules: tidyRules }) as Result;
+    const result = await tools().audit_project_structure.handler({ rules: tidyRules, apply: true, plan_token: audit.data!.planToken }) as Result;
+    expect(result.success).toBe(true);
+    expect(result.data).toMatchObject({ applied: true, outcome: "verified", verifiedCount: 3, attempted: 3, removedCount: 1, removalsAttempted: 1, renamedCount: 1, renamesAttempted: 1, movesRemaining: 0, removalsRemaining: 0, renamesRemaining: 0 });
+    expect(result.data!.createdBins.map((b: { path: string }) => b.path)).toEqual(["00 SEQUENCES/02 LINES", "02 AUDIO", "02 AUDIO/02 MUSIC", "00 SEQUENCES/01 STRINGOUTS"]);
+    expect(p.pathOf(p.stray)).toBe("00 SEQUENCES/03 ROUGHCUTS");
+    expect(p.pathOf(p.emptyKept)).toBe("00 SEQUENCES/02 LINES");
+    expect(p.pathOf(p.music)).toBe("02 AUDIO/02 MUSIC");
+    expect(p.pathOf(p.stems)).toBe("02 AUDIO/02 MUSIC/comps");
+    expect(p.stems.name).toBe("MUSIC STEMS");
+    expect(p.empty.parent).toBe(p.root);
+    expect(Array.from({ length: p.root.children!.numItems }, (_, i) => p.root.children![i].nodeId)).not.toContain("empty");
+    const again = await tools().audit_project_structure.handler({ rules: tidyRules }) as Result;
+    expect(again.data).toMatchObject({ compliant: true, moves: [], renames: [], removals: [], binsToCreate: [], applyReady: false });
+  });
+
+  it("reports unresolved node IDs and refuses to move a bin into itself", async () => {
+    const p = tidyProject();
+    const audit = await tools().audit_project_structure.handler({ rules: { target_tree: [{ bin: "00 SEQUENCES/03 ROUGHCUTS", items: ["ghost", "seqs"] }], rename: [{ item_id: "nobody", name: "X" }] } }) as Result;
+    expect(audit.data).toMatchObject({ unresolvedItemIds: ["ghost", "nobody"], moves: [], applyReady: false });
+    expect(audit.data!.violations).toContainEqual(expect.objectContaining({ item_id: "seqs", rule: "target_tree", detail: expect.stringContaining("nested inside it") }));
+    expect(audit.data!.limitations.join(" ")).toContain("2 node ID(s)");
+    expect(p.pathOf(p.sequences)).toBe("/");
+  });
+
+  it("creates target_tree bins with no items and applies them even without moves", async () => {
+    const p = fakeProject();
+    const rulesOnlyBins = { target_tree: [{ bin: "04 TURNOVER/AAF" }] };
+    const audit = await tools().audit_project_structure.handler({ rules: rulesOnlyBins }) as Result;
+    expect(audit.data).toMatchObject({ applyReady: true, binsToCreate: ["04 TURNOVER/AAF"], moves: [] });
+    const result = await tools().audit_project_structure.handler({ rules: rulesOnlyBins, apply: true, plan_token: audit.data!.planToken }) as Result;
+    expect(result.data).toMatchObject({ outcome: "verified", applied: true, attempted: 0 });
+    expect(result.data!.createdBins.map((b: { path: string }) => b.path)).toEqual(["04 TURNOVER", "04 TURNOVER/AAF"]);
+    expect(p.root.children![0].name).toBe("04 TURNOVER");
+  });
+
+  it("skips a bin that is no longer empty at apply time and reports partial", async () => {
+    const p = tidyProject();
+    const plan = evaluateProjectStructure((await sendCommand(projectStructureCaptureScript(), bridgeOptions)).data, { remove_empty: true });
+    expect(plan.removals.map((r) => r.item_id).sort()).toEqual(["empty", "kept", "zold"]);
+    p.add(p.empty, p.clip("late", "Late.mp4", "/x/Late.mp4"));
+    const result = await sendCommand(projectStructureApplyScript(plan), bridgeOptions) as Result;
+    expect(result.data!.removals).toContainEqual(expect.objectContaining({ item_id: "empty", status: "failed", reason: "not_empty", childCount: 1 }));
+    expect(result.data!.removedCount).toBe(2);
+    expect(p.empty.parent).toBe(p.root);
+  });
+
+  it("reports readback mismatches for deletes and renames through the handler", async () => {
+    const p = tidyProject({ deleteNoop: ["empty"], renameNoop: ["seq-stems"] });
+    const partialRules = { rename: [{ item_id: "seq-stems", name: "MUSIC STEMS" }], remove_empty: true, target_tree: [{ bin: "00 SEQUENCES/03 ROUGHCUTS", items: ["zold"] }, { bin: "02 LINES" }] };
+    const audit = await tools().audit_project_structure.handler({ rules: partialRules }) as Result;
+    const result = await tools().audit_project_structure.handler({ rules: partialRules, apply: true, plan_token: audit.data!.planToken }) as Result;
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("0 of 1 empty-bin removal(s)");
+    expect(result.error).toContain("0 of 1 rename(s)");
+    expect(result.data).toMatchObject({ outcome: "failed", removedCount: 0, renamedCount: 0 });
+    expect(result.data!.removals[0]).toMatchObject({ item_id: "empty", reason: "parent_readback_mismatch" });
+    expect(result.data!.renames[0]).toMatchObject({ item_id: "seq-stems", reason: "name_readback_mismatch", current_name: "Music stems" });
+    expect(p.stems.name).toBe("Music stems");
+  });
+
+  it("refuses deletion when the empty bin count becomes unreadable", async () => {
+    const p = tidyProject();
+    const plan = evaluateProjectStructure((await sendCommand(projectStructureCaptureScript(), bridgeOptions)).data, { remove_empty: true });
+    const deleteBin = vi.fn();
+    p.empty.deleteBin = deleteBin;
+    Object.defineProperty(p.empty.children!, "numItems", { get() { throw new Error("unreadable"); } });
+    const result = await sendCommand(projectStructureApplyScript(plan), bridgeOptions) as Result;
+    expect(deleteBin).not.toHaveBeenCalled();
+    expect(result.data!.removals).toContainEqual(expect.objectContaining({ item_id: "empty", status: "failed", reason: "children_unreadable" }));
+  });
+
+  it("does not verify removal when the parent count becomes unreadable", async () => {
+    const p = tidyProject();
+    const plan = evaluateProjectStructure((await sendCommand(projectStructureCaptureScript(), bridgeOptions)).data, { remove_empty: true });
+    p.empty.deleteBin = () => {
+      Object.defineProperty(p.root.children!, "numItems", { get() { throw new Error("unreadable"); } });
+    };
+    plan.removals = plan.removals.filter(r => r.item_id === "empty");
+    const result = await sendCommand(projectStructureApplyScript(plan), bridgeOptions) as Result;
+    expect(result.data!.removedCount).toBe(0);
+    expect(result.data!.removals[0]).toMatchObject({ status: "failed", reason: "parent_readback_unreadable" });
+  });
+
+  it("skips a rename when the name changed since the audit", async () => {
+    const p = tidyProject();
+    const plan = evaluateProjectStructure((await sendCommand(projectStructureCaptureScript(), bridgeOptions)).data, { rename: [{ item_id: "seq-stems", name: "MUSIC STEMS" }] });
+    p.stems.name = "Someone else";
+    const result = await sendCommand(projectStructureApplyScript(plan), bridgeOptions) as Result;
+    expect(result.data!.renames[0]).toMatchObject({ status: "failed", reason: "renamed_since_audit", current_name: "Someone else" });
+    expect(p.stems.name).toBe("Someone else");
+  });
+
+  it("binds the token to the explicit operations", () => {
+    const snapshot = { project: { id: "doc", name: "P" }, items: [
+      { id: "b1", name: "A", kind: "bin", parentId: "root", childCount: 0 },
+      { id: "c1", name: "C.mp4", kind: "clip", parentId: "root", extension: ".mp4" },
+    ], truncated: false };
+    const base = evaluateProjectStructure(snapshot, { target_tree: [{ bin: "A", items: ["c1"] }] });
+    expect(evaluateProjectStructure(snapshot, { target_tree: [{ bin: "A", items: ["c1"] }] }).planToken).toBe(base.planToken);
+    expect(evaluateProjectStructure(snapshot, { target_tree: [{ bin: "A", items: ["c1"] }], remove_empty: true }).planToken).not.toBe(base.planToken);
+    expect(evaluateProjectStructure(snapshot, { target_tree: [{ bin: "A", items: ["c1"] }], rename: [{ item_id: "c1", name: "D.mp4" }] }).planToken).not.toBe(base.planToken);
+    // A is a target path, so remove_empty leaves it alone even though it is empty.
+    expect(evaluateProjectStructure(snapshot, { target_tree: [{ bin: "A", items: ["c1"] }], remove_empty: true }).removals).toEqual([]);
+    expect(evaluateProjectStructure(snapshot, { remove_empty: true }).removals).toEqual([expect.objectContaining({ item_id: "b1" })]);
+  });
+
+  it("escapes rename and removal strings in the generated script", () => {
+    const plan = evaluateProjectStructure({ project: { id: "doc", name: "P" }, items: [
+      { id: 'bin"1', name: 'Old "Bin"\\', kind: "bin", parentId: "root", childCount: 0 },
+      { id: "s1", name: "Seq", kind: "sequence", parentId: "root" },
+    ], truncated: false }, { remove_empty: true, rename: [{ item_id: "s1", name: 'New "Name"\\' }] });
+    const script = projectStructureApplyScript(plan);
+    expect(script).toContain('itemId:"bin\\"1"');
+    expect(script).toContain('toName:"New \\"Name\\"\\\\"');
+  });
+
+  it.each([
+    [{ target_tree: [] }, /non-empty array/],
+    [{ target_tree: [{ bin: "A", items: ["x"], extra: 1 }] }, /unknown key/],
+    [{ target_tree: [{ bin: "A/" }] }, /segment 2/],
+    [{ target_tree: [{ bin: "A" }, { bin: "A" }] }, /listed more than once/],
+    [{ target_tree: [{ bin: "A", items: ["x"] }, { bin: "B", items: ["x"] }] }, /more than one bin/],
+    [{ target_tree: [{ bin: "A", items: [""] }] }, /non-empty node ID/],
+    [{ target_tree: Array(501).fill({ bin: "A" }) }, /at most 500 bins/],
+    [{ target_tree: [{ bin: "A/B" }], max_depth: 1 }, /deeper than rules.max_depth/],
+    [{ rename: [] }, /non-empty array/],
+    [{ rename: [{ item_id: "a", name: " x" }] }, /leading or trailing/],
+    [{ rename: [{ item_id: "a", name: "x/y" }] }, /must not contain/],
+    [{ rename: [{ item_id: "a", name: "x" }, { item_id: "a", name: "y" }] }, /renamed more than once/],
+    [{ rename: [{ item_id: "a" }] }, /name must be a non-empty string/],
+    [{ remove_empty: "yes" }, /must be a boolean/],
+  ])("rejects %j", (input, message) => {
+    expect(() => validateStructureRules(input)).toThrow(message);
+  });
+
+  it("rejects more than the total item cap across bins", () => {
+    const tree = Array.from({ length: 3 }, (_, b) => ({ bin: `B${b}`, items: Array.from({ length: 700 }, (_, i) => `b${b}-i${i}`) }));
+    expect(() => validateStructureRules({ target_tree: tree })).toThrow(/at most 2000 items/);
   });
 });
