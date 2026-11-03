@@ -10,6 +10,7 @@ import { planAudioSynchronization, planAnchorSynchronization, mapWordsToPlacemen
 import { WORD_TIMELINE_PARAMETER } from "../ai/word-timeline.js";
 import { getExtendedEditPlanTools } from "./extended-edit-plans.js";
 import { getSceneReviewWorkflowTools } from "./scene-review-workflow.js";
+import { reserveSnapshotOutput } from "./snapshot-output.js";
 import { resolveContainedOutputPath } from "./caption-authoring.js";
 
 interface CallableTool { handler: (args: any) => Promise<any> }
@@ -102,14 +103,17 @@ export function getTimelineEditorialTools(bridgeOptions: BridgeOptions, dependen
         if (args.return_content !== undefined && typeof args.return_content !== "boolean") throw new Error("return_content must be a boolean");
         const target = hasOutput ? resolveContainedOutputPath(args.approved_workspace_path, args.output_path) : null;
         if (target && path.extname(target).toLowerCase() !== ".json") throw new Error("output_path must use the .json extension");
-        const snapshot = rawSnapshot(await send(timelineSnapshotScript(args.sequence_id, maximum), bridgeOptions), sessionId);
-        if (args.expected_revision !== undefined && args.expected_revision !== snapshot.revision) return { success: false, error: "SNAPSHOT_CHANGED: restart inspection from beginning", data: { observed_revision: snapshot.revision } };
-        if (!target) return { success: true, data: snapshot };
-        const serialized = JSON.stringify(snapshot, null, 2) + "\n";
-        writeFileSync(target, serialized, { encoding: "utf8", flag: "wx" });
-        const { tracks, clips, transitions, markers, ...identityFields } = snapshot;
-        const summary = { ...identityFields, track_count: tracks.length, clip_count: clips.length, transition_count: transitions.length, marker_count: markers.length, written: true, output_path: target, bytes: Buffer.byteLength(serialized, "utf8"), sha256: createHash("sha256").update(serialized).digest("hex"), verificationScope: "Snapshot written verbatim from this inspection; the file holds the same version1 snapshot that predict_timeline_edit and verify_timeline_postconditions accept." };
-        return { success: true, data: args.return_content === false ? { ...summary, content_omitted: true } : { ...summary, content_omitted: false, snapshot } };
+        const reservation = target ? reserveSnapshotOutput(target) : null;
+        try {
+          const snapshot = rawSnapshot(await send(timelineSnapshotScript(args.sequence_id, maximum), bridgeOptions), sessionId);
+          if (args.expected_revision !== undefined && args.expected_revision !== snapshot.revision) return { success: false, error: "SNAPSHOT_CHANGED: restart inspection from beginning", data: { observed_revision: snapshot.revision } };
+          if (!target) return { success: true, data: snapshot };
+          const serialized = JSON.stringify(snapshot, null, 2) + "\n";
+          reservation!.write(serialized);
+          const { tracks, clips, transitions, markers, ...identityFields } = snapshot;
+          const summary = { ...identityFields, track_count: tracks.length, clip_count: clips.length, transition_count: transitions.length, marker_count: markers.length, written: true, output_path: target, bytes: Buffer.byteLength(serialized, "utf8"), sha256: createHash("sha256").update(serialized).digest("hex"), verificationScope: "Snapshot written verbatim from this inspection; the file holds the same version1 snapshot that predict_timeline_edit and verify_timeline_postconditions accept." };
+          return { success: true, data: args.return_content === false ? { ...summary, content_omitted: true } : { ...summary, content_omitted: false, snapshot } };
+        } finally { reservation?.close(); }
       },
     },
     predict_timeline_edit: {
