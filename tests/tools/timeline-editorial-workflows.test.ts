@@ -66,6 +66,8 @@ describe("reachable timeline/editorial contracts", () => {
     await expect(tools.inspect_timeline_snapshot.handler({ sequence_id: "s", output_path: path.join(workspace, "a.txt"), approved_workspace_path: workspace })).rejects.toThrow(".json extension");
     await expect(tools.inspect_timeline_snapshot.handler({ sequence_id: "s", output_path: path.join(path.dirname(workspace), "escape.json"), approved_workspace_path: workspace })).rejects.toThrow("contained within");
     expect(send.mock.calls.length).toBe(before);
+    await expect(getTimelineEditorialTools({}, { capabilities: resolveCapabilities("inspect"), send }).inspect_timeline_snapshot.handler({ sequence_id: "s", output_path: path.join(workspace, "denied.json"), approved_workspace_path: workspace })).rejects.toThrow("filesystem");
+    expect(send.mock.calls.length).toBe(before);
     const target = path.join(workspace, "snapshot.json");
     const written = await tools.inspect_timeline_snapshot.handler({ sequence_id: "s", output_path: target, approved_workspace_path: workspace, return_content: false });
     expect(existsSync(target)).toBe(true);

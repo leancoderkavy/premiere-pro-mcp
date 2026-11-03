@@ -578,6 +578,7 @@ export function capabilitiesForToolInvocation(toolName: string, args: unknown): 
   if (toolName === "retime_caption_file" && args && typeof args === "object" && ((args as Record<string, unknown>).input_path !== undefined || (args as Record<string, unknown>).output_path !== undefined)) return ["inspect", "filesystem"];
   if (toolName === "prepare_transcript_workflow" && args && typeof args === "object" && (args as Record<string, unknown>).start_if_missing === true) return ["inspect", "edit", "filesystem"];
   const inputRecord = args && typeof args === "object" && !Array.isArray(args) ? args as Record<string, unknown> : undefined;
+  if (toolName === "inspect_timeline_snapshot" && inputRecord?.output_path !== undefined) return ["inspect", "filesystem"];
   if (toolName === "export_sequence_edl" && inputRecord?.output_path === undefined) return ["export"];
   if (toolName === "close_project") return inputRecord?.save_first === false ? ["edit"] : ["edit", "filesystem"];
   if (toolName === "set_offline" && inputRecord?.offline === false) return ["edit", "filesystem"];
@@ -608,6 +609,7 @@ export function capabilitiesForToolInvocation(toolName: string, args: unknown): 
  * per-call decision still comes from capabilitiesForToolInvocation.
  */
 export function toolMayChangeState(toolName: string): boolean {
+  if (toolName === "inspect_timeline_snapshot") return true;
   // Argument-dependent escalations handled specially above.
   if (toolName === "export_interchange_uxp" || toolName === "prepare_transcript_workflow" || toolName === "set_metadata" || toolName === "audit_project_structure" || toolName === "retime_caption_file" || toolName === "inspect_after_effects_render_templates") return true;
   const actionMap = ACTION_CAPABILITIES[toolName];
