@@ -728,8 +728,8 @@ Every tool accepts two optional host guards per call, `expected_project_path`
 and `expected_cep_target`, and by default every listed `inputSchema` carries
 both (about 3,100 characters per tool). Set `PREMIERE_MCP_SCHEMA_PROFILE=compact`
 to omit them from `tools/list` and register one extra tool, `set_session_guard`,
-that stores them once for the MCP session (one stdio process or one HTTP
-session, memory only). Every later call applies the stored guards exactly as if
+that stores them once for the MCP stdio session (one process, memory only).
+Stateless HTTP rejects the compact profile; use full schemas and per-call guards there. Every later call applies the stored guards exactly as if
 the client had passed them; a per-call value still wins and is still validated
 against the full guard schema. `full` is the default and changes nothing. The
 profile is a listing decision only: enforcement is unchanged under both.
