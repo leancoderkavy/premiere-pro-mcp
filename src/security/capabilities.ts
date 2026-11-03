@@ -649,6 +649,7 @@ export function isToolPermitted(
   config: CapabilityConfig,
 ): boolean {
   if (ALWAYS_LISTED_TOOL_NAMES.has(toolName)) return true;
+  if (toolName === "set_track_states") return config.capabilities.has("inspect") || config.capabilities.has("edit");
   if (toolName === "export_sequence_edl") return config.capabilities.has("export");
   const exactRequirements = TOOL_CAPABILITY_REQUIREMENTS[toolName];
   if (exactRequirements) {

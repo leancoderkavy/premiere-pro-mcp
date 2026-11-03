@@ -214,3 +214,17 @@ describe("shared timeline-usage index", () => {
     ] } });
   });
 });
+
+
+it("preserves prior chunk changes when the next chunk safely refuses", async () => {
+  const planned = Array.from({ length: DELETE_BATCH_CHUNK_SIZE + 1 }, (_, i) => ({ nodeId: String(i), name: String(i), kind: "sequence", timelineClips: 0 }));
+  mockedSendCommand.mockReset();
+  mockedSendCommand.mockResolvedValueOnce({ success: true, data: { planned } });
+  mockedSendCommand.mockResolvedValueOnce({ success: true, data: { items: planned.slice(0, DELETE_BATCH_CHUNK_SIZE) } });
+  mockedSendCommand.mockResolvedValueOnce({ success: false, error: "Refused", data: { mutationOutcome: "not_applied", projectChanged: false, items: [] } });
+  const result = await getUtilityTools(bridgeOptions).delete_multiple_project_items.handler({ item_ids: planned.map(item => item.nodeId) }) as Result;
+  expect(result.success).toBe(false);
+  expect(result.data?.mutationOutcome).toBe("changed");
+  expect(result.data?.projectChanged).toBe(true);
+  expect(result.data?.deleted).toBe(DELETE_BATCH_CHUNK_SIZE);
+});

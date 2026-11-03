@@ -353,7 +353,7 @@ export function getTrackTools(bridgeOptions: BridgeOptions) {
         const snapshot = args.snapshot === true;
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           var requests = ${JSON.stringify(requests)};
           var snapshot = ${snapshot ? "true" : "false"};
           var fields = ["muted", "solo", "locked"];
@@ -362,7 +362,7 @@ export function getTrackTools(bridgeOptions: BridgeOptions) {
           var qeSeq = null;
           try { app.enableQE(); qeSeq = qe.project.getActiveSequence(); } catch (qeError) { qeSeq = null; }
           // Refusals before any write carry a not_applied outcome so the receipt never reads as unknown.
-          var __refuse = function (message, code, req, field) {
+          var __refuseTrackState = function (message, code, req, field) {
             return __jsonStringify({ success: false, error: message, data: { code: code, field: field || null, trackType: req.type, trackIndex: req.index, applied: false, outcome: "not_applied", mutationOutcome: "not_applied", timelineChanged: false } });
           };
           var readBool = function (fn, owner) {
@@ -407,9 +407,9 @@ export function getTrackTools(bridgeOptions: BridgeOptions) {
           for (var r = 0; r < requests.length; r++) {
             var req = requests[r];
             var list = req.type === "video" ? seq.videoTracks : seq.audioTracks;
-            if (!list || req.index >= list.numTracks) return __refuse(req.type + " track " + req.index + " is out of range (" + (list ? list.numTracks : 0) + " " + req.type + " tracks); nothing was changed.", "TRACK_OUT_OF_RANGE", req);
+            if (!list || req.index >= list.numTracks) return __refuseTrackState(req.type + " track " + req.index + " is out of range (" + (list ? list.numTracks : 0) + " " + req.type + " tracks); nothing was changed.", "TRACK_OUT_OF_RANGE", req);
             var track = list[req.index];
-            if (!track) return __refuse(req.type + " track " + req.index + " could not be resolved; nothing was changed.", "TRACK_UNRESOLVED", req);
+            if (!track) return __refuseTrackState(req.type + " track " + req.index + " could not be resolved; nothing was changed.", "TRACK_UNRESOLVED", req);
             var qeTrack = null;
             if (qeSeq) { try { qeTrack = req.type === "video" ? qeSeq.getVideoTrackAt(req.index) : qeSeq.getAudioTrackAt(req.index); } catch (qeTrackError) { qeTrack = null; } }
             var accessors = accessorsFor(track, qeTrack);
@@ -426,7 +426,7 @@ export function getTrackTools(bridgeOptions: BridgeOptions) {
               var value = null;
               try { value = reader[field](); } catch (readError) { value = null; }
               if (value === null) {
-                if (wanted) return __refuse(req.type + " track " + req.index + " " + field + " state could not be read before mutation; nothing was changed.", "TRACK_STATE_UNREADABLE", req, field);
+                if (wanted) return __refuseTrackState(req.type + " track " + req.index + " " + field + " state could not be read before mutation; nothing was changed.", "TRACK_STATE_UNREADABLE", req, field);
                 before[field] = null;
                 continue;
               }

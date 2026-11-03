@@ -824,34 +824,39 @@ function __isClipDisabled(clip) {
 function __buildTimelineUsageIndex() {
   var index = { sequences: [], usedIds: {}, sequenceItemIds: {} };
   var sequenceCount = 0;
-  try { sequenceCount = app.project.sequences.numSequences; } catch (eCount) {}
-  for (var sq = 0; sq < sequenceCount; sq++) {
+  try { sequenceCount = app.project.sequences.numSequences; } catch (eCount) { throw new Error("Timeline usage could not be read: " + String(eCount)); }
+  if (typeof sequenceCount !== "number" || !isFinite(sequenceCount) || sequenceCount < 0 || Math.floor(sequenceCount) !== sequenceCount) throw new Error("Unreadable timeline collection count.");
+    for (var sq = 0; sq < sequenceCount; sq++) {
     var sequenceEntry = { name: "", sequenceId: "", itemId: "", tracks: [] };
     var liveSequence = null;
-    try { liveSequence = app.project.sequences[sq]; } catch (eSeq) {}
-    if (!liveSequence) continue;
-    try { sequenceEntry.name = String(liveSequence.name); } catch (eName) {}
-    try { sequenceEntry.sequenceId = String(liveSequence.sequenceID); } catch (eId) {}
-    try { if (liveSequence.projectItem) sequenceEntry.itemId = String(liveSequence.projectItem.nodeId); } catch (eSeqItem) {}
+    try { liveSequence = app.project.sequences[sq]; } catch (eSeq) { throw new Error("Timeline usage could not be read: " + String(eSeq)); }
+    if (!liveSequence) throw new Error("Timeline sequence could not be read.");
+    try { sequenceEntry.name = String(liveSequence.name); } catch (eName) { throw new Error("Timeline usage could not be read: " + String(eName)); }
+    try { sequenceEntry.sequenceId = String(liveSequence.sequenceID); } catch (eId) { throw new Error("Timeline usage could not be read: " + String(eId)); }
+    try { if (liveSequence.projectItem) sequenceEntry.itemId = String(liveSequence.projectItem.nodeId); } catch (eSeqItem) { throw new Error("Timeline usage could not be read: " + String(eSeqItem)); }
     var groups = [];
-    try { groups.push(liveSequence.videoTracks); } catch (eVideo) {}
-    try { groups.push(liveSequence.audioTracks); } catch (eAudio) {}
+    try { groups.push(liveSequence.videoTracks); } catch (eVideo) { throw new Error("Timeline usage could not be read: " + String(eVideo)); }
+    try { groups.push(liveSequence.audioTracks); } catch (eAudio) { throw new Error("Timeline usage could not be read: " + String(eAudio)); }
     for (var g = 0; g < groups.length; g++) {
       var trackCount = 0;
-      try { trackCount = groups[g].numTracks; } catch (eTracks) {}
-      for (var t = 0; t < trackCount; t++) {
+      try { trackCount = groups[g].numTracks; } catch (eTracks) { throw new Error("Timeline usage could not be read: " + String(eTracks)); }
+      if (typeof trackCount !== "number" || !isFinite(trackCount) || trackCount < 0 || Math.floor(trackCount) !== trackCount) throw new Error("Unreadable timeline collection count.");
+    for (var t = 0; t < trackCount; t++) {
         var trackEntry = { type: g === 0 ? "video" : "audio", index: t, clips: 0, byItem: {} };
         var clipCount = 0;
-        try { clipCount = groups[g][t].clips.numItems; } catch (eClips) {}
-        for (var c = 0; c < clipCount; c++) {
+        try { clipCount = groups[g][t].clips.numItems; } catch (eClips) { throw new Error("Timeline usage could not be read: " + String(eClips)); }
+        if (typeof clipCount !== "number" || !isFinite(clipCount) || clipCount < 0 || Math.floor(clipCount) !== clipCount) throw new Error("Unreadable timeline collection count.");
+    for (var c = 0; c < clipCount; c++) {
           try {
-            var sourceId = __nodeIdOf(groups[g][t].clips[c].projectItem);
+            var sourceItem = groups[g][t].clips[c].projectItem;
+            var sourceId = sourceItem ? String(sourceItem.nodeId || "") : "";
+            if (!sourceId) throw new Error("Timeline clip source could not be read.");
             trackEntry.clips++;
             if (sourceId) {
               trackEntry.byItem[sourceId] = (trackEntry.byItem[sourceId] || 0) + 1;
               index.usedIds[sourceId] = true;
             }
-          } catch (eClip) {}
+          } catch (eClip) { throw new Error("Timeline usage could not be read: " + String(eClip)); }
         }
         if (trackEntry.clips > 0) sequenceEntry.tracks.push(trackEntry);
       }

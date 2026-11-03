@@ -194,3 +194,12 @@ describe("set_track_states authority", () => {
     expect(capabilitiesForToolInvocation("set_track_states", { snapshot: true, tracks: [] })).toEqual(["edit"]);
   });
 });
+
+
+it("refuses no active sequence without an unknown mutation outcome", async () => {
+  mockedSendCommand.mockImplementation(async script => JSON.parse(String(runInNewContext(getHelpersSource() + "\n" + script, { app: { project: { activeSequence: null } } }))));
+  const result = await tools.set_track_states.handler({ tracks: [{ type: "audio", index: 0, muted: true }] }) as Result;
+  expect(result.success).toBe(false);
+  expect(result.data?.mutationOutcome).toBe("not_applied");
+  expect(mockedSendCommand.mock.calls[0][0]).not.toContain("var __refuse =");
+});

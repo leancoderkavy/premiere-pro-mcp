@@ -648,3 +648,18 @@ describe("isToolPermitted", () => {
     authority: { required: "inspect", enabled: true },
   });
 });
+
+
+describe("track snapshot authority", () => {
+  it("lists snapshots for inspect authority but denies writes before dispatch", async () => {
+    const config = resolveCapabilities("inspect");
+    expect(isToolPermitted("set_track_states", config)).toBe(true);
+    expect(isToolPermitted("set_track_states", resolveCapabilities("export"))).toBe(false);
+    const handler = vi.fn(async () => "snapshot");
+    const guarded = guardToolHandler("set_track_states", handler, config);
+    await expect(guarded({ snapshot: true, tracks: [{ type: "audio", index: 0 }] })).resolves.toBe("snapshot");
+    handler.mockClear();
+    await expect(guarded({ snapshot: true, tracks: [{ type: "audio", index: 0, muted: true }] })).rejects.toMatchObject({ code: "CAPABILITY_DENIED" });
+    expect(handler).not.toHaveBeenCalled();
+  });
+});

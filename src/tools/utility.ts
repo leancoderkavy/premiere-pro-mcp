@@ -409,7 +409,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
         // media against one index, so a refusal happens before any deletion.
         const planScript = buildToolScript(`
           var ids = ${idsJson};
-          var index = __buildTimelineUsageIndex();
+          var index;
+          try { index = __buildTimelineUsageIndex(); } catch (usageError) { return __refuse("Cannot safely determine timeline usage: " + String(usageError)); }
           var planned = [];
           var seen = {};
           for (var i = 0; i < ids.length; i++) {
@@ -466,12 +467,34 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
           const chunkScript = buildToolScript(`
             var targets = ${JSON.stringify(chunk)};
             var deleted = [];
-            function stopped(message, p) {
-              return __jsonStringify({ success: false, error: message + " " + p + " item(s) in this chunk were deleted before it; the batch stopped.", data: { code: "DELETE_CHUNK_STOPPED", deletedInChunk: p, items: deleted } });
+            function findReadableItem(id) {
+              var found = null;
+              var pending = [app.project.rootItem];
+              var visited = 0;
+              while (pending.length) {
+                var bin = pending.pop();
+                var children = bin.children;
+                var count = children.numItems;
+                if (typeof count !== "number" || !isFinite(count) || count < 0 || Math.floor(count) !== count) throw new Error("Unreadable project tree");
+                visited += count;
+                if (visited > 100000) throw new Error("Project tree readback limit exceeded");
+                for (var i = 0; i < count; i++) {
+                  var child = children[i];
+                  if (!child || typeof child.nodeId !== "string" || !child.nodeId) throw new Error("Unreadable project item");
+                  if (child.nodeId === id) found = child;
+                  if (child.type === 2) pending.push(child);
+                  else if (child.type !== 1 && child.type !== 4) throw new Error("Unreadable project item type");
+                }
+                if (children.numItems !== count) throw new Error("Project tree changed during readback");
+              }
+              return found;
+            }
+            function stopped(message, p, uncertain) {
+              return __jsonStringify({ success: false, error: message + " " + p + " item(s) in this chunk were deleted before it; the batch stopped.", data: { code: "DELETE_CHUNK_STOPPED", mutationOutcome: uncertain ? "unknown" : (deleted.length > 0 ? "changed" : "not_applied"), verified: false, projectChanged: uncertain ? null : deleted.length > 0, deletedInChunk: deleted.length, items: deleted } });
             }
             for (var p = 0; p < targets.length; p++) {
               var target = targets[p];
-              var item = __findProjectItemByNodeId(target.nodeId);
+              var item = findReadableItem(target.nodeId);
               // A selected child can already be gone after its selected parent bin is
               // deleted; that still satisfies the requested postcondition.
               if (!item) { deleted.push({ nodeId: target.nodeId, name: target.name, alreadyGone: true }); continue; }
@@ -487,12 +510,16 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
                 }
                 if (!sequence) return stopped("Sequence " + target.name + " no longer matches a live sequence.", p);
                 var accepted = app.project.deleteSequence(sequence);
-                if (accepted === false) return stopped("Premiere rejected deletion of sequence: " + target.name + ".", p);
+                if (accepted === false) {
+                  var remaining = findReadableItem(target.nodeId);
+                  if (!remaining) deleted.push({ nodeId: target.nodeId, name: target.name });
+                  return stopped("Premiere rejected deletion of sequence: " + target.name + ".", deleted.length);
+                }
               } else {
                 var viaBin = __deleteProjectItemViaBin(item);
-                if (!viaBin.ok) return stopped(viaBin.error, p);
+                if (!viaBin.ok) return stopped(viaBin.error, p, true);
               }
-              if (__findProjectItemByNodeId(target.nodeId)) return stopped("Premiere did not remove project item: " + target.name + ".", deleted.length);
+              if (findReadableItem(target.nodeId)) return stopped("Premiere did not remove project item: " + target.name + ".", deleted.length);
               deleted.push({ nodeId: target.nodeId, name: target.name });
             }
             var remainingIds = {};
@@ -531,13 +558,13 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
             return __result({ deleted: deleted.length, items: deleted });
           `);
           const result = await sendCommand(chunkScript, bridgeOptions);
-          const chunkData = result.data as { items?: DeletedItem[] } | undefined;
+          const chunkData = result.data as { items?: DeletedItem[]; mutationOutcome?: string } | undefined;
           if (Array.isArray(chunkData?.items)) deleted.push(...chunkData.items);
           if (!result.success) {
             return {
               success: false,
               error: `${result.error || "The deletion chunk failed."} ${deleted.length} of ${planned.length} planned item(s) were deleted before the batch stopped; the rest were not attempted.`,
-              data: { ...(result.data ?? {}), deleted: deleted.length, total: args.item_ids.length, planned: planned.length, items: deleted, chunksCompleted, chunkSize: DELETE_BATCH_CHUNK_SIZE },
+              data: { ...(result.data ?? {}), mutationOutcome: chunkData?.mutationOutcome === "not_applied" && deleted.length > 0 ? "changed" : (chunkData?.mutationOutcome ?? "unknown"), projectChanged: deleted.length > 0 ? true : (result.data as Record<string, unknown> | undefined)?.projectChanged, deleted: deleted.length, total: args.item_ids.length, planned: planned.length, items: deleted, chunksCompleted, chunkSize: DELETE_BATCH_CHUNK_SIZE },
             };
           }
           chunksCompleted++;
