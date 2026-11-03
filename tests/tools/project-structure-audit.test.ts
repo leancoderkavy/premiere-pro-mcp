@@ -681,3 +681,26 @@ it("rejects a project switch after the handler capture await", async () => {
   expect(p.pathOf(p.a)).toBe("/");
   expect(p.root.children!.numItems).toBe(4);
 });
+
+it("refuses a rename collision when a preceding bin removal is ignored", async () => {
+  const p = fakeProject({ deleteNoop: ["b"] });
+  const a = p.bin("a", "A"), b = p.bin("b", "B");
+  p.add(p.root, a); p.add(p.root, b);
+  const rules = { remove_empty: true, rename: [{ item_id: "a", name: "B" }] };
+  const audit = await tools().audit_project_structure.handler({ rules }) as Result;
+  expect(audit.data!.applyReady).toBe(true);
+  const applied = await tools().audit_project_structure.handler({ rules, apply: true, plan_token: audit.data!.planToken }) as Result;
+  expect(a.name).toBe("A"); expect(b.name).toBe("B");
+  expect(applied.data!.renames[0]).toMatchObject({ status: "failed", reason: "sibling_collision_or_unreadable" });
+});
+
+it("refuses a new live sibling collision before moving a bin", async () => {
+  const p = fakeProject();
+  const a = p.bin("a", "A"), dest = p.bin("dest", "Dest");
+  p.add(p.root, a); p.add(p.root, dest);
+  const plan = evaluateProjectStructure((await sendCommand(projectStructureCaptureScript(), bridgeOptions)).data, { target_tree: [{ bin: "Dest", items: ["a"] }] });
+  p.add(dest, p.bin("collision", "A"));
+  const result = await sendCommand(projectStructureApplyScript(plan), bridgeOptions) as Result;
+  expect(a.parent).toBe(p.root);
+  expect(result.data!.moves[0]).toMatchObject({ status: "failed", reason: "sibling_collision_or_unreadable" });
+});

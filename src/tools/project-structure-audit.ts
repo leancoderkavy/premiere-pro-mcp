@@ -729,6 +729,40 @@ export function projectStructureApplyScript(plan: StructurePlan): string {
       resolved[c].bin = parent;
     }
 
+    function safeBinDestination(item, destination, name) {
+      try {
+        if (!destination) {
+          var pending = [root], visited = {}, walked = 0;
+          while (pending.length) {
+            var parent = pending.pop();
+            var parentId = __nodeIdOf(parent);
+            if (!parentId || visited[parentId]) return false;
+            visited[parentId] = true;
+            var count = strictChildCount(parent);
+            if (count === null || (walked += count) > 100000) return false;
+            for (var i = 0; i < count; i++) {
+              var child = parent.children[i];
+              if (!child || !__nodeIdOf(child)) return false;
+              if (__nodeIdOf(child) === __nodeIdOf(item)) {
+                if (destination) return false;
+                destination = parent;
+              }
+              if (__isBinItem(child)) pending.push(child);
+            }
+            if (strictChildCount(parent) !== count) return false;
+          }
+        }
+        var siblings = strictChildCount(destination);
+        if (siblings === null) return false;
+        for (var j = 0; j < siblings; j++) {
+          var sibling = destination.children[j];
+          if (!sibling || !__nodeIdOf(sibling) || typeof sibling.type !== "number") return false;
+          if (__nodeIdOf(sibling) !== __nodeIdOf(item) && __isBinItem(sibling) && String(sibling.name) === name) return false;
+        }
+        return strictChildCount(destination) === siblings;
+      } catch (eSibling) { return false; }
+    }
+
     // Phase 3: move only items still where the audit saw them; read back each parent.
     var results = [];
     var verifiedCount = 0;
@@ -740,6 +774,7 @@ export function projectStructureApplyScript(plan: StructurePlan): string {
       if (!item) { entry.reason = "item_not_found"; results.push(entry); continue; }
       var fromParent = move.fromParentId === "${ROOT_ID}" ? root : __findProjectItemByNodeId(move.fromParentId);
       if (!fromParent || !__isDirectChild(fromParent, item)) { entry.reason = "moved_since_audit"; results.push(entry); continue; }
+      if (__isBinItem(item) && !safeBinDestination(item, targetBin, String(item.name))) { entry.reason = "sibling_collision_or_unreadable"; results.push(entry); continue; }
       try { item.moveBin(targetBin); } catch (eMove) { entry.hostError = String(eMove); }
       if (__isDirectChild(targetBin, item) && !__isDirectChild(fromParent, item)) {
         entry.status = "verified";
@@ -793,6 +828,7 @@ export function projectStructureApplyScript(plan: StructurePlan): string {
       var toRename = __findProjectItemByNodeId(rename.itemId);
       if (!toRename) { nEntry.reason = "item_not_found"; renameResults.push(nEntry); continue; }
       if (String(toRename.name) !== rename.fromName) { nEntry.reason = "renamed_since_audit"; nEntry.current_name = String(toRename.name); renameResults.push(nEntry); continue; }
+      if (__isBinItem(toRename) && !safeBinDestination(toRename, null, rename.toName)) { nEntry.reason = "sibling_collision_or_unreadable"; renameResults.push(nEntry); continue; }
       try { toRename.name = rename.toName; } catch (eRename) { nEntry.hostError = String(eRename); }
       var readback = __findProjectItemByNodeId(rename.itemId);
       if (readback && String(readback.name) === rename.toName) { nEntry.status = "verified"; renamedCount++; }
