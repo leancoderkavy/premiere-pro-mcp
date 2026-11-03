@@ -596,3 +596,34 @@ describe("structure plan placement preflight", () => {
     expect(mockedSendCommand.mock.calls.length).toBe(before + 1);
   });
 });
+
+
+describe("explicit structure rule safety", () => {
+  it("preserves empty configured destinations and removes unrelated empty bins", async () => {
+    const p = fakeProject();
+    const media = p.bin("media", "Media");
+    p.add(p.root, media);
+    p.add(media, p.bin("audio", "Audio"));
+    p.add(p.root, p.bin("seq", "Sequences"));
+    p.add(p.root, p.bin("unused", "Unused"));
+    const result = await tools().audit_project_structure.handler({ rules: {
+      sequences_bin: "Sequences", extension_bins: { ".wav": "Media/Audio" }, remove_empty: true,
+    } }) as Result;
+    expect(result.success).toBe(true);
+    expect(result.data!.removals.map((item: any) => item.item_id)).toEqual(["unused"]);
+  });
+
+  it.each([
+    { rename: [{ item_id: "missing", name: "Renamed" }] },
+    { target_tree: [{ bin: "Destination", items: ["missing"] }] },
+    { target_tree: [{ bin: "Duplicate" }] },
+  ])("does not declare unresolved explicit rules compliant: %j", async rules => {
+    const p = fakeProject();
+    p.add(p.root, p.bin("dest", "Destination"));
+    p.add(p.root, p.bin("dup1", "Duplicate"));
+    p.add(p.root, p.bin("dup2", "Duplicate"));
+    const result = await tools().audit_project_structure.handler({ rules }) as Result;
+    expect(result.success).toBe(true);
+    expect(result.data!.compliant).toBe(false);
+  });
+});

@@ -310,7 +310,7 @@ export function isToolInSelectedPacks(
   toolName: string,
   selection: ToolPackSelection,
 ): boolean {
-  if (selection.fullCatalog) return true;
+  if (selection.fullCatalog || toolName === "set_session_guard") return true;
   if (ALWAYS_ADVERTISED_DIAGNOSTIC_TOOLS.has(toolName)) return true;
   if (selection.explicitTools?.includes(toolName)) return true;
   return selection.selected.some((name) => PACK_BY_NAME.get(name)?.tools.includes(toolName));

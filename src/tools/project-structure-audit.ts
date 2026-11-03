@@ -489,7 +489,7 @@ export function evaluateProjectStructure(rawSnapshot: unknown, rawRules: unknown
 
   // Bins that must survive apply: every existing prefix of a target path, bins placed by target_tree, and renamed bins.
   const protectedBins = new Set<string>([...(rules.renames ?? []).map((entry) => entry.itemId), ...(rules.targetTree ?? []).flatMap((entry) => entry.items)]);
-  for (const path of allTargetPaths) {
+  for (const path of requiredPaths) {
     const segments = path.split("/");
     for (let end = 1; end <= segments.length; end++) {
       const resolution = resolve(segments.slice(0, end));
@@ -898,7 +898,7 @@ export function getProjectStructureAuditTools(bridgeOptions: BridgeOptions, depe
               data: {
                 applied: false,
                 outcome: "audited",
-                compliant: plan.violationsTotal === 0 && plan.binsToCreate.length === 0 && plan.invalidPlanReasons.length === 0,
+                compliant: plan.unresolvedItemIds.length === 0 && plan.ambiguousTargets.length === 0 && plan.violationsTotal === 0 && plan.binsToCreate.length === 0 && plan.invalidPlanReasons.length === 0,
                 applyReady: (plan.moves.length > 0 || plan.binsToCreate.length > 0 || plan.renames.length > 0 || plan.removals.length > 0) && !plan.truncated && plan.ambiguousTargets.length === 0 && plan.invalidPlanReasons.length === 0,
                 ...plan,
                 limitations: [

@@ -412,6 +412,7 @@ export function collectTools(
   projectContextRepository = new ProjectContextRepository(),
   mediaWatchRegistry = new MediaWatchRegistry(),
   bridgeMode: PremiereBridgeMode = resolvePremiereBridgeMode(),
+  sessionGuard?: SessionGuardStore,
 ): Record<string, ToolDef> {
   // Streamable HTTP creates an independent McpServer for every request. Most
   // tool definitions are immutable, while context, telemetry, and UXP tools
@@ -420,6 +421,7 @@ export function collectTools(
   const selectedUxpBridge = bridgeMode === "cep" ? undefined : uxpBridge;
   const tools: Record<string, ToolDef> = {
     ...collectStaticTools(bridgeOptions, capabilities),
+    ...(sessionGuard ? getSessionGuardTools(sessionGuard) : {}),
     ...getProjectContextTools(bridgeOptions, { repository: projectContextRepository }),
     ...getEditorialContextPackTools({ repository: projectContextRepository }),
     ...getFilmEditorialTools({ repository: projectContextRepository }),
@@ -577,9 +579,8 @@ export function createServer(
     projectContextRepository,
     mediaWatchRegistry,
     serverOptions.bridgeMode ?? resolvePremiereBridgeMode(),
+    schemaProfile.compactGuards ? sessionGuard : undefined,
   );
-
-  if (schemaProfile.compactGuards) Object.assign(toolModules, getSessionGuardTools(sessionGuard));
 
   const premiereInstructions = buildPremiereInstructions(new Set(
     Object.keys(toolModules).filter((name) =>
