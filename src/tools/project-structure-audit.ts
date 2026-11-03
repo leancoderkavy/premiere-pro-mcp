@@ -113,6 +113,7 @@ export interface StructurePlan {
   movesTotal: number;
   movesTruncated: boolean;
   binsToCreate: string[];
+  invalidPlanReasons: string[];
   ambiguousTargets: Array<{ target_bin_path: string; ambiguous_at: string }>;
   /** Bins named by target_tree that must exist after apply (created when missing). */
   targetBins: string[];
@@ -358,6 +359,8 @@ export function evaluateProjectStructure(rawSnapshot: unknown, rawRules: unknown
     return final;
   };
 
+  const invalidPlanReasons: string[] = [];
+  const explicitTargets = new Map((rules.targetTree ?? []).flatMap(entry => entry.items.map(id => [id, entry.path.join("/")] as const)));
   const violations: StructureViolation[] = [];
   const moves: StructureMove[] = [];
   const ambiguous = new Map<string, string>();
@@ -366,6 +369,14 @@ export function evaluateProjectStructure(rawSnapshot: unknown, rawRules: unknown
   const placementRule = (item: StructureSnapshotItem, rule: "extension_bins" | "sequences_bin", segments: string[], why: string) => {
     const resolution = resolve(segments);
     const target = segments.join("/");
+    const explicit = explicitTargets.get(item.id);
+    if (explicit !== undefined) {
+      if (explicit !== target && !explicit.startsWith(`${target}/`)) {
+        invalidPlanReasons.push(`Conflicting placement rules for ${item.id}: ${target} and ${explicit}`);
+      }
+      // Explicit placement is stricter; it is the sole move for this node.
+      return;
+    }
     if (resolution.status === "exists" && isWithin(item.parentId, resolution.binId)) return;
     const violation: StructureViolation = {
       item_id: item.id,
@@ -433,8 +444,12 @@ export function evaluateProjectStructure(rawSnapshot: unknown, rawRules: unknown
       if (resolution.status === "ambiguous") {
         violation.target_ambiguous = true;
         violation.detail += `, but more than one bin is named ${resolution.at}; rename one before applying`;
-      } else if (item.kind === "bin" && resolution.status === "exists" && isWithin(resolution.binId, item.id)) {
+      } else if (item.kind === "bin" && entry.path.some((_, index) => {
+        const prefix = resolve(entry.path.slice(0, index + 1));
+        return prefix.status === "exists" && isWithin(prefix.binId, item.id);
+      })) {
         violation.detail += `, but that bin is the item itself or nested inside it; not planned`;
+        invalidPlanReasons.push(`Cannot move ${item.id} into itself or a descendant: ${target}`);
       } else {
         moves.push({ item_id: item.id, item_name: item.name, item_kind: item.kind, from_parent_id: item.parentId, from_bin_path: violation.current_bin_path, target_bin_path: target, rule: "target_tree" });
       }
@@ -451,6 +466,23 @@ export function evaluateProjectStructure(rawSnapshot: unknown, rawRules: unknown
     renames.push({ item_id: item.id, item_kind: item.kind, from_name: item.name, to_name: entry.name });
   }
 
+  // Validate the complete plan before batching: moving any required prefix would
+  // invalidate path-based placements even if intermediate parent checks passed.
+  const requiredPaths = [...targetBins, ...moves.map(move => move.target_bin_path),
+    ...(rules.extensionBins ?? []).map(entry => entry.path.join("/")),
+    ...(rules.sequencesBin ? [rules.sequencesBin.join("/")] : [])];
+  for (const move of moves) {
+    if (move.item_kind !== "bin") continue;
+    for (const path of requiredPaths) {
+      const segments = path.split("/");
+      if (segments.some((_, index) => {
+        const prefix = resolve(segments.slice(0, index + 1));
+        return prefix.status === "exists" && isWithin(prefix.binId, move.item_id);
+      })) {
+        invalidPlanReasons.push(`Moving ${move.item_id} would relocate required target path ${path}`);
+      }
+    }
+  }
   const plannedMoves = moves.slice(0, MAX_STRUCTURE_MOVES);
   const allTargetPaths = [...new Set([...plannedMoves.map((move) => move.target_bin_path), ...targetBins])];
   const binsToCreate = allTargetPaths.filter((path) => resolve(path.split("/")).status === "missing");
@@ -487,6 +519,7 @@ export function evaluateProjectStructure(rawSnapshot: unknown, rawRules: unknown
     renames: plannedRenames.map((rename) => [rename.item_id, rename.from_name, rename.to_name]),
     removals: plannedRemovals.map((removal) => [removal.item_id, removal.parent_id]),
     unresolvedItemIds,
+    invalidPlanReasons,
     ambiguousTargets,
   })).digest("hex");
 
@@ -502,6 +535,7 @@ export function evaluateProjectStructure(rawSnapshot: unknown, rawRules: unknown
     movesTotal: moves.length,
     movesTruncated: moves.length > MAX_STRUCTURE_MOVES,
     binsToCreate,
+    invalidPlanReasons,
     ambiguousTargets,
     targetBins,
     renames: plannedRenames,
@@ -864,8 +898,8 @@ export function getProjectStructureAuditTools(bridgeOptions: BridgeOptions, depe
               data: {
                 applied: false,
                 outcome: "audited",
-                compliant: plan.violationsTotal === 0,
-                applyReady: (plan.moves.length > 0 || plan.binsToCreate.length > 0 || plan.renames.length > 0 || plan.removals.length > 0) && !plan.truncated && plan.ambiguousTargets.length === 0,
+                compliant: plan.violationsTotal === 0 && plan.binsToCreate.length === 0 && plan.invalidPlanReasons.length === 0,
+                applyReady: (plan.moves.length > 0 || plan.binsToCreate.length > 0 || plan.renames.length > 0 || plan.removals.length > 0) && !plan.truncated && plan.ambiguousTargets.length === 0 && plan.invalidPlanReasons.length === 0,
                 ...plan,
                 limitations: [
                   "Audit only; nothing in Premiere changed.",
@@ -882,6 +916,7 @@ export function getProjectStructureAuditTools(bridgeOptions: BridgeOptions, depe
 
           const refusal = (error: string, extra: Record<string, unknown> = {}) => ({ success: false, error: `${error} Nothing was changed.`, data: { applied: false, outcome: "failed", mutationOutcome: "not_applied", ...extra } });
           if (plan.planToken !== args.plan_token) return refusal("The project or rules changed since the audit, so the reviewed plan no longer matches; audit again and review the new plan.", { planToken: plan.planToken });
+          if (plan.invalidPlanReasons.length) return refusal(`Invalid structure plan: ${plan.invalidPlanReasons.join("; ")}`, { invalidPlanReasons: plan.invalidPlanReasons });
           if (plan.truncated) return refusal(`The project walk was truncated at ${MAX_STRUCTURE_AUDIT_ITEMS} items or ${MAX_TREE_DEPTH} levels, so the plan cannot be applied safely.`);
           if (plan.ambiguousTargets.length) return refusal(`Target bin path(s) are ambiguous: ${plan.ambiguousTargets.map((target) => target.ambiguous_at).join(", ")}. Rename the duplicate bins, then audit again.`, { ambiguousTargets: plan.ambiguousTargets });
           if (!plan.moves.length && !plan.binsToCreate.length && !plan.renames.length && !plan.removals.length) {

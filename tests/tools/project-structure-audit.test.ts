@@ -432,7 +432,7 @@ describe("audit_project_structure target_tree, rename, and remove_empty", () => 
     const p = fakeProject();
     const rulesOnlyBins = { target_tree: [{ bin: "04 TURNOVER/AAF" }] };
     const audit = await tools().audit_project_structure.handler({ rules: rulesOnlyBins }) as Result;
-    expect(audit.data).toMatchObject({ applyReady: true, binsToCreate: ["04 TURNOVER/AAF"], moves: [] });
+    expect(audit.data).toMatchObject({ compliant: false, applyReady: true, binsToCreate: ["04 TURNOVER/AAF"], moves: [] });
     const result = await tools().audit_project_structure.handler({ rules: rulesOnlyBins, apply: true, plan_token: audit.data!.planToken }) as Result;
     expect(result.data).toMatchObject({ outcome: "verified", applied: true, attempted: 0 });
     expect(result.data!.createdBins.map((b: { path: string }) => b.path)).toEqual(["04 TURNOVER", "04 TURNOVER/AAF"]);
@@ -542,5 +542,57 @@ describe("audit_project_structure target_tree, rename, and remove_empty", () => 
   it("rejects more than the total item cap across bins", () => {
     const tree = Array.from({ length: 3 }, (_, b) => ({ bin: `B${b}`, items: Array.from({ length: 700 }, (_, i) => `b${b}-i${i}`) }));
     expect(() => validateStructureRules({ target_tree: tree })).toThrow(/at most 2000 items/);
+  });
+});
+
+
+describe("structure plan placement preflight", () => {
+  it.each(["A/New", "A/Existing/New", "A"])("refuses descendant destination %s before mutation", async (destination) => {
+    const p = fakeProject();
+    const a = p.bin("a", "A");
+    p.add(p.root, a);
+    p.add(a, p.bin("existing", "Existing"));
+    const handler = getProjectStructureAuditTools(bridgeOptions).audit_project_structure.handler;
+    const rules = { target_tree: [{ bin: destination, items: ["a"] }] };
+    const audit = await handler({ rules }) as Result;
+    expect(audit.data!.applyReady).toBe(false);
+    const before = mockedSendCommand.mock.calls.length;
+    const applied = await handler({ rules, apply: true, plan_token: audit.data!.planToken }) as Result;
+    expect(applied).toMatchObject({ success: false, data: { applied: false } });
+    expect(mockedSendCommand.mock.calls.length).toBe(before + 1); // capture only
+    expect(a.children!.numItems).toBe(1);
+    expect(p.pathOf(a)).toBe("/");
+  });
+
+  it.each(["A", "A/New"])("rejects relocation of required prefix for %s", async (target) => {
+    const p = fakeProject();
+    p.add(p.root, p.bin("a", "A"));
+    p.add(p.root, p.bin("b", "B"));
+    p.add(p.root, p.clip("x", "x.mp4"));
+    const handler = getProjectStructureAuditTools(bridgeOptions).audit_project_structure.handler;
+    const rules = { target_tree: [{ bin: target, items: ["x"] }, { bin: "B", items: ["a"] }] };
+    const audit = await handler({ rules }) as Result;
+    expect(audit.data!.invalidPlanReasons.join(" ")).toContain("relocate required target path");
+    const before = mockedSendCommand.mock.calls.length;
+    expect(await handler({ rules, apply: true, plan_token: audit.data!.planToken })).toMatchObject({ success: false });
+    expect(mockedSendCommand.mock.calls.length).toBe(before + 1);
+  });
+
+  it.each([false, true])("resolves combined placement once (sequence=%s)", async (sequence) => {
+    const p = fakeProject();
+    p.add(p.root, sequence ? p.sequence("x", "Edit") : p.clip("x", "x.mp4"));
+    const handler = getProjectStructureAuditTools(bridgeOptions).audit_project_structure.handler;
+    const base = sequence ? { sequences_bin: "Media" } : { extension_bins: { ".mp4": "Media" } };
+    const rules = { ...base, target_tree: [{ bin: "Media/Selects", items: ["x"] }] };
+    const audit = await handler({ rules }) as Result;
+    expect(audit.data!.moves).toHaveLength(1);
+    expect(audit.data!.moves[0].target_bin_path).toBe("Media/Selects");
+    expect(await handler({ rules, apply: true, plan_token: audit.data!.planToken })).toMatchObject({ success: true, data: { outcome: "verified" } });
+    const conflicting = { ...base, target_tree: [{ bin: "Other", items: ["x"] }] };
+    const rejected = await handler({ rules: conflicting }) as Result;
+    expect(rejected.data!.applyReady).toBe(false);
+    const before = mockedSendCommand.mock.calls.length;
+    expect(await handler({ rules: conflicting, apply: true, plan_token: rejected.data!.planToken })).toMatchObject({ success: false });
+    expect(mockedSendCommand.mock.calls.length).toBe(before + 1);
   });
 });
