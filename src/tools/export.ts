@@ -1920,11 +1920,11 @@ ${sequenceRangeGuardScript(range)}
           var seq = app.project.activeSequence;
           if (!seq) return __error("No active sequence");
           var encoder = app.encoder;
-          if (!encoder || typeof encoder.encodeSequence !== "function") return __error("Adobe Media Encoder is not available; nothing was queued.");
+          if (!encoder || typeof encoder.encodeSequence !== "function") return __error("Adobe Media Encoder is not available; nothing was queued.", { mutationOutcome: "not_applied", timelineChanged: false });
           var savedProjectPath = "";
           try { savedProjectPath = String(app.project.path || ""); } catch (projectPathError) { savedProjectPath = ""; }
           if (!savedProjectPath || savedProjectPath === "undefined") {
-            return __error("Save the Premiere project to a real .prproj path before an AME export job; nothing was queued.");
+            return __error("Save the Premiere project to a real .prproj path before an AME export job; nothing was queued.", { mutationOutcome: "not_applied", timelineChanged: false });
           }
           var outputFile = new File("${escapeForExtendScript(outputPath)}");
           if (!outputFile.parent || !outputFile.parent.exists) {
@@ -1936,9 +1936,9 @@ ${sequenceRangeGuardScript(range)}
           var presetPath = presetFile.fsName;
 ${presetExtensionGuardScript()}
 ${sequenceRangeGuardScript(range)}
-          if (new File(outputPath).exists) return __error("A file already exists at " + outputPath + "; nothing was queued. Choose a new output_path.");
+          if (new File(outputPath).exists) return __error("A file already exists at " + outputPath + "; nothing was queued. Choose a new output_path.", { mutationOutcome: "not_applied", timelineChanged: false });
           var encodeMode = ${range === "in_to_out" ? "encoder.ENCODE_IN_TO_OUT" : range === "work_area" ? "encoder.ENCODE_WORKAREA" : "encoder.ENCODE_ENTIRE"};
-          if (typeof encodeMode !== "number") return __error("Premiere does not expose the requested encode range mode; nothing was queued.");
+          if (typeof encodeMode !== "number") return __error("Premiere does not expose the requested encode range mode; nothing was queued.", { mutationOutcome: "not_applied", timelineChanged: false });
 
           // AME job events are recorded in an engine-global store so a later
           // get_export_job_status call can read them. Handlers ignore jobs this

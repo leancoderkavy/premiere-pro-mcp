@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- `export_sequence` and `export_sequence_job_start` report every refusal made before rendering or queuing as `not_applied`: a preset whose extension does not match `output_path`, `in_to_out` without marks, a disabled or invalid work area, an existing output file, an unsaved project, Adobe Media Encoder not being available, and a missing encode range mode. These refusals used to return no outcome, so the dispatched command's receipt was unknown and set a recovery lock that blocked every later edit until it was acknowledged.
+
 ## [1.29.0] - 2026-11-02
 
 ### Changed
