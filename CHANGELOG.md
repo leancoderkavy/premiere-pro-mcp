@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- `audit_timeline_health` and `diff_sequence_snapshots` accept the raw `get_sequence_structure`, `get_full_sequence_info` and `inspect_sequence_structure_uxp` results their descriptions name. The argument check no longer rejects their extra keys (pagination, `syncCheck`, `isMuted` and others) as `UNKNOWN_ARGUMENT`, and a `frameRate` reported as one frame's duration (`{ seconds, ticks }`) is converted to frames per second.
+
 ## [1.29.0] - 2026-11-02
 
 ### Changed
