@@ -12,6 +12,9 @@ on a timeline.
    Premiere node ID.
 2. Use `preview_after_effects_render` and confirm `enqueue_after_effects_render`
    if a render is not already queued. Retain the returned `queueItemIndex`.
+   For exact template names, call `inspect_after_effects_render_templates`; on an
+   empty render queue pass `allow_temporary_queue_item: true` (requires edit) so
+   it can queue one composition briefly, read the names and remove it again.
 3. Render in After Effects and wait for completion. Leave that queue item present.
 4. Call `preview_after_effects_render_handoff`:
 
@@ -31,7 +34,30 @@ on a timeline.
    and `confirm_import: true` only after approving that exact destination.
 6. Inspect the imported `projectItemId` in Premiere. Decode/play the media and
    check duration, audio, color and representative frames before using it in an
-   edit. Timeline placement uses separate editing tools and their approvals.
+   edit. Timeline placement uses separate editing tools and their approvals: to
+   swap the render in for the clip it came from (for example a Dynamic Link comp
+   clip), call `replace_clip` with that clip's `node_id` and the new
+   `projectItemId`; it keeps the exact timeline span. The apply receipt's
+   `nextStep` names that call.
+
+## Premiere → After Effects (Replace with After Effects Composition)
+
+`preview_send_clip_to_after_effects` and `apply_send_clip_to_after_effects` do
+the reverse trip for one video clip. Preview reads the clip, its source media and
+the sequence, and picks a free composition name in the open, saved AE project
+(inside `approved_workspace_path`). It refuses speed-changed, reversed, offline
+or non-file clips, and lists effects or Motion/Opacity changes on the clip that
+the swap would not carry over. Apply rechecks the clip, adds a comp with the
+sequence size, pixel aspect and frame rate whose footage layer starts at the
+clip's source In (layer audio off), saves the AE project, imports the comp over
+Dynamic Link and swaps it in with `replace_clip`. The clip's linked audio stays in
+Premiere. Measured on Premiere 26.5.2 / AE 26.5: a comp with layer audio
+disabled imports as a video-only Dynamic Link item, and a frame exported at the
+swapped span matched the source frame at the same source time.
+
+After changing a linked composition in AE, Premiere can return its cached frame
+for a time it already rendered; export a time not exported since the change to
+check it.
 
 Premiere's Dynamic Link starts a windowless After Effects (`aerendercore`) that
 loads CEP extensions too. The After Effects connector stays idle there, so

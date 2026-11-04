@@ -417,7 +417,7 @@ describe("PR #3 follow-ups — color_correct and export_sequence", () => {
 
 
 
-    const projectScript = await scriptFor(advanced.export_as_project, { output_path: "/tmp/export.prproj" });
+    const projectScript = await scriptFor(advanced.export_as_project, { output_path: "/tmp/export.prproj", overwrite: true });
     const xmlScript = await scriptFor(exportTools.export_as_fcp_xml, { output_path: "/tmp/export.xml" });
     const sequenceScript = await scriptFor(exportTools.export_sequence, {
       output_path: "/tmp/out.mp4",
@@ -1468,7 +1468,7 @@ describe("issue #615 — encode_file passes natively typed arguments", () => {
     const script = await scriptFor(exports.encode_file, base);
 
     expect(script).toContain('var presetFile = new File("/tmp/preset.epr")');
-    expect(script).toContain("if (!presetFile.exists) return __error");
+    expect(script).toContain("if (!presetFile.exists) return __refuse");
     expect(script).toContain("var removeUponCompletion = true;");
     expect(script).toContain("String(inputFile.fsName), String(outputFile.fsName), String(presetFile.fsName), removeUponCompletion)");
     expect(script).not.toMatch(/,\s*workArea,/);

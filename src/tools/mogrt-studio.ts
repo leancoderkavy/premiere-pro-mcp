@@ -1,10 +1,11 @@
+import { readBoundedRegularFile } from "../security/file-safety.js";
+import { assertNoSymlinkedPaths } from "../security/path-guard.js";
 import { randomUUID } from "node:crypto";
 import {
   constants as fsConstants,
   copyFileSync,
   existsSync,
   mkdirSync,
-  readFileSync,
   readdirSync,
   statSync,
 } from "node:fs";
@@ -126,6 +127,7 @@ function resolvePath(value: string): { api: typeof path.win32; resolved: string;
 }
 
 function containedPath(workspace: string, candidate: string, field: string): { root: string; candidate: string; api: typeof path.win32 } {
+  assertNoSymlinkedPaths({ workspace, candidate });
   const root = resolvePath(workspace);
   const target = resolvePath(candidate);
   if (root.windows !== target.windows) throw new Error(`${field} must use the same path format as approved_workspace_path`);
@@ -246,11 +248,11 @@ function premiereHandoffPlan(value: unknown, artifactStatus: (candidate: string)
 function buildPremiereHandoffScript(plan: PremiereHandoffPlan): string {
   return buildToolScript(`
     var seq = __findSequence("${escapeForExtendScript(plan.sequenceId)}");
-    if (!seq) return __error("The previewed verification sequence no longer exists");
-    if (String(seq.name) !== "${escapeForExtendScript(plan.disposableSequenceName)}") return __error("The sequence name no longer matches the explicit disposable verification target");
+    if (!seq) return __refuse("The previewed verification sequence no longer exists");
+    if (String(seq.name) !== "${escapeForExtendScript(plan.disposableSequenceName)}") return __refuse("The sequence name no longer matches the explicit disposable verification target");
     var titleTrack = seq.videoTracks[${plan.videoTrackIndex}];
-    if (!titleTrack) return __error("The requested verification video track does not exist");
-    if (titleTrack.clips.numItems !== 0) return __error("The requested verification video track is not empty; no MOGRT was imported");
+    if (!titleTrack) return __refuse("The requested verification video track does not exist");
+    if (titleTrack.clips.numItems !== 0) return __refuse("The requested verification video track is not empty; no MOGRT was imported");
     var before = titleTrack.clips.numItems;
     try {
       var imported = seq.importMGT("${escapeForExtendScript(plan.mogrtPath)}", __secondsToTicks(${plan.startSeconds}).toString(), ${plan.videoTrackIndex}, ${plan.audioTrackIndex});
@@ -288,7 +290,7 @@ export function getMogrtStudioTools(bridgeOptions: BridgeOptions, dependencies: 
     try { return statSync(candidate).isDirectory(); } catch { return false; }
   });
   const fileExists = dependencies.fileExists ?? existsSync;
-  const readText = dependencies.readText ?? ((candidate) => readFileSync(candidate, "utf8"));
+  const readText = dependencies.readText ?? ((candidate) => readBoundedRegularFile(candidate, MAX_DATA_FILE_BYTES).toString("utf8"));
   const copyFile = dependencies.copyFile ?? ((source, destination) => copyFileSync(source, destination, fsConstants.COPYFILE_EXCL));
   const makeDirectory = dependencies.makeDirectory ?? ((candidate) => mkdirSync(candidate, { recursive: true }));
   const listDirectory = dependencies.listDirectory ?? ((candidate) => readdirSync(candidate));
@@ -386,6 +388,7 @@ export function getMogrtStudioTools(bridgeOptions: BridgeOptions, dependencies: 
         const batch = take(batchPlans, input.preview_token, "preview_token");
         const completed: Array<Record<string, unknown>> = [];
         for (const plan of batch.plans) {
+          assertNoSymlinkedPaths(plan);
           const result = await sendAfterEffects(buildMogrtRecipeScript(plan), { ...bridgeOptions, timeoutMs: MOGRT_EXPORT_TIMEOUT_MS });
           if (!result.success) {
             return { success: false, error: `${result.error ?? "MOGRT batch creation failed"} (operation ${operationId})`, data: { operationId, completed, failedTemplate: plan.template_name, batchAtomic: false } };
@@ -485,6 +488,7 @@ export function getMogrtStudioTools(bridgeOptions: BridgeOptions, dependencies: 
         assertOnlyKeys(input, ["preview_token", "confirm_publish"], "arguments");
         if (input.confirm_publish !== true) throw new Error("confirm_publish must be true to publish the MOGRT");
         const plan = take(libraryPlans, input.preview_token, "preview_token");
+        assertNoSymlinkedPaths(plan);
         if (!artifactStatus(plan.source).zip_header_valid) return { success: false, error: "The previewed source artifact is no longer a recognizable ZIP-based MOGRT" };
         if (fileExists(plan.destination)) return { success: false, error: "The previewed library destination now exists; preview publishing again to select a new immutable version" };
         makeDirectory(resolvePath(plan.destination).api.dirname(plan.destination));
@@ -508,18 +512,45 @@ export function getMogrtStudioTools(bridgeOptions: BridgeOptions, dependencies: 
       },
     },
     inspect_after_effects_render_templates: {
-      description: "Read available render and output-module template names from the first existing After Effects render-queue item. It never queues or renders a composition.",
-      parameters: { type: "object" as const, additionalProperties: false, properties: {} },
-      handler: async () => {
+      description: "Read available render and output-module template names from the first existing After Effects render-queue item. After Effects only exposes templates through a queue item, so on an empty queue pass allow_temporary_queue_item: true to add one composition to the queue, read the names and remove it again (requires edit; the queue length is read back unchanged). It never renders.",
+      parameters: { type: "object" as const, additionalProperties: false, properties: {
+        allow_temporary_queue_item: { type: "boolean", description: "When the render queue is empty, briefly queue one composition to read template names, then remove it. Default false (read-only; refuses on an empty queue)." },
+        composition_name: { type: "string", minLength: 1, maxLength: 512, description: "Composition to queue temporarily (default: the first composition in the project). Only used with allow_temporary_queue_item." },
+      } },
+      // Read-only by default, but the opt-in temporary queue item edits the AE project.
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+      handler: async (args: unknown = {}) => {
         const operationId = nextOperationId();
         requireCapability(capabilities, "inspect", operationId);
+        const input = (args && typeof args === "object" && !Array.isArray(args) ? args : {}) as { allow_temporary_queue_item?: unknown; composition_name?: unknown };
+        if (input.allow_temporary_queue_item !== undefined && typeof input.allow_temporary_queue_item !== "boolean") return { success: false, error: "allow_temporary_queue_item must be a boolean" };
+        if (input.composition_name !== undefined && (typeof input.composition_name !== "string" || !input.composition_name.trim() || input.composition_name.length > 512)) return { success: false, error: "composition_name must be a non-empty string of at most 512 characters" };
+        const temporary = input.allow_temporary_queue_item === true;
+        if (temporary) requireCapability(capabilities, "edit", operationId);
+        const compName = typeof input.composition_name === "string" ? input.composition_name : "";
         const result = await sendAfterEffects(buildAfterEffectsScript(`
           var project = app.project;
-          if (!project || project.renderQueue.numItems < 1) return __aeError("After Effects has no existing render-queue item to inspect; use known approved template names or add one manually before this read-only check");
-          var item = project.renderQueue.item(1);
-          var renderTemplates = item.templates || [];
-          var outputTemplates = item.outputModule(1).templates || [];
-          return __aeResult({ renderSettingsTemplates: renderTemplates, outputModuleTemplates: outputTemplates, readOnly: true });
+          if (!project) return __aeError("After Effects has no open project");
+          if (project.renderQueue.rendering) return __aeError("Wait for After Effects rendering to finish");
+          var queued = project.renderQueue.numItems;
+          if (queued >= 1) {
+            var item = project.renderQueue.item(1);
+            return __aeResult({ renderSettingsTemplates: item.templates || [], outputModuleTemplates: item.outputModule(1).templates || [], readOnly: true, temporaryQueueItem: false });
+          }
+          if (!${temporary}) return __aeError("After Effects has no existing render-queue item to inspect. Pass allow_temporary_queue_item: true to queue one composition briefly, or use known approved template names");
+          var wanted = "${escapeForAfterEffects(compName)}", comp = null;
+          for (var i = 1; i <= project.numItems && !comp; i++) {
+            var candidate = project.item(i);
+            if (candidate instanceof CompItem && (!wanted || candidate.name === wanted)) comp = candidate;
+          }
+          if (!comp) return __aeError(wanted ? "No composition named " + wanted : "The project has no composition to queue temporarily");
+          var temp = project.renderQueue.items.add(comp);
+          var renderTemplates = [], outputTemplates = [], readError = "";
+          try { renderTemplates = temp.templates || []; outputTemplates = temp.outputModule(1).templates || []; } catch (templateError) { readError = String(templateError); }
+          try { temp.remove(); } catch (removeError) { return __aeError("Template names were read, but the temporary render-queue item could not be removed: " + removeError + ". Remove it from the render queue manually."); }
+          if (project.renderQueue.numItems !== queued) return __aeError("The render queue length changed after removing the temporary item; inspect the render queue");
+          if (readError) return __aeError("Could not read template names: " + readError);
+          return __aeResult({ renderSettingsTemplates: renderTemplates, outputModuleTemplates: outputTemplates, readOnly: false, temporaryQueueItem: true, temporaryComposition: comp.name, queueLengthRestored: true });
         `), bridgeOptions);
         return result.success ? { ...result, data: { ...(result.data as object), operationId } } : { ...result, error: `${result.error ?? "After Effects render-template inspection failed"} (operation ${operationId})` };
       },
@@ -548,6 +579,7 @@ export function getMogrtStudioTools(bridgeOptions: BridgeOptions, dependencies: 
         assertOnlyKeys(input, ["preview_token", "confirm_enqueue"], "arguments");
         if (input.confirm_enqueue !== true) throw new Error("confirm_enqueue must be true to queue the render");
         const plan = take(renderPlans, input.preview_token, "preview_token");
+        assertNoSymlinkedPaths(plan);
         const result = await sendAfterEffects(buildAfterEffectsScript(`
           function isInside(root, candidate) { return __hostPathIsInside(root, candidate); }
           var project = app.project;
@@ -594,6 +626,7 @@ export function getMogrtStudioTools(bridgeOptions: BridgeOptions, dependencies: 
         assertOnlyKeys(input, ["preview_token", "confirm_import"], "arguments");
         if (input.confirm_import !== true) throw new Error("confirm_import must be true to import the MOGRT into Premiere");
         const plan = take(handoffPlans, input.preview_token, "preview_token");
+        assertNoSymlinkedPaths(plan);
         if (!artifactStatus(plan.mogrtPath).zip_header_valid) return { success: false, error: "The previewed MOGRT artifact is no longer a recognizable ZIP-based file" };
         const result = await sendPremiere(buildPremiereHandoffScript(plan), bridgeOptions);
         return result.success ? { ...result, data: { ...(result.data as object), operationId } } : { ...result, error: `${result.error ?? "Premiere MOGRT handoff failed"} (operation ${operationId})` };

@@ -487,3 +487,13 @@ describe("lone surrogates", () => {
     }
   });
 });
+
+
+describe("timeline usage fails closed", () => {
+  it.each([undefined, NaN, -1, 1.5])("rejects unreadable sequence count %s", count => {
+    expect(() => runInNewContext(getHelpersSource() + "\n__buildTimelineUsageIndex();", { app: { project: { sequences: { numSequences: count } } } })).toThrow();
+  });
+  it("rejects missing sequence entries", () => {
+    expect(() => runInNewContext(getHelpersSource() + "\n__buildTimelineUsageIndex();", { app: { project: { sequences: { numSequences: 1 } } } })).toThrow();
+  });
+});

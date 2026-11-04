@@ -26,7 +26,7 @@ function boundedMaxItems(value: unknown): number {
 export function projectIntakeCaptureScript(maxItems: number): string {
   return buildToolScript(`
     var project = app.project;
-    if (!project || !project.rootItem) return __error("No project is open");
+    if (!project || !project.rootItem) return __refuse("No project is open");
 
     var maximumItems = ${maxItems};
     var items = [];

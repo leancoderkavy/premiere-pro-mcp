@@ -22,7 +22,13 @@ This route connects host template inspection, queue preview and approval,
 **manual rendering**, output-file verification, approved project-bin import,
 and project readback. Queue success is not render completion. The server cannot
 start or monitor the After Effects render. The route ends with imported project
-media, not a placed timeline clip or a verified final delivery.
+media, not a placed timeline clip or a verified final delivery. To swap the render in for an existing timeline clip, follow the import with
+`replace_clip` (the apply receipt names it).
+
+The reverse trip, sending one Premiere video clip to a new After Effects
+composition and swapping it in over Dynamic Link, uses
+`preview_send_clip_to_after_effects` and `apply_send_clip_to_after_effects`. See
+[the AE render handoff guide](after-effects-render-handoff.md).
 
 ## Following a plan
 

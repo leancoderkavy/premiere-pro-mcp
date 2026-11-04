@@ -40,13 +40,74 @@ describe("reachable timeline/editorial contracts", () => {
     const clip = { nodeId: "clip", projectItem: { nodeId: "source", isSequence: () => false }, start: { ticks: "9007199254740993123" }, end: { ticks: "9007199255249025123" }, inPoint: { ticks: time(1) }, outPoint: { ticks: time(3) }, disabled: false, getLinkedItems: () => null, getSpeed: () => 1, isSpeedReversed: () => false };
     const tracks = Object.assign([{ clips: Object.assign([clip], { numItems: 1 }), isLocked: () => false }], { numTracks: 1 });
     const seq = { sequenceID: "s", timebase: time(1 / 24), zeroPoint: "0", videoTracks: tracks, audioTracks: Object.assign([], { numTracks: 0 }) };
-    const send = vi.fn(async (script: string) => vm.runInNewContext(script, { app: { project: { documentID: "p" } }, __findSequence: () => seq, __isCurrentProjectSequence: () => true, __result: success, __error: failure }));
+    const send = vi.fn(async (script: string) => vm.runInNewContext(script, { app: { project: { documentID: "p" } }, __findSequence: () => seq, __isCurrentProjectSequence: () => true, __result: success, __error: failure, __refuse: failure }));
     const tools = getTimelineEditorialTools({}, { send }); const observed = await tools.inspect_timeline_snapshot.handler({ sequence_id: "s" });
     expect(observed).toMatchObject({ success: true, data: { clips: [{ start_ticks: "9007199254740993123" }], completeness: { effects: false, markers: false } } });
     expect(await tools.inspect_timeline_snapshot.handler({ sequence_id: "s", expected_revision: "wrong" })).toMatchObject({ success: false, error: expect.stringContaining("SNAPSHOT_CHANGED") });
     expect(timelineSnapshotScript('s"\\\n', 1)).not.toMatch(/\b(?:const|let)\b|=>|\d+n/); expect(timelineSnapshotScript('s"\\\n', 1)).toContain('s\\"\\\\\\n');
     await expect(tools.inspect_timeline_snapshot.handler({ sequence_id: "s", max_clips: 1001 })).rejects.toThrow();
     await expect(getTimelineEditorialTools({}, { capabilities: resolveCapabilities("edit"), send }).inspect_timeline_snapshot.handler({ sequence_id: "s" })).rejects.toThrow("inspect");
+  });
+  it("writes the snapshot to a .json file inside an approved workspace with sha256 and optional content (T2.3)", async () => {
+    const { createHash } = await import("node:crypto");
+    const { readFileSync, existsSync, realpathSync } = await import("node:fs");
+    const clip = { nodeId: "clip", projectItem: { nodeId: "source", isSequence: () => false }, start: { ticks: "0" }, end: { ticks: time(2) }, inPoint: { ticks: time(1) }, outPoint: { ticks: time(3) }, disabled: false, getLinkedItems: () => null, getSpeed: () => 1, isSpeedReversed: () => false };
+    const tracks = Object.assign([{ clips: Object.assign([clip], { numItems: 1 }), isLocked: () => false }], { numTracks: 1 });
+    const seq = { sequenceID: "s", timebase: time(1 / 24), zeroPoint: "0", videoTracks: tracks, audioTracks: Object.assign([], { numTracks: 0 }) };
+    const send = vi.fn(async (script: string) => vm.runInNewContext(script, { app: { project: { documentID: "p" } }, __findSequence: () => seq, __isCurrentProjectSequence: () => true, __result: success, __error: failure }));
+    const tools = getTimelineEditorialTools({}, { send });
+    const { makePrivateBridgeTempDir } = await import("../helpers/temp-dir.js");
+    const workspace = realpathSync(makePrivateBridgeTempDir("snapshot-to-file-"));
+    const inline = await tools.inspect_timeline_snapshot.handler({ sequence_id: "s" });
+    // Validation happens before Premiere is contacted.
+    const before = send.mock.calls.length;
+    await expect(tools.inspect_timeline_snapshot.handler({ sequence_id: "s", output_path: path.join(workspace, "a.json") })).rejects.toThrow("approved_workspace_path is required");
+    await expect(tools.inspect_timeline_snapshot.handler({ sequence_id: "s", approved_workspace_path: workspace })).rejects.toThrow("only accepted together");
+    await expect(tools.inspect_timeline_snapshot.handler({ sequence_id: "s", return_content: false })).rejects.toThrow("needs output_path");
+    await expect(tools.inspect_timeline_snapshot.handler({ sequence_id: "s", output_path: path.join(workspace, "a.txt"), approved_workspace_path: workspace })).rejects.toThrow(".json extension");
+    await expect(tools.inspect_timeline_snapshot.handler({ sequence_id: "s", output_path: path.join(path.dirname(workspace), "escape.json"), approved_workspace_path: workspace })).rejects.toThrow("contained within");
+    expect(send.mock.calls.length).toBe(before);
+    await expect(getTimelineEditorialTools({}, { capabilities: resolveCapabilities("inspect"), send }).inspect_timeline_snapshot.handler({ sequence_id: "s", output_path: path.join(workspace, "denied.json"), approved_workspace_path: workspace })).rejects.toThrow("filesystem");
+    expect(send.mock.calls.length).toBe(before);
+    const target = path.join(workspace, "snapshot.json");
+    const written = await tools.inspect_timeline_snapshot.handler({ sequence_id: "s", output_path: target, approved_workspace_path: workspace, return_content: false });
+    expect(existsSync(target)).toBe(true);
+    const file = readFileSync(target, "utf8");
+    expect(written).toMatchObject({ success: true, data: { written: true, output_path: target, content_omitted: true, clip_count: 1, track_count: 1, transition_count: 0, marker_count: 0, revision: inline.data.revision, sequence_id: "s", bytes: Buffer.byteLength(file, "utf8"), sha256: createHash("sha256").update(file).digest("hex") } });
+    expect(written.data).not.toHaveProperty("clips"); expect(written.data).not.toHaveProperty("tracks"); expect(written.data).not.toHaveProperty("snapshot");
+    expect(JSON.parse(file)).toEqual(inline.data);
+    // The file round-trips through the strict snapshot validator used by the prediction tools.
+    expect(await tools.verify_timeline_postconditions.handler({ expected: JSON.parse(file), actual: inline.data })).toMatchObject({ success: true });
+    // Existing files are never overwritten.
+    await expect(tools.inspect_timeline_snapshot.handler({ sequence_id: "s", output_path: target, approved_workspace_path: workspace })).rejects.toThrow("will not be overwritten");
+    expect(readFileSync(target, "utf8")).toBe(file);
+    // return_content defaults to true: the snapshot rides along under data.snapshot.
+    const full = await tools.inspect_timeline_snapshot.handler({ sequence_id: "s", output_path: path.join(workspace, "full.json"), approved_workspace_path: workspace });
+    expect(full).toMatchObject({ success: true, data: { written: true, content_omitted: false, snapshot: inline.data } });
+    // Revision mismatch leaves only an empty reservation, never snapshot bytes.
+    const unwritten = path.join(workspace, "stale.json");
+    expect(await tools.inspect_timeline_snapshot.handler({ sequence_id: "s", output_path: unwritten, approved_workspace_path: workspace, expected_revision: "wrong" })).toMatchObject({ success: false });
+    expect(readFileSync(unwritten, "utf8")).toBe("");
+    // Substitute the parent while the host request is pending. Neither inode gets bytes.
+    const { renameSync, symlinkSync } = await import("node:fs");
+    const outside = makePrivateBridgeTempDir("snapshot-outside-");
+    const moved = workspace + "-moved";
+    const originalSend = send.getMockImplementation()!;
+    send.mockImplementationOnce(async (script: string) => {
+      try { renameSync(workspace, moved); } catch (error) {
+        expect(process.platform).toBe("win32");
+        expect(["EPERM", "EACCES", "EBUSY"]).toContain((error as NodeJS.ErrnoException).code);
+        throw error;
+      }
+      symlinkSync(outside, workspace, process.platform === "win32" ? "junction" : "dir");
+      return originalSend(script);
+    });
+    await expect(tools.inspect_timeline_snapshot.handler({ sequence_id: "s", output_path: path.join(workspace, "race.json"), approved_workspace_path: workspace })).rejects.toThrow();
+    expect(existsSync(path.join(outside, "race.json"))).toBe(false);
+    // Windows may deny renaming a directory containing the reserved open handle.
+    const reservedParent = existsSync(moved) ? moved : workspace;
+    expect(readFileSync(path.join(reservedParent, "race.json"), "utf8")).toBe("");
+    if (!existsSync(moved)) expect(process.platform).toBe("win32");
   });
   it("reads track targeting and mute from the DOM, and sync lock from QE only for the active sequence", async () => {
     // Live 26.5.2: these were always null, so predict_timeline_edit refused every sync_locked ripple.
@@ -56,7 +117,7 @@ describe("reachable timeline/editorial contracts", () => {
     const seq = { sequenceID: "s", timebase: time(1 / 24), zeroPoint: "0", videoTracks, audioTracks };
     const qeSeq = { getVideoTrackAt: () => ({ isSyncLocked: () => true }), getAudioTrackAt: () => ({ isSyncLocked: () => "yes" }) };
     const enableQE = vi.fn();
-    const contextFor = (active: unknown) => ({ app: { project: { documentID: "p", activeSequence: active }, enableQE }, qe: { project: { getActiveSequence: () => qeSeq } }, __findSequence: () => seq, __isCurrentProjectSequence: () => true, __result: success, __error: failure });
+    const contextFor = (active: unknown) => ({ app: { project: { documentID: "p", activeSequence: active }, enableQE }, qe: { project: { getActiveSequence: () => qeSeq } }, __findSequence: () => seq, __isCurrentProjectSequence: () => true, __result: success, __error: failure, __refuse: failure });
     let context = contextFor(seq);
     const send = vi.fn(async (script: string) => vm.runInNewContext(script, context));
     const tools = getTimelineEditorialTools({}, { send });
@@ -157,7 +218,7 @@ describe("reviewed compound CEP plans", () => {
     const target = { backend: "cep", project_document_id: "p", sequence_id: "s", clip: { node_id: "clip", track_type: "video", track_index: 0, effect: { match_name: "Match", parameter_index: 0, parameter_name: "Amount" } } };
     const script = runWithExpectedHostTarget(target, () => buildToolScript('writes++; return __result({verified:true});'));
     const component = { matchName: "Match", properties: Object.assign([{ displayName: "Amount" }], { numItems: 1 }) }, clip = { components: Object.assign([component], { numItems: 1 }) }; let writes = 0;
-    const context = { app: { project: { documentID: "p", activeSequence: { sequenceID: "s" } } }, __findClip: () => ({ clip, trackType: "video", trackIndex: 0 }), __result: success, __error: failure, get writes() { return writes; }, set writes(n: number) { writes = n; } };
+    const context = { app: { project: { documentID: "p", activeSequence: { sequenceID: "s" } } }, __findClip: () => ({ clip, trackType: "video", trackIndex: 0 }), __result: success, __error: failure, __refuse: failure, get writes() { return writes; }, set writes(n: number) { writes = n; } };
     expect(vm.runInNewContext(script, context).success).toBe(true); expect(writes).toBe(1);
     component.properties[0].displayName = "Reordered"; expect(vm.runInNewContext(script, context)).toMatchObject({ success: false, error: expect.stringContaining("parameter identity") }); expect(writes).toBe(1);
     expect(() => runWithExpectedHostTarget({ ...target, clip: { ...target.clip, effect: { ...target.clip.effect, parameter_index: -1 } } }, () => null)).toThrow("indexed parameter");
@@ -170,7 +231,7 @@ describe("ordinary stacked-camera execution", () => {
     const plan = planStackedCameraEdit(s, [{ start_ticks: "0", end_ticks: time(2), camera_track_id: "video:0" }], ["video:0"], ["audio:0"]), script = stackedCameraApplyScript(s, plan);
     const nativeClip = (c: TimelineSnapshot["clips"][number], copy: boolean): any => ({ nodeId: c.id + (copy ? "copy" : ""), projectItem: { nodeId: c.source_id, isSequence: () => false }, getSpeed: () => 1, isSpeedReversed: () => false, getLinkedItems: () => null, start: { ticks: c.start_ticks }, end: { ticks: c.end_ticks }, inPoint: { ticks: c.in_ticks }, outPoint: { ticks: c.out_ticks }, disabled: !c.enabled });
     const sequence = (copy: boolean): any => ({ sequenceID: copy ? "copy" : "s", videoTracks: Object.assign([{ isLocked: () => false, clips: Object.assign([nativeClip(s.clips[0], copy)], { numItems: 1 }) }], { numTracks: 1 }), audioTracks: Object.assign([{ isLocked: () => false, clips: Object.assign([nativeClip(s.clips[1], copy)], { numItems: 1 }) }], { numTracks: 1 }) });
-    const original = sequence(false), sequences: any = Object.assign([original], { numSequences: 1 }), context = { app: { project: { documentID: "p", sequences } }, __findSequence: () => original, __result: success, __error: failure };
+    const original = sequence(false), sequences: any = Object.assign([original], { numSequences: 1 }), context = { app: { project: { documentID: "p", sequences } }, __findSequence: () => original, __result: success, __error: failure, __refuse: failure };
     original.clone = () => {};
     expect(vm.runInNewContext(script, context)).toMatchObject({ success: false, data: { outcome: "committed_unverified", verified: false } });
     original.clone = () => { const copy = sequence(true); copy.videoTracks[0].isLocked = () => true; sequences.push(copy); sequences.numSequences++; };
@@ -185,17 +246,17 @@ describe("ordinary stacked-camera execution", () => {
     const makeClip = (c: TimelineSnapshot["clips"][number], cloned = false) => ({ nodeId: `${c.id}${cloned ? "copy" : ""}`, projectItem: { nodeId: c.source_id, isSequence: () => false }, getSpeed: () => 1, isSpeedReversed: () => false, getLinkedItems: () => null, start: { ticks: c.start_ticks }, end: { ticks: c.end_ticks }, inPoint: { ticks: c.in_ticks }, outPoint: { ticks: c.out_ticks }, disabled: !c.enabled });
     const makeSequence = (cloned = false): any => ({ sequenceID: cloned ? "copy" : "s", videoTracks: Object.assign([0, 1].map(index => ({ isLocked: () => false, clips: Object.assign(s.clips.filter(c => c.track_id === `video:${index}`).map(c => makeClip(c, cloned)), { numItems: 1 }) })), { numTracks: 2 }), audioTracks: Object.assign([{ isLocked: () => false, clips: Object.assign([makeClip(s.clips[2], cloned)], { numItems: 1 }) }], { numTracks: 1 }) });
     const original = makeSequence(), sequences: any = Object.assign([original], { numSequences: 1 }); original.clone = () => { sequences.push(makeSequence(true)); sequences.numSequences++; };
-    const result = vm.runInNewContext(script, { app: { project: { documentID: "p", sequences } }, __findSequence: () => original, __result: success, __error: failure });
+    const result = vm.runInNewContext(script, { app: { project: { documentID: "p", sequences } }, __findSequence: () => original, __result: success, __error: failure, __refuse: failure });
     expect(result).toMatchObject({ success: true, data: { sequenceId: "copy", masterAudioPreserved: true, nativeMulticam: false } }); expect(sequences[1].videoTracks[0].clips[0].disabled).toBe(true); expect(sequences[1].audioTracks[0].clips[0].disabled).toBe(false); expect(original.videoTracks[0].clips[0].disabled).toBe(false);
     expect(script).not.toMatch(/\b(?:let|const)\b|=>|\d+n/);
     original.videoTracks[0].isLocked = () => true;
-    expect(vm.runInNewContext(script, { app: { project: { documentID: "p", sequences } }, __findSequence: () => original, __result: success, __error: failure })).toMatchObject({ success: false, error: expect.stringContaining("lock") }); expect(sequences.numSequences).toBe(2);
+    expect(vm.runInNewContext(script, { app: { project: { documentID: "p", sequences } }, __findSequence: () => original, __result: success, __error: failure, __refuse: failure })).toMatchObject({ success: false, error: expect.stringContaining("lock") }); expect(sequences.numSequences).toBe(2);
     original.videoTracks[0].isLocked = undefined;
-    expect(vm.runInNewContext(script, { app: { project: { documentID: "p", sequences } }, __findSequence: () => original, __result: success, __error: failure })).toMatchObject({ success: false, error: expect.stringContaining("lock") }); expect(sequences.numSequences).toBe(2);
+    expect(vm.runInNewContext(script, { app: { project: { documentID: "p", sequences } }, __findSequence: () => original, __result: success, __error: failure, __refuse: failure })).toMatchObject({ success: false, error: expect.stringContaining("lock") }); expect(sequences.numSequences).toBe(2);
     original.videoTracks[0].isLocked = () => false; original.videoTracks[0].clips[0].getSpeed = () => 2;
-    expect(vm.runInNewContext(script, { app: { project: { documentID: "p", sequences } }, __findSequence: () => original, __result: success, __error: failure })).toMatchObject({ success: false, error: expect.stringContaining("retimed") }); expect(sequences.numSequences).toBe(2);
+    expect(vm.runInNewContext(script, { app: { project: { documentID: "p", sequences } }, __findSequence: () => original, __result: success, __error: failure, __refuse: failure })).toMatchObject({ success: false, error: expect.stringContaining("retimed") }); expect(sequences.numSequences).toBe(2);
     original.videoTracks[0].clips[0].getSpeed = () => 1; original.videoTracks[0].clips[0].getLinkedItems = () => Object.assign([{ nodeId: "master" }], { numItems: 1 });
-    expect(vm.runInNewContext(script, { app: { project: { documentID: "p", sequences } }, __findSequence: () => original, __result: success, __error: failure })).toMatchObject({ success: false, error: expect.stringContaining("linked identities") }); expect(sequences.numSequences).toBe(2);
+    expect(vm.runInNewContext(script, { app: { project: { documentID: "p", sequences } }, __findSequence: () => original, __result: success, __error: failure, __refuse: failure })).toMatchObject({ success: false, error: expect.stringContaining("linked identities") }); expect(sequences.numSequences).toBe(2);
   });
 });
 

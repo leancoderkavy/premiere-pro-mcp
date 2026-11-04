@@ -27,7 +27,9 @@ function engine({ headless, engineFileAgeMs }: { headless: boolean; engineFileAg
         if (!file.endsWith("headless-engine.json") || engineFileAgeMs === undefined) throw Error("ENOENT");
         return { mtime: { getTime: () => now - engineFileAgeMs } };
       },
-      writeFileSync: (file: string) => writes.push(file),
+      openSync: (file: string) => { writes.push(file); return 3; },
+      writeFileSync: () => {},
+      closeSync: () => {},
       renameSync: (_from: string, to: string) => writes.push(`renamed:${to}`),
     },
   };

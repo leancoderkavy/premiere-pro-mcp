@@ -4,7 +4,64 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [1.29.0] - 2026-11-02
+
+### Changed
+
+- `delete_multiple_project_items` checks every item against one timeline-usage index built in a single pass over all sequences (the scan `get_unused_media` already made, now shared as `__buildTimelineUsageIndex`), instead of walking every sequence once per item. It then deletes in chunks of 25 items per host command with per-chunk readback, sends a progress notification at least every 10 s, and accepts up to 500 `item_ids` (duplicates are deleted once). A failing chunk stops the batch and the reply counts what was deleted before it (`DELETE_CHUNK_STOPPED`), so a partial outcome is never reported as success. `delete_project_item`, `delete_bin`, `delete_sequence` and `find_item_usages` share the index-based usage walk with unchanged results.
+### Added
+
+- `set_track_states` sets mute, solo and lock on up to 64 video or audio tracks of the active sequence in one host command with per-track readback: every target is read first and nothing changes when any target is out of range, unreadable or asks for a state the host cannot read and write (solo has no public ExtendScript accessor and is probed on the QE track, refused before mutation when absent). `snapshot: true` returns `data.restore`, the pre-write state in the shape the tool accepts, so one call captures and the next restores; a snapshot with no state fields is a read-only capture that needs only inspect authority. Mismatched readback reports `not_applied` or `committed_unverified` per track instead of success.
+
+- Compact schema discovery (`PREMIERE_MCP_SCHEMA_PROFILE=compact`) adds memory-only `set_session_guard` for one stdio process. Full schemas remain the default; per-call guards override session values and retain full validation. Stateless HTTP refuses compact mode.
+- `PREMIERE_MCP_TOOL_LIST` selects explicit tools, unions with selected packs, preserves discovery tools, and rejects unknown names. Reviewable `fork/packs/*.txt` lists support focused client configurations.
+- `inspect_timeline_snapshot` can write a versioned JSON snapshot inside an approved private workspace without overwriting an existing file; `return_content: false` returns bounded identity, counts, completeness, byte length and SHA-256 instead of clip content.
+- `audit_project_structure` accepts a target tree with guarded bin placement, rename and empty-bin removal plans.
+
+### Fixed
+
+- Destructive project-item batches fail closed when usage is unreadable, revalidate project identity and timeline usage between chunks, and verify individual deletions before counting progress. Bridge rejection and readback failure retain confirmed earlier progress without claiming the batch succeeded.
+- Structure apply validates placements, project identity and sibling collisions before mutation, then rechecks live sibling state before moves and renames. Empty-bin removal refuses unreadable children.
+- Track-state preflight reports explicit refusals; snapshot-only capture requires inspect authority and is discoverable through MCP without edit authority.
+- Explicit tool selection validates against the full catalog and composes with schema profiles. Session guards remain local operations, retain transport and idempotency semantics, and remain discoverable in compact mode.
+- Snapshot output requires filesystem authority and an already-private approved workspace. Reserve the destination exclusively before host inspection and verify descriptor identity; do not change existing directory permissions or overwrite collisions.
+
+### Verification boundary
+
+- Compatible feature additions from the six integrated feature branches (compact schemas/session guards, explicit tool selection, snapshot files, chunked deletion, structure plans, and track-state snapshots), plus integration safety fixes. Automated checks establish package behavior only; no live Premiere/After Effects host validation is claimed.
+- This is release preparation. Client install pins and the README latest-published heading remain on verified npm `1.28.0` until publication; version `1.29.0` metadata does not establish npm availability, signed connector delivery or deployment.
+
+## [1.28.0] - 2026-11-01
+
+### Added
+
+- `PREMIERE_BRIDGE_MODE=auto|cep` prefers connected UXP for automatic connection diagnostics and can force CEP by withholding UXP tools. Explicit backend probes never switch; CEP-only tools keep their CEP route, and failed UXP mutations are never retried through CEP (#924).
+- `preview_send_clip_to_after_effects` and `apply_send_clip_to_after_effects` send one Premiere video clip to After Effects, like Premiere's Replace with After Effects Composition: a comp with the sequence size, pixel aspect and frame rate and the clip's exact source range (footage layer audio off) is added to the open, saved AE project and saved, imported back over Dynamic Link and swapped in at the clip's span with `replace_clip`. The clip's linked audio stays. Speed-changed, reversed, offline and non-file clips are refused, and effects or Motion/Opacity changes that the swap would not carry over are listed before approval.
+- `copy_clips_between_sequences_uxp` copies a guarded range with documented UXP clone actions, preserving clip effects and reading back placement, source range and enabled state. Edge clips are parked, trimmed and placed with explicit Undo counts (#942).
+- Optional `export_sequence` audio_check reports decoded first-stream signal, silence, absence or unavailable evidence. expect_signal leaves silent or absent audio unverified without hiding the written output (#936).
+
+### Fixed
+
+- Connection diagnostic notes name the backend actually checked, including automatic CEP fallback and explicit backend probes.
+- Failed title-cache archive writes or renames clean their owned temporary file, preserving the prior cached archive and unrelated exclusive-create collisions.
+- Invalid bridge mode startup errors preserve their fixed validation message without logging the configured value or arbitrary exception messages.
+- Node command and helper-file writes establish exclusive ownership before writing, close descriptors on errors, and remove owned partial files while preserving exclusive-create collisions.
+- Partial connector response/heartbeat writes close their exclusive descriptors and clean owned stages, allowing retries after write errors without touching a colliding stage. Automated caption burn-in guidance stops before changing one-sided sequence marks.
+- A stale node ID or other pre-write refusal from an editing tool no longer locks the CEP bridge. Previously `enable_disable_clip` with a clip that no longer existed returned "Clip not found" with an unknown outcome, which recorded `unknown_command_outcome` recovery and blocked every later edit until `inspect_operation_recovery` and `acknowledge_operation_recovery`. Refusals raised before a command changes anything (lookup and validation sites, plus the expected project/target guards) now report `not_applied` through a new `__refuse` helper. They stay unknown when the undo history moved, a marker write was attempted, or an earlier command of the same tool call was already dispatched. Per-command undo and write flags are now reset before the guards run, so a guard refusal no longer inherits the previous command's marker-write state.
+- Tool authority now requires filesystem access for user-file reads and writes and edit access for host and encoder mutations, including action-specific native tools and durable context. Arbitrary scripting cannot bypass a narrower edit, export or filesystem profile. The v1.25.0 export job tools follow the same rule: `export_sequence_job_start` also requires edit, like `add_to_render_queue`, and `get_export_job_status` requires filesystem because it reads the output file size.
+- Audio normalization retries use private staging, bounded file readers reject non-regular and oversized inputs, and MOGRT workspace operations refuse symlink escapes. Still and project export destinations require explicit overwrite consent.
+- HTTP and stdio error logs retain only bounded error categories, telemetry startup omits endpoint credentials, and private connector files use explicit owner-only permissions with owned staging cleanup.
+- `import_ae_comps` returns each new item's node ID and name. A named import reports `verified` only when every requested composition is read back by name and source `.aep`, and refuses before importing when the target bin's items cannot be read. Importing all comps keeps the target-bin count check; its item list is informational and is omitted when the bin's items cannot be read.
+- `inspect_after_effects_render_templates` can read template names on an empty render queue: with `allow_temporary_queue_item: true` (requires edit) it queues one composition briefly, reads the names, removes it and checks the queue length.
+- `apply_after_effects_render_handoff` names `replace_clip` with the imported item as the next step for putting a render in place of an existing timeline clip.
+- `export_frame` notes that Premiere can return a cached frame after a linked After Effects composition changes.
+- `create_subclip` and the `overwrite_clip` `sourceInShift` check read the media start from `Column.Intrinsic.MediaStart` when the stored points carry no offset child, and handle time-of-day ranges that pass midnight, so a camera clip at 01:00:00:00 no longer reports a range (or shift) off by an hour. An unreadable MediaStart leaves the range unverified instead of assuming zero (#920 follow-up).
+- `overwrite_clip` no longer says `slip_edit` can correct a `sourceInShift`: slip_edit snaps to whole sequence frames, so it cannot correct a shift smaller than one frame (#920 follow-up).
+- `import_media`, `import_folder`, `import_ae_comps` and `import_fcp_xml` resolve `target_bin` through the bin-only lookup, so a sequence ID, clip ID or clip name is refused as "not a bin" before Premiere is asked to import. Every `item_id` parameter that resolves a sequence ID now says so in its schema (#921 follow-up).
+- `get_caption_style_guidance` no longer lists `export_sequence_review_frames` among its routes (still frames omit caption tracks), and its burn-in recipe saves sequence In/Out before setting the test range and restores them afterwards only if they still match, because `export_sequence` does not restore marks (#922 follow-up).
+- Audio effect scale annotations follow the values Premiere returns: `parameterScale.kind` is `normalized_0_1`, `host_raw_unknown`, `mixed` or `unknown`, and an effect with raw values gets a warning not to send normalized values instead of the normalized-scale summary. `set_effect_property` bases `valueScale` on the returned value and adds `requestedValueScale` when the request differs, so a refused or clamped 80 no longer labels a returned 0.25 as raw. Volume Level reports dB for the es-ES `Nivel` label and the `audioVolume` / `AE.ADBE Volume` match names, and Panner, Volume and Channel Volume under their `audio*` / `AE.ADBE` match names stay intrinsic on localized hosts, so a raw pan is not refused as a normalized effect value (#923, #930 follow-up).
+- The `captions` and `assistant-edit` tool packs include `multiple_undo` and `manage_track_state_uxp`, the reversal tools caption-import results point to, and the client instructions mention each reversal route only when its tool is registered (#931 follow-up).
+- Review integration rechecks the approved After Effects path and sequence settings before writing, retains uncertain outcomes after clone/settings/mark writes, and uses Windows-valid audio test paths.
 
 ## [1.27.0] - 2026-10-31
 

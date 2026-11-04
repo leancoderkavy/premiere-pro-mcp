@@ -52,7 +52,7 @@ export async function applyScratchDisks(
   });
   const script = buildToolScript(`
     if (typeof ScratchDiskType === "undefined" || typeof app.setScratchDiskPath !== "function") {
-      return __error("This Premiere host does not expose app.setScratchDiskPath with ScratchDiskType constants.");
+      return __refuse("This Premiere host does not expose app.setScratchDiskPath with ScratchDiskType constants.");
     }
     var applied = [];
     ${steps.join("\n")}

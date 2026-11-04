@@ -178,7 +178,7 @@ export function getRenderHandoffTools(options: BridgeOptions, dependencies: Depe
       },
     },
     apply_after_effects_render_handoff: {
-      description: "Import exactly one previewed completed AE render into its approved Premiere bin after rechecking both hosts and file metadata. Requires confirmation and consumes the token before dispatch. Does not save, render, or change a timeline.",
+      description: "Import exactly one previewed completed AE render into its approved Premiere bin after rechecking both hosts and file metadata. Requires confirmation and consumes the token before dispatch. Does not save, render, or change a timeline; the receipt returns the new projectItemId, and replace_clip swaps it in for an existing timeline clip at the same span.",
       parameters: { type: "object" as const, additionalProperties: false, properties: {
         preview_token: { type: "string", description: "One-time ten-minute token from preview_after_effects_render_handoff." },
         confirm_import: { type: "boolean", description: "Must be true after reviewing the exact file and destination." },
@@ -205,7 +205,8 @@ export function getRenderHandoffTools(options: BridgeOptions, dependencies: Depe
           stage = "premiere_import";
           const receipt = data(await premiere(premiereScript(plan, true), options));
           if (receipt.importVerified !== true || typeof receipt.projectItemId !== "string" || !receipt.projectItemId) throw new Error("Premiere returned no verified import receipt");
-          return { success: true, data: { ...receipt, operationId, stage: "complete", timelineChanged: false, visualVerified: false } };
+          return { success: true, data: { ...receipt, operationId, stage: "complete", timelineChanged: false, visualVerified: false,
+            nextStep: `To put the render on the timeline in place of an existing clip (for example the Dynamic Link comp it was rendered from), call replace_clip with that clip's node_id and new_item_id "${receipt.projectItemId}"; replace_clip keeps the exact timeline span. Use add_to_timeline to place it elsewhere.` } };
         } catch (error) {
           return { success: false, error: error instanceof Error ? error.message : String(error), data: {
             operationId, failedStage: stage, importMayHaveOccurred: stage === "premiere_import", rollbackAttempted: false,

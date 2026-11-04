@@ -470,6 +470,20 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
       "SequenceEditor.createRemoveItemsAction",
       "Project.executeTransaction",
     ]));
+    expect(entries.find((entry) => entry.id === "guarded-sequence-range-copy-by-clone")).toMatchObject({
+      uxpCommand: "sequence.copyClips",
+      mcpTools: ["copy_clips_between_sequences_uxp"],
+      verificationBoundary: "guarded_clone_placement_trim_and_source_range_readback",
+      liveHostVerificationStatus: "not_run",
+    });
+    expect(entries.find((entry) => entry.id === "guarded-sequence-range-copy-by-clone")?.adobeApi).toEqual(expect.arrayContaining([
+      "Sequence.getTimebase",
+      "SequenceEditor.createCloneTrackItemAction",
+      "VideoClipTrackItem.createSetStartAction",
+      "VideoClipTrackItem.createSetEndAction",
+      "VideoClipTrackItem.createMoveAction",
+      "Project.executeTransaction",
+    ]));
     expect(entries.find((entry) => entry.id === "guarded-track-item-contiguous-ripple-delete")).toMatchObject({
       uxpCommand: "trackItem.rippleDelete",
       mcpTools: ["ripple_delete_track_item_uxp"],
@@ -562,12 +576,12 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("keeps unimplemented 26.3 work visibly planned", () => {
     const report = buildAdobeUxpCoverageReport();
     expect(report.summary).toEqual({
-      total: 91,
-      current: 88,
+      total: 92,
+      current: 89,
       planned: 3,
-      implemented: 88,
+      implemented: 89,
       committedUnverified: 8,
-      automatedContractVerified: 80,
+      automatedContractVerified: 81,
       liveHostVerified: 0,
     });
     expect(report.entries.find((entry) => entry.id === "aaf-export")).toMatchObject({
@@ -599,7 +613,7 @@ describe("Adobe Premiere Pro 26.3 UXP coverage", () => {
   it("surfaces the baseline in the platform capability report", () => {
     const report = buildPlatformCapabilityReport(resolveCapabilities("inspect"), "win32");
     expect(report.backends.uxp.apiCoverage.summary).toMatchObject({
-      current: 88,
+      current: 89,
       planned: 3,
       committedUnverified: 8,
     });

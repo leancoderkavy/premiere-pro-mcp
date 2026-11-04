@@ -37,7 +37,7 @@ export function getTrackTools(bridgeOptions: BridgeOptions) {
         const isVideo = args.track_type === "video";
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
 
           var before = ${isVideo ? "seq.videoTracks.numTracks" : "seq.audioTracks.numTracks"};
           var expected = before + ${count};
@@ -143,11 +143,11 @@ export function getTrackTools(bridgeOptions: BridgeOptions) {
         const video = args.track_type === "video";
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           var tracks = ${video ? "seq.videoTracks" : "seq.audioTracks"};
           var before = tracks.numTracks;
-          if (${args.track_index} >= before) return __error("Track index out of range");
-          if (before <= 1) return __error("A sequence keeps at least one ${args.track_type} track");
+          if (${args.track_index} >= before) return __refuse("Track index out of range");
+          if (before <= 1) return __refuse("A sequence keeps at least one ${args.track_type} track");
           // Identity of every track before the delete: clip IDs, custom name and
           // lock/mute state. Premiere's default names are a prefix plus the track's
           // position ("Video 3", "Vidéo 3") and renumber when a track goes. The
@@ -231,12 +231,12 @@ export function getTrackTools(bridgeOptions: BridgeOptions) {
         if (typeof args.locked !== "boolean") return { success: false, error: "locked must be a boolean." };
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           
-          if (${args.track_index} >= seq.videoTracks.numTracks) return __error("Track index out of range");
+          if (${args.track_index} >= seq.videoTracks.numTracks) return __refuse("Track index out of range");
           
           var track = seq.videoTracks[${args.track_index}];
-          if (!track || typeof track.isLocked !== "function" || typeof track.setLocked !== "function") return __error("Track lock state cannot be read or set on this Premiere host; nothing was changed.");
+          if (!track || typeof track.isLocked !== "function" || typeof track.setLocked !== "function") return __refuse("Track lock state cannot be read or set on this Premiere host; nothing was changed.");
           var beforeLocked;
           try { beforeLocked = track.isLocked(); } catch (beforeLockError) { return __error("Track lock state could not be read before mutation; nothing was changed: " + beforeLockError.toString()); }
           if (typeof beforeLocked !== "boolean") return __error("Track lock state was not boolean before mutation; nothing was changed.");
@@ -273,12 +273,12 @@ export function getTrackTools(bridgeOptions: BridgeOptions) {
         if (typeof args.visible !== "boolean") return { success: false, error: "visible must be a boolean." };
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           
-          if (${args.track_index} >= seq.videoTracks.numTracks) return __error("Track index out of range");
+          if (${args.track_index} >= seq.videoTracks.numTracks) return __refuse("Track index out of range");
           
           var track = seq.videoTracks[${args.track_index}];
-          if (!track || typeof track.isMuted !== "function" || typeof track.setMute !== "function") return __error("Track mute/visibility state cannot be read or set on this Premiere host; nothing was changed.");
+          if (!track || typeof track.isMuted !== "function" || typeof track.setMute !== "function") return __refuse("Track mute/visibility state cannot be read or set on this Premiere host; nothing was changed.");
           var beforeMuted;
           try { beforeMuted = track.isMuted(); } catch (beforeMuteError) { return __error("Track mute state could not be read before mutation; nothing was changed: " + beforeMuteError.toString()); }
           if (typeof beforeMuted !== "boolean") return __error("Track mute state was not boolean before mutation; nothing was changed.");
@@ -294,5 +294,198 @@ export function getTrackTools(bridgeOptions: BridgeOptions) {
         return sendCommand(script, bridgeOptions);
       },
     },
+    set_track_states: {
+      description:
+        "Set mute, solo and lock on several video or audio tracks of the active sequence in one host command, with per-track readback. Every requested track is read first; if any target is out of range, unreadable or asks for a state this host cannot read and write (solo has no public ExtendScript API and is probed on the QE track), nothing is changed. snapshot: true returns the pre-write state of the same tracks as a restore payload this tool accepts unchanged; with no state fields at all it is a read-only capture.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          tracks: {
+            type: "array",
+            description: "Tracks to read or change. Omit a state field to leave it as it is.",
+            minItems: 1,
+            maxItems: 64,
+            items: {
+              type: "object",
+              properties: {
+                type: { type: "string", enum: ["video", "audio"], description: "Track type" },
+                index: { type: "number", description: "Track index within that type (0-based)" },
+                muted: { type: "boolean", description: "Desired mute state (video: hidden when true)" },
+                solo: { type: "boolean", description: "Desired solo state; refused before mutation when the host exposes no solo API" },
+                locked: { type: "boolean", description: "Desired lock state" },
+              },
+              required: ["type", "index"],
+            },
+          },
+          snapshot: {
+            type: "boolean",
+            description: "True to return data.restore, the pre-write state of every requested track in the shape of the tracks argument (default: false).",
+          },
+        },
+        required: ["tracks"],
+      },
+      handler: async (args: {
+        tracks: Array<{ type: string; index: number; muted?: boolean; solo?: boolean; locked?: boolean }>;
+        snapshot?: boolean;
+      }) => {
+        if (!Array.isArray(args.tracks) || args.tracks.length === 0) return { success: false, error: "tracks must be a non-empty array." };
+        if (args.tracks.length > 64) return { success: false, error: "tracks accepts at most 64 entries per call." };
+        if (args.snapshot !== undefined && typeof args.snapshot !== "boolean") return { success: false, error: "snapshot must be a boolean." };
+        const seen = new Set<string>();
+        const requests: Array<{ type: "video" | "audio"; index: number; muted?: boolean; solo?: boolean; locked?: boolean }> = [];
+        for (let i = 0; i < args.tracks.length; i++) {
+          const entry = args.tracks[i];
+          if (!entry || typeof entry !== "object") return { success: false, error: `tracks[${i}] must be an object.` };
+          if (entry.type !== "video" && entry.type !== "audio") return { success: false, error: `tracks[${i}].type must be video or audio.` };
+          if (!Number.isInteger(entry.index) || entry.index < 0) return { success: false, error: `tracks[${i}].index must be a non-negative integer.` };
+          for (const field of ["muted", "solo", "locked"] as const) {
+            if (entry[field] !== undefined && typeof entry[field] !== "boolean") return { success: false, error: `tracks[${i}].${field} must be a boolean when present.` };
+          }
+          const key = `${entry.type}:${entry.index}`;
+          if (seen.has(key)) return { success: false, error: `tracks lists ${entry.type} track ${entry.index} more than once.` };
+          seen.add(key);
+          const request: (typeof requests)[number] = { type: entry.type, index: entry.index };
+          if (entry.muted !== undefined) request.muted = entry.muted;
+          if (entry.solo !== undefined) request.solo = entry.solo;
+          if (entry.locked !== undefined) request.locked = entry.locked;
+          requests.push(request);
+        }
+        const snapshot = args.snapshot === true;
+        const script = buildToolScript(`
+          var seq = app.project.activeSequence;
+          if (!seq) return __refuse("No active sequence", { mutationOutcome: "not_applied", timelineChanged: false });
+          var requests = ${JSON.stringify(requests)};
+          var snapshot = ${snapshot ? "true" : "false"};
+          var fields = ["muted", "solo", "locked"];
+          var needsSolo = false;
+          for (var n = 0; n < requests.length; n++) if (typeof requests[n].solo === "boolean") needsSolo = true;
+          var qeSeq = null;
+          try { app.enableQE(); qeSeq = qe.project.getActiveSequence(); } catch (qeError) { qeSeq = null; }
+          // Refusals before any write carry a not_applied outcome so the receipt never reads as unknown.
+          var __refuseTrackState = function (message, code, req, field) {
+            return __jsonStringify({ success: false, error: message, data: { code: code, field: field || null, trackType: req.type, trackIndex: req.index, applied: false, outcome: "not_applied", mutationOutcome: "not_applied", timelineChanged: false } });
+          };
+          var readBool = function (fn, owner) {
+            if (typeof fn !== "function") return null;
+            var value = fn.call(owner);
+            if (value === true || value === 1) return true;
+            if (value === false || value === 0) return false;
+            return null;
+          };
+          // One function per track so each reader and writer closes over its own
+          // track (ExtendScript var is function-scoped, so inline closures in a
+          // loop would all see the last track).
+          var accessorsFor = function (track, qeTrack) {
+            // Solo has no public DOM accessor; the DOM track and then the QE track are probed for isSolo/isSoloed plus setSolo.
+            var soloRead = null, soloWrite = null, soloOwner = null;
+            var candidates = [track, qeTrack];
+            for (var c = 0; c < candidates.length && !soloRead; c++) {
+              var owner = candidates[c];
+              if (!owner) continue;
+              var readName = typeof owner.isSolo === "function" ? "isSolo" : (typeof owner.isSoloed === "function" ? "isSoloed" : null);
+              if (readName && typeof owner.setSolo === "function") { soloRead = owner[readName]; soloWrite = owner.setSolo; soloOwner = owner; }
+            }
+            return {
+              support: {
+                muted: typeof track.isMuted === "function" && typeof track.setMute === "function",
+                solo: !!soloRead,
+                locked: typeof track.isLocked === "function" && typeof track.setLocked === "function"
+              },
+              reader: {
+                muted: function () { return readBool(track.isMuted, track); },
+                solo: function () { return soloRead ? readBool(soloRead, soloOwner) : null; },
+                locked: function () { return readBool(track.isLocked, track); }
+              },
+              writer: {
+                muted: function (v) { track.setMute(v ? 1 : 0); },
+                solo: function (v) { soloWrite.call(soloOwner, v ? 1 : 0); },
+                locked: function (v) { track.setLocked(v ? 1 : 0); }
+              }
+            };
+          };
+          var resolved = [];
+          for (var r = 0; r < requests.length; r++) {
+            var req = requests[r];
+            var list = req.type === "video" ? seq.videoTracks : seq.audioTracks;
+            if (!list || req.index >= list.numTracks) return __refuseTrackState(req.type + " track " + req.index + " is out of range (" + (list ? list.numTracks : 0) + " " + req.type + " tracks); nothing was changed.", "TRACK_OUT_OF_RANGE", req);
+            var track = list[req.index];
+            if (!track) return __refuseTrackState(req.type + " track " + req.index + " could not be resolved; nothing was changed.", "TRACK_UNRESOLVED", req);
+            var qeTrack = null;
+            if (qeSeq) { try { qeTrack = req.type === "video" ? qeSeq.getVideoTrackAt(req.index) : qeSeq.getAudioTrackAt(req.index); } catch (qeTrackError) { qeTrack = null; } }
+            var accessors = accessorsFor(track, qeTrack);
+            var support = accessors.support, reader = accessors.reader;
+            var before = {};
+            for (var f = 0; f < fields.length; f++) {
+              var field = fields[f];
+              var wanted = typeof req[field] === "boolean";
+              if (!support[field]) {
+                if (wanted) return __jsonStringify({ success: false, error: req.type + " track " + req.index + " cannot read and set " + field + " on this Premiere host; nothing was changed.", data: { code: "TRACK_STATE_UNSUPPORTED", field: field, trackType: req.type, trackIndex: req.index, applied: false, outcome: "not_applied", mutationOutcome: "not_applied", timelineChanged: false, support: support } });
+                before[field] = null;
+                continue;
+              }
+              var value = null;
+              try { value = reader[field](); } catch (readError) { value = null; }
+              if (value === null) {
+                if (wanted) return __refuseTrackState(req.type + " track " + req.index + " " + field + " state could not be read before mutation; nothing was changed.", "TRACK_STATE_UNREADABLE", req, field);
+                before[field] = null;
+                continue;
+              }
+              before[field] = value;
+            }
+            resolved.push({ req: req, before: before, support: support, reader: reader, writer: accessors.writer, name: String(track.name || "") });
+          }
+          var restore = [];
+          for (var s = 0; s < resolved.length; s++) {
+            var snap = { type: resolved[s].req.type, index: resolved[s].req.index };
+            for (var sf = 0; sf < fields.length; sf++) if (resolved[s].before[fields[sf]] !== null) snap[fields[sf]] = resolved[s].before[fields[sf]];
+            restore.push(snap);
+          }
+          var results = [];
+          var writeErrors = [];
+          var changed = 0, mismatches = 0, unreadable = 0, writes = 0;
+          for (var w = 0; w < resolved.length; w++) {
+            var item = resolved[w];
+            var out = { trackType: item.req.type, trackIndex: item.req.index, trackName: item.name, before: item.before, requested: {}, after: {}, verified: true };
+            for (var wf = 0; wf < fields.length; wf++) {
+              var wField = fields[wf];
+              if (typeof item.req[wField] !== "boolean") continue;
+              out.requested[wField] = item.req[wField];
+              if (item.before[wField] === item.req[wField]) continue;
+              writes++;
+              try { item.writer[wField](item.req[wField]); } catch (writeError) { writeErrors.push(item.req.type + " " + item.req.index + " " + wField + ": " + writeError.toString()); }
+            }
+            results.push(out);
+          }
+          for (var a = 0; a < resolved.length; a++) {
+            var ritem = resolved[a];
+            var rout = results[a];
+            for (var af = 0; af < fields.length; af++) {
+              var aField = fields[af];
+              if (!ritem.support[aField]) { rout.after[aField] = null; continue; }
+              var afterValue = null;
+              try { afterValue = ritem.reader[aField](); } catch (afterError) { afterValue = null; }
+              rout.after[aField] = afterValue;
+              if (afterValue !== null && ritem.before[aField] !== null && afterValue !== ritem.before[aField]) changed++;
+              if (typeof ritem.req[aField] !== "boolean") continue;
+              if (afterValue === null) { unreadable++; rout.verified = false; }
+              else if (afterValue !== ritem.req[aField]) { mismatches++; rout.verified = false; }
+            }
+          }
+          var data = { tracks: results, trackCount: results.length, writes: writes, changed: changed, verified: mismatches === 0 && unreadable === 0, outcome: "verified", timelineChanged: changed > 0, snapshot: snapshot };
+          if (snapshot) data.restore = { tracks: restore };
+          if (unreadable > 0) {
+            data.outcome = "committed_unverified"; data.verified = false; data.timelineChanged = changed > 0 ? true : null;
+            return __jsonStringify({ success: false, error: "Track state writes were attempted, but " + unreadable + " state(s) did not read back as boolean. Inspect the tracks before retrying." + (writeErrors.length ? " " + writeErrors.join("; ") : ""), data: data });
+          }
+          if (mismatches > 0) {
+            data.outcome = changed > 0 ? "committed_unverified" : "not_applied"; data.verified = false;
+            return __jsonStringify({ success: false, error: "Premiere did not verify " + mismatches + " requested track state(s)" + (writeErrors.length ? ": " + writeErrors.join("; ") : "") + ". Inspect the tracks before retrying.", data: data });
+          }
+          return __result(data);
+        `);
+        return sendCommand(script, bridgeOptions);
+      },
+    },
+
   };
 }

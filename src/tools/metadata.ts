@@ -86,7 +86,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           parse_fields: {
             type: "boolean",
@@ -130,7 +130,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
         const readXmp = includeXmpMetadata || (parseFields && args.include_xmp_metadata !== false);
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found");
+          if (!item) return __refuse("Item not found");
 
           var metadata = {};
           var projectPacket = "";
@@ -138,7 +138,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
           ${readProject ? 'try { projectPacket = String(item.getProjectMetadata() || ""); } catch (eProject) {}' : ""}
           ${readXmp ? 'try { xmpPacket = String(item.getXMPMetadata() || ""); } catch (eXmp) {}' : ""}
           if (projectPacket.length > 262144 || xmpPacket.length > 262144) {
-            return __error("Metadata packet exceeds the 256 Ki character limit; use bounded Project-panel columns instead");
+            return __refuse("Metadata packet exceeds the 256 Ki character limit; use bounded Project-panel columns instead");
           }
           ${parseFields ? `${CEP_XMP_FIELD_HELPERS}
           var loadError = __loadAdobeXmp();
@@ -174,7 +174,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           field_name: {
             type: "string",
@@ -260,7 +260,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
             : "\"\"";
           const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found");
+          if (!item) return __refuse("Item not found");
           ${CEP_XMP_FIELD_HELPERS}
           var loadError = __loadAdobeXmp();
           if (loadError) return __error(loadError);
@@ -324,7 +324,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
         const updatedFields = JSON.stringify(args.updated_fields);
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found");
+          if (!item) return __refuse("Item not found");
 
           var requestedMetadata = "${escapeForExtendScript(args.metadata_xml!)}";
           var updatedFields = ${updatedFields};
@@ -352,7 +352,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           color_index: {
             type: "number",
@@ -368,7 +368,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
         }
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found");
+          if (!item) return __refuse("Item not found");
           
           item.setColorLabel(${args.color_index});
           var observed = null;
@@ -388,7 +388,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
         },
         required: ["item_id"],
@@ -396,7 +396,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { item_id: string }) => {
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found");
+          if (!item) return __refuse("Item not found");
           
           var colorIndex = item.getColorLabel();
           return __result({ item: item.name, colorIndex: colorIndex });
@@ -412,7 +412,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
         },
         required: ["item_id"],
@@ -420,10 +420,10 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { item_id: string }) => {
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found");
+          if (!item) return __refuse("Item not found");
           
           var interp = item.getFootageInterpretation();
-          if (!interp) return __error("No footage interpretation available");
+          if (!interp) return __refuse("No footage interpretation available");
           
           return __result({
             item: item.name,
@@ -446,7 +446,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           frame_rate: {
             type: "number",
@@ -477,10 +477,10 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
         }
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found");
+          if (!item) return __refuse("Item not found");
           
           var interp = item.getFootageInterpretation();
-          if (!interp) return __error("No footage interpretation available");
+          if (!interp) return __refuse("No footage interpretation available");
           
           ${args.frame_rate !== undefined ? `interp.frameRate = ${args.frame_rate};` : ""}
           ${args.pixel_aspect_ratio !== undefined ? `interp.pixelAspectRatio = ${args.pixel_aspect_ratio};` : ""}
@@ -511,7 +511,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
       parameters: {
         type: "object" as const,
         properties: {
-          item_id: { type: "string", description: "Node ID or name of the project item" },
+          item_id: { type: "string", description: "Node ID or name of the project item, or the sequence ID of a sequence" },
           include_raw: { type: "boolean", description: "Opt in to raw XMP instead of parsed fields (maximum 256 Ki characters). Requires include_sensitive true; default false." },
           include_sensitive: { type: "boolean", description: "Opt in to GPS, serial, author and contact fields; required for raw XMP; default false." },
         },
@@ -536,7 +536,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           xmp_xml: {
             type: "string",
@@ -548,7 +548,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { item_id: string; xmp_xml: string }) => {
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found");
+          if (!item) return __refuse("Item not found");
 
           try {
             if (ExternalObject.AdobeXMPScript === undefined) {
@@ -627,7 +627,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
         },
         required: ["item_id"],
@@ -635,7 +635,7 @@ export function getMetadataTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { item_id: string }) => {
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found");
+          if (!item) return __refuse("Item not found");
           
           var info = { item: item.name };
           try { info.colorSpace = item.getColorSpace(); } catch(e) { info.colorSpace = "unknown"; }

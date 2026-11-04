@@ -304,13 +304,13 @@ export function getTextTools(bridgeOptions: BridgeOptions) {
 
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           
           var libraryName = "${escapeForExtendScript(args.library_name)}";
           var mogrtName = "${escapeForExtendScript(args.mogrt_name)}";
           var startTicks = __secondsToTicks(${startSeconds}).toString();
           
-          if (typeof seq.importMGTFromLibrary !== "function") return __error("This Premiere build does not expose importMGTFromLibrary; no import was attempted.");
+          if (typeof seq.importMGTFromLibrary !== "function") return __refuse("This Premiere build does not expose importMGTFromLibrary; no import was attempted.");
           var hostResult;
           try { hostResult = seq.importMGTFromLibrary(
             libraryName,

@@ -60,8 +60,8 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         const paths = resolvedPaths.map((p) => `"${escapeForExtendScript(p)}"`).join(", ");
         const suppress = args.suppress_ui !== false ? "true" : "false";
         const binLookup = args.target_bin
-          ? `var targetBin = __findProjectItem("${escapeForExtendScript(args.target_bin)}");
-             if (!targetBin) return __error("Bin not found: ${escapeForExtendScript(args.target_bin)}");`
+          ? `var targetBin = __findBin("${escapeForExtendScript(args.target_bin)}");
+             if (!targetBin) return __error(__findProjectItem("${escapeForExtendScript(args.target_bin)}") ? "${escapeForExtendScript(args.target_bin)} is not a bin; nothing was imported." : "Bin not found: ${escapeForExtendScript(args.target_bin)}");`
           : `var targetBin = app.project.rootItem;`;
 
         const script = buildToolScript(`
@@ -143,8 +143,8 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
           return { success: false as const, error: `Could not inspect folder: ${resolvedFolder} — nothing was imported.` };
         }
         const folderBinLookup = args.target_bin
-          ? `var targetBin = __findProjectItem("${escapeForExtendScript(args.target_bin)}");
-             if (!targetBin) return __error("Bin not found: ${escapeForExtendScript(args.target_bin)}");`
+          ? `var targetBin = __findBin("${escapeForExtendScript(args.target_bin)}");
+             if (!targetBin) return __error(__findProjectItem("${escapeForExtendScript(args.target_bin)}") ? "${escapeForExtendScript(args.target_bin)} is not a bin; nothing was imported." : "Bin not found: ${escapeForExtendScript(args.target_bin)}");`
           : `var targetBin = app.project.rootItem;`;
         const script = buildToolScript(`
           ${folderBinLookup}
@@ -265,7 +265,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         }
 
         const script = buildToolScript(`
-          if (!app.project || !app.project.rootItem) return __error("No project is open");
+          if (!app.project || !app.project.rootItem) return __refuse("No project is open");
           ${parentLookup}
           var parentNodeId = parentIsRoot ? __nodeIdOf(app.project.rootItem) : __nodeIdOf(parent);
           var parentPath = null;
@@ -353,7 +353,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the item to move",
+            description: "Node ID or name of the item to move, or the sequence ID of a sequence",
           },
           target_bin: {
             type: "string",
@@ -365,12 +365,12 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { item_id: string; target_bin: string }) => {
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found: ${escapeForExtendScript(args.item_id)}");
+          if (!item) return __refuse("Item not found: ${escapeForExtendScript(args.item_id)}");
           
           var targetIsRoot = "${escapeForExtendScript(args.target_bin)}" === "/" || "${escapeForExtendScript(args.target_bin)}".toLowerCase() === "root";
           var targetBin = targetIsRoot ? app.project.rootItem : __findProjectItem("${escapeForExtendScript(args.target_bin)}");
-          if (!targetBin) return __error("Target bin not found: ${escapeForExtendScript(args.target_bin)}");
-          if (!targetIsRoot && !__isBinItem(targetBin)) return __error(targetBin.name + " is not a bin; nothing was moved.");
+          if (!targetBin) return __refuse("Target bin not found: ${escapeForExtendScript(args.target_bin)}");
+          if (!targetIsRoot && !__isBinItem(targetBin)) return __refuse(targetBin.name + " is not a bin; nothing was moved.");
           
           item.moveBin(targetBin);
           // treePath names the containing bin (live 25.2.3).
@@ -390,7 +390,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the item to relink",
+            description: "Node ID or name of the item to relink, or the sequence ID of a sequence",
           },
           new_path: {
             type: "string",
@@ -420,7 +420,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         }
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found: ${escapeForExtendScript(args.item_id)}");
+          if (!item) return __refuse("Item not found: ${escapeForExtendScript(args.item_id)}");
           
           var success = item.changeMediaPath("${escapeForExtendScript(path)}", true);
           if (success !== true && success !== 0) return __error("Premiere did not confirm the CEP relink. The item may have changed; inspect it before continuing and do not retry automatically.", { outcome: "committed_unverified", item: item.name, newPath: "${escapeForExtendScript(path)}" });
@@ -437,7 +437,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the item to refresh",
+            description: "Node ID or name of the item to refresh, or the sequence ID of a sequence",
           },
         },
         required: ["item_id"],
@@ -445,7 +445,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { item_id: string }) => {
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found: ${escapeForExtendScript(args.item_id)}");
+          if (!item) return __refuse("Item not found: ${escapeForExtendScript(args.item_id)}");
           // Some hosts corrupt the interpreted frame rate of stills on refresh
           // (#642). Snapshot it, and restore it only when the new value is not a
           // usable rate, so a real change in the source file is kept.
@@ -521,7 +521,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           offline: {
             type: "boolean",
@@ -534,7 +534,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         const offline = args.offline !== false;
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found: ${escapeForExtendScript(args.item_id)}");
+          if (!item) return __refuse("Item not found: ${escapeForExtendScript(args.item_id)}");
           ${offline
             ? `item.setOffline();`
             : `item.refreshMedia();`
@@ -559,7 +559,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
         },
         required: ["item_id"],
@@ -567,7 +567,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { item_id: string }) => {
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found");
+          if (!item) return __refuse("Item not found");
           
           var info = { item: item.name };
           try { info.hasProxy = item.hasProxy(); } catch(e) { info.hasProxy = false; }
@@ -587,7 +587,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
         },
         required: ["item_id"],
@@ -596,7 +596,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         if (typeof args.item_id !== "string" || !args.item_id.trim()) return { success: false as const, error: "item_id must be non-empty" };
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found");
+          if (!item) return __refuse("Item not found");
           item.detachProxy();
           var hasProxy = null;
           try { var proxyReadback = item.hasProxy(); if (proxyReadback === true || proxyReadback === 1) hasProxy = true; else if (proxyReadback === false || proxyReadback === 0) hasProxy = false; } catch (eRead) {}
@@ -615,7 +615,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           frame_rate: {
             type: "number",
@@ -631,7 +631,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         }
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found");
+          if (!item) return __refuse("Item not found");
           item.setOverrideFrameRate(${args.frame_rate});
           var interp = null;
           try { interp = item.getFootageInterpretation(); } catch (eRead) {}
@@ -651,7 +651,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           numerator: {
             type: "number",
@@ -670,7 +670,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         }
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found");
+          if (!item) return __refuse("Item not found");
           item.setOverridePixelAspectRatio(${args.numerator}, ${args.denominator});
           var interp = null;
           try { interp = item.getFootageInterpretation(); } catch (eRead) {}
@@ -773,7 +773,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
         },
         required: ["item_id"],
@@ -781,7 +781,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { item_id: string }) => {
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found");
+          if (!item) return __refuse("Item not found");
           
           var info = {
             name: item.name,
@@ -810,7 +810,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item to select",
+            description: "Node ID or name of the project item to select, or the sequence ID of a sequence",
           },
         },
         required: ["item_id"],
@@ -818,7 +818,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { item_id: string }) => {
         const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found");
+          if (!item) return __refuse("Item not found");
           var accepted = item.select();
           if (accepted === false) return __error("Premiere rejected project-item selection.", { selected: false, item: item.name, verified: false, outcome: "failed" });
           var selection = null, readable = false, found = false;
@@ -848,7 +848,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         properties: {
           item_id: {
             type: "string",
-            description: "Node ID or name of the project item",
+            description: "Node ID or name of the project item, or the sequence ID of a sequence",
           },
           start_seconds: {
             type: "number",

@@ -6,7 +6,7 @@ export async function setProjectItemStartTime(args: { item_id: string; start_sec
   if (!Number.isFinite(args.start_seconds)) return { success: false, error: "start_seconds must be finite" };
   const script = buildToolScript(`
           var item = __findProjectItem("${escapeForExtendScript(args.item_id)}");
-          if (!item) return __error("Item not found");
+          if (!item) return __refuse("Item not found");
           
           var ticks = __secondsToTicks(${args.start_seconds}).toString();
           item.setStartTime(ticks);

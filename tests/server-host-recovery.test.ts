@@ -14,7 +14,7 @@ vi.mock("../src/tools/project.js", async () => {
   const { sendCommand } = await import("../src/bridge/file-bridge.js");
   const { assertInvocationNotCancelled, currentInvocation, markHostDispatch } = await import("../src/workflows/invocation-context.js");
   const parameters = { type: "object", additionalProperties: false, properties: {
-    mode: { type: "string", enum: ["verified", "throw", "cancel", "unknown", "preflight"], description: "Workflow boundary under test." },
+    mode: { type: "string", enum: ["verified", "throw", "cancel", "unknown", "preflight", "refused", "write_then_refused"], description: "Workflow boundary under test." },
   }, required: ["mode"] };
   return { getProjectTools: (options: { tempDir?: string; timeoutMs?: number }) => ({
     set_host_recovery_fixture: {
@@ -22,9 +22,11 @@ vi.mock("../src/tools/project.js", async () => {
       operationalCapability: { backend: "CEP/ExtendScript", backends: ["cep"] },
       handler: async (args: { mode: string }) => {
         if (args.mode === "preflight") throw new Error("fixture preflight refusal");
+        if (args.mode === "refused") return sendCommand("/* fixture-host-refusal */ var missing = true;", { ...options, mutating: true });
         const write = await sendCommand("/* fixture-host-mutation */ var accepted = true;", { ...options, mutating: true });
         if (!write.success) return write;
         controls.afterWrite?.();
+        if (args.mode === "write_then_refused") return sendCommand("/* fixture-host-refusal */ var missing = true;", { ...options, mutating: true });
         if (args.mode === "throw") throw new Error("fixture readback failed after write");
         if (args.mode === "cancel") {
           const signal = currentInvocation()?.signal;
@@ -64,6 +66,11 @@ async function connected() {
       try { script = readFileSync(join(tempDir, commandName), "utf8"); } catch { continue; }
       replied.add(commandName);
       if (script.includes("fixture-host-mutation")) accepted.push(commandName);
+      // What __refuse returns when a lookup fails before any write.
+      if (script.includes("fixture-host-refusal")) {
+        writeFileSync(join(tempDir, commandName.replace(/^cmd_/, "res_").replace(/\.jsx$/, ".json")), JSON.stringify({ success: false, error: "Clip not found: stale", data: { mutationOutcome: "not_applied", timelineChanged: false, refusedBeforeChange: true } }), { mode: 0o600 });
+        continue;
+      }
       const snapshot = script.includes("snapshot.clips.push")
         ? { projectId: "project-1", sequenceId: "sequence-1", clips: [] }
         : { outcome: "verified" };
@@ -96,6 +103,21 @@ async function reviewedAcknowledge(client: Client) {
 }
 
 describe("server persists uncertain multi-command host workflows under their lease", () => {
+  it("does not lock the bridge when the host refuses before changing anything", async () => {
+    const { client, tempDir, accepted } = await connected();
+    const refused = await client.callTool({ name: "set_host_recovery_fixture", arguments: { mode: "refused" } });
+    expect(refused).toMatchObject({ isError: true, structuredContent: { error: expect.stringContaining("Clip not found"), receipt: { outcome: "not_applied" } } });
+    expect(inspectHostRecovery(tempDir).recoveryRequired).toBe(false);
+    await expect(client.callTool({ name: "set_host_recovery_fixture", arguments: { mode: "verified" } })).resolves.toMatchObject({ structuredContent: { receipt: { outcome: "verified" } } });
+    expect(accepted).toHaveLength(1);
+  });
+  it("keeps a refusal after an accepted write in the same call unknown and locked", async () => {
+    const { client, tempDir, accepted } = await connected();
+    const refused = await client.callTool({ name: "set_host_recovery_fixture", arguments: { mode: "write_then_refused" } });
+    expect(refused).toMatchObject({ isError: true, structuredContent: { receipt: { outcome: "unknown" } } });
+    expect(inspectHostRecovery(tempDir).recoveryRequired).toBe(true);
+    expect(accepted).toHaveLength(1);
+  });
   it.each(["throw", "unknown"])("blocks later edits after a write followed by %s until exact reviewed acknowledgement", async (mode) => {
     const { client, tempDir, accepted } = await connected();
     const failed = await client.callTool({ name: "set_host_recovery_fixture", arguments: { mode } });
