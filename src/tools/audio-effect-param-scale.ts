@@ -14,11 +14,18 @@ import { premiereLevelToDb } from "./track-targeting.js";
  */
 
 export type AudioValueScale = "normalized_0_1" | "host_raw_unknown";
+/** Effect-level summary of the values actually observed: "mixed" when both scales occur, "unknown" when no numeric value was seen. */
+export type AudioParameterScaleKind = AudioValueScale | "mixed" | "unknown";
 
 export const AUDIO_EFFECT_SCALE_WARNING =
   "Audio effect parameters are read and written as Premiere's normalized 0-1 values, not the Hz, dB, ms or ratio shown in Effect Controls. " +
   "Adobe does not document the mapping and it is not necessarily linear, so do not read a value as a frequency, level or time. " +
   "Calibrate any change by rendering a short export before and after and comparing the spectrum or levels.";
+
+export const AUDIO_EFFECT_RAW_SCALE_WARNING =
+  "This audio effect reports values outside 0-1 (or none that could be read), so its parameters are not established as Premiere's normalized 0-1 scale. " +
+  "Check each property's valueScale before writing: do not send normalized values to a parameter that reports a raw value, and do not read raw values as Hz, dB or ms. " +
+  "Adobe does not document these units; calibrate any change by rendering a short export before and after.";
 
 export const HIGHPASS_DEFAULT_WARNING =
   "Highpass Cutoff 0.25 (Premiere's default) measured at about 1.2 kHz on Premiere 26.5.2, which removes most of the body of speech. Lower it and verify by rendering.";
@@ -67,8 +74,14 @@ function isHighpassCutoff(effectName: unknown, propertyName: unknown): boolean {
   return effectName === "Highpass" && propertyName === "Cutoff";
 }
 
+// Volume's match names (live "Internal Volume Mono|Stereo|5.1", plus the
+// audioVolume / AE.ADBE Volume forms the intrinsic checks already accept) and
+// its Level label in the supported locales (es-ES "Nivel"; see track-targeting).
+const VOLUME_MATCH_NAME = /^(Internal Volume |audioVolume$|AE\.ADBE Volume$)/;
+const VOLUME_LEVEL_NAMES: readonly unknown[] = ["Level", "Nivel"];
+
 function isVolumeLevel(matchName: unknown, propertyName: unknown): boolean {
-  return typeof matchName === "string" && /^Internal Volume /.test(matchName) && propertyName === "Level";
+  return typeof matchName === "string" && VOLUME_MATCH_NAME.test(matchName) && VOLUME_LEVEL_NAMES.includes(propertyName);
 }
 
 /** Volume > Level in dB, using the same mapping set_clip_volume writes with. */
@@ -103,13 +116,23 @@ function withWarnings(data: Record<string, unknown>, extra: string[]): string[] 
   return [...existing, ...extra.filter((entry) => !existing.includes(entry))];
 }
 
-function parameterScaleSummary(): Record<string, unknown> {
+function scaleKind(scales: Array<AudioValueScale | undefined>): AudioParameterScaleKind {
+  const seen = new Set(scales.filter((scale): scale is AudioValueScale => scale !== undefined));
+  if (seen.size === 0) return "unknown";
+  return seen.size > 1 ? "mixed" : [...seen][0];
+}
+
+function parameterScaleSummary(kind: AudioParameterScaleKind): Record<string, unknown> {
   return {
-    kind: "normalized_0_1",
+    kind,
     basis: "inferred",
     appliesTo: "Numeric parameters of effects on audio clips, other than the built-in Volume, Channel Volume, Panner and Balance components.",
     documentedMapping: false,
   };
+}
+
+function scaleWarning(kind: AudioParameterScaleKind): string {
+  return kind === "normalized_0_1" ? AUDIO_EFFECT_SCALE_WARNING : AUDIO_EFFECT_RAW_SCALE_WARNING;
 }
 
 /** Add valueScale, warnings, measured guidance and documented conversions to a get_effect_properties result. */
@@ -123,28 +146,37 @@ export function annotateEffectPropertiesResult(result: CommandResult): CommandRe
   );
   const annotated: Record<string, unknown> = { ...data, properties };
   if (audioEffect) {
-    const warnings = [AUDIO_EFFECT_SCALE_WARNING];
+    const kind = scaleKind(properties.map((property) => (isRecord(property) ? audioValueScale(property.value) : undefined)));
+    const warnings = [scaleWarning(kind)];
     const defaultCutoff = properties.some(
       (property) => isRecord(property) && isHighpassCutoff(data.effect, property.displayName) && property.value === 0.25,
     );
     if (defaultCutoff) warnings.push(HIGHPASS_DEFAULT_WARNING);
-    annotated.parameterScale = parameterScaleSummary();
+    annotated.parameterScale = parameterScaleSummary(kind);
     annotated.warnings = withWarnings(data, warnings);
   }
   return { ...result, data: annotated };
 }
 
-/** Add the same scale information to a set_effect_property result (success or readback failure). */
+/**
+ * Add the same scale information to a set_effect_property result (success or
+ * readback failure). valueScale describes the returned value (the readback, or
+ * the unchanged current value on a refusal); requestedValueScale describes the
+ * caller's request when it differs.
+ */
 export function annotateSetEffectPropertyResult(result: CommandResult): CommandResult {
   if (!result || !isRecord(result.data)) return result;
   const data = result.data;
   const annotated: Record<string, unknown> = { ...data };
   if (isAudioEffect(data)) {
-    const scale = audioValueScale(data.requestedValue) ?? audioValueScale(data.value);
+    const scale = audioValueScale(data.value);
+    const requestedScale = audioValueScale(data.requestedValue);
     if (scale) annotated.valueScale = scale;
+    if (requestedScale && requestedScale !== scale) annotated.requestedValueScale = requestedScale;
     if (isHighpassCutoff(data.effectDisplayName, data.propertyDisplayName)) annotated.measuredGuidance = HIGHPASS_CUTOFF_MEASUREMENTS;
-    annotated.parameterScale = parameterScaleSummary();
-    annotated.warnings = withWarnings(data, [AUDIO_EFFECT_SCALE_WARNING]);
+    const kind = scaleKind([scale]);
+    annotated.parameterScale = parameterScaleSummary(kind);
+    annotated.warnings = withWarnings(data, [scaleWarning(kind)]);
   } else if (isVolumeLevel(data.matchName, data.propertyDisplayName)) {
     const display = volumeLevelDisplay(data.value);
     if (display) Object.assign(annotated, display);

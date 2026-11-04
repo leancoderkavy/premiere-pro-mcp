@@ -51,7 +51,10 @@ describe("completed AE render handoff", () => {
     const token = await f.preview();
     expect(f.state.imports).toBe(0);
     await expect(f.tools.apply_after_effects_render_handoff.handler({ preview_token: token, confirm_import: false })).rejects.toThrow("confirm_import");
-    expect(await f.apply(token)).toMatchObject({ success: true, data: { projectItemId: "media-1", importVerified: true, timelineChanged: false, visualVerified: false } });
+    const applied = await f.apply(token);
+    expect(applied).toMatchObject({ success: true, data: { projectItemId: "media-1", importVerified: true, timelineChanged: false, visualVerified: false } });
+    expect(applied.data.nextStep).toContain("replace_clip");
+    expect(applied.data.nextStep).toContain("\"media-1\"");
     expect(f.state.imports).toBe(1);
     await expect(f.apply(token)).rejects.toThrow("already used");
     await expect(f.preview()).rejects.toThrow("already in the target bin");

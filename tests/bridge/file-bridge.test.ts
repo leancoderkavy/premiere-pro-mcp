@@ -3,6 +3,8 @@ import {
   existsSync,
   mkdirSync,
   writeFileSync,
+  openSync,
+  closeSync,
   readFileSync,
   unlinkSync,
   readdirSync,
@@ -48,6 +50,8 @@ vi.mock("node:fs", () => ({
   existsSync: vi.fn(),
   mkdirSync: vi.fn(),
   writeFileSync: vi.fn(),
+  openSync: vi.fn(),
+  closeSync: vi.fn(),
   readFileSync: vi.fn(),
   unlinkSync: vi.fn(),
   readdirSync: vi.fn(),
@@ -68,6 +72,10 @@ vi.mock("node:child_process", () => ({
 const mockedExistsSync = vi.mocked(existsSync);
 const mockedMkdirSync = vi.mocked(mkdirSync);
 const mockedWriteFileSync = vi.mocked(writeFileSync);
+const mockedOpenSync = vi.mocked(openSync);
+const mockedCloseSync = vi.mocked(closeSync);
+const descriptorPaths = new Map<number, string>();
+let nextDescriptor = 3;
 const mockedReadFileSync = vi.mocked(readFileSync);
 const mockedUnlinkSync = vi.mocked(unlinkSync);
 const mockedReaddirSync = vi.mocked(readdirSync);
@@ -194,6 +202,15 @@ describe("getDarwinUserTempDirectory", () => {
 describe("sendCommand", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockedWriteFileSync.mockReset();
+    descriptorPaths.clear();
+    nextDescriptor = 3;
+    mockedOpenSync.mockReset().mockImplementation((path) => {
+      const descriptor = nextDescriptor++;
+      descriptorPaths.set(descriptor, String(path));
+      return descriptor;
+    });
+    mockedCloseSync.mockReset();
     vi.useFakeTimers();
     mockedMkdirSync.mockReturnValue(undefined);
     mockedReaddirSync.mockReturnValue([]);
@@ -563,9 +580,9 @@ describe("sendCommand", () => {
     await vi.advanceTimersByTimeAsync(200);
     await promise;
 
-    const writeCall = mockedWriteFileSync.mock.calls.find(([path]) => String(path).endsWith(".jsx.staged"));
+    const writeCall = mockedWriteFileSync.mock.calls.find(([path]) => String(typeof path === "number" ? descriptorPaths.get(path) : path).endsWith(".jsx.staged"));
     expect(writeCall).toBeDefined();
-    expect(String(writeCall?.[0])).toMatch(/cmd_.*\.jsx\.staged$/);
+    expect(descriptorPaths.get(writeCall![0] as number)).toMatch(/cmd_.*\.jsx\.staged$/);
     const publishedPath = mockedRenameSync.mock.calls[0]?.[1];
     expect(String(publishedPath)).toMatch(/cmd_.*\.jsx$/);
     // command = one-line helpers bootstrap, then the script itself
@@ -573,6 +590,7 @@ describe("sendCommand", () => {
     expect(content.endsWith("\nvar x = 1;")).toBe(true);
     expect(content.replaceAll("\\\\", "/")).toContain('$.evalFile("/tmp/test-bridge/helpers_');
     expect(writeCall?.[2]).toBe("utf-8");
+    expect(mockedOpenSync).toHaveBeenCalledWith(descriptorPaths.get(writeCall![0] as number), "wx", 0o600);
   });
 
   it("names a headless-routed command so its reply file matches", async () => {
@@ -616,6 +634,67 @@ describe("sendCommand", () => {
       error: `Bridge response exceeds the ${MAX_BRIDGE_RESPONSE_BYTES}-byte limit`,
     });
     expect(mockedReadFileSync).not.toHaveBeenCalled();
+  });
+
+  it("creates command files with private permissions and exclusive ownership", async () => {
+    mockedExistsSync.mockReturnValue(true);
+    mockedReadFileSync.mockReturnValue('{"success":true}');
+    await sendCommand("test", { tempDir: "/tmp/test-bridge" });
+    const commands = mockedWriteFileSync.mock.calls.filter(([path]) => String(typeof path === "number" ? descriptorPaths.get(path) : path).endsWith(".jsx.staged"));
+    expect(commands).toHaveLength(1);
+    expect(mockedOpenSync).toHaveBeenCalledWith(descriptorPaths.get(commands[0][0] as number), "wx", 0o600);
+    expect(mockedCloseSync).toHaveBeenCalledWith(commands[0][0]);
+  });
+
+  it.each([sendCommand, sendRawCommand])("cleans an owned partial command stage after a write error and allows retry", async (send) => {
+    mockedExistsSync.mockReturnValue(true);
+    mockedWriteFileSync.mockImplementationOnce(() => { throw Object.assign(new Error("disk full"), { code: "ENOSPC" }); });
+    await expect(send("test", { tempDir: "/tmp/test-bridge" })).rejects.toThrow("disk full");
+    const stage = String(mockedOpenSync.mock.calls[0]?.[0] ?? mockedWriteFileSync.mock.calls[0]?.[0]);
+    expect(stage).toMatch(/cmd_.*\.jsx\.staged$/);
+    expect(mockedUnlinkSync).toHaveBeenCalledExactlyOnceWith(stage);
+    expect(mockedRenameSync).not.toHaveBeenCalled();
+    expect(mockedCloseSync).toHaveBeenCalledExactlyOnceWith(mockedOpenSync.mock.results[0].value);
+    mockedReadFileSync.mockReturnValue('{"success":true}');
+    await expect(send("retry", { tempDir: "/tmp/test-bridge" })).resolves.toMatchObject({ success: true });
+  });
+
+  it.each([sendCommand, sendRawCommand])("preserves unowned files after exclusive staging creation fails", async (send) => {
+    mockedExistsSync.mockReturnValue(true);
+    mockedOpenSync.mockImplementation(() => { throw Object.assign(new Error("staging collision"), { code: "EEXIST" }); });
+    await expect(send("test", { tempDir: "/tmp/test-bridge" })).rejects.toThrow("staging collision");
+    expect(mockedRenameSync).not.toHaveBeenCalled();
+    expect(mockedUnlinkSync).not.toHaveBeenCalled();
+  });
+
+  it.each([sendCommand, sendRawCommand])("preserves a racing helper collision and unrelated command files", async (send) => {
+    mockedExistsSync.mockImplementation((path) => !String(path).includes("helpers_"));
+    mockedOpenSync.mockImplementation(() => { throw Object.assign(new Error("helper collision"), { code: "EEXIST" }); });
+    await expect(send("test", { tempDir: "/tmp/test-bridge" })).rejects.toThrow("helper collision");
+    expect(mockedRenameSync).not.toHaveBeenCalled();
+    expect(mockedUnlinkSync).not.toHaveBeenCalled();
+  });
+
+  it.each([sendCommand, sendRawCommand])("removes an owned partially written helper so a later command can recreate it", async (send) => {
+    let helperExists = false;
+    const open = mockedOpenSync.getMockImplementation()!;
+    mockedOpenSync.mockImplementation((...args) => {
+      const descriptor = open(...args);
+      if (String(args[0]).includes("helpers_")) helperExists = true;
+      return descriptor;
+    });
+    mockedExistsSync.mockImplementation((path) => String(path).includes("helpers_") ? helperExists : true);
+    mockedWriteFileSync.mockImplementationOnce(() => { throw new Error("helper disk full"); });
+    mockedUnlinkSync.mockImplementation((path) => { if (String(path).includes("helpers_")) helperExists = false; });
+    await expect(send("test", { tempDir: "/tmp/test-bridge" })).rejects.toThrow("helper disk full");
+    const helperPath = mockedOpenSync.mock.calls[0][0];
+    expect(String(helperPath)).toContain("helpers_");
+    expect(mockedUnlinkSync).toHaveBeenCalledExactlyOnceWith(helperPath);
+    expect(mockedCloseSync).toHaveBeenCalledOnce();
+    expect(mockedRenameSync).not.toHaveBeenCalled();
+    mockedReadFileSync.mockReturnValue('{"success":true}');
+    await expect(send("retry", { tempDir: "/tmp/test-bridge" })).resolves.toMatchObject({ success: true });
+    expect(mockedOpenSync.mock.calls.filter(([path]) => String(path) === String(helperPath))).toHaveLength(2);
   });
 
   it("uses distinct cryptographic IDs for concurrently-created command files", async () => {

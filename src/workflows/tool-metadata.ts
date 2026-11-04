@@ -21,6 +21,7 @@ const READ_ONLY_TOOLS = new Set([
   "preview_after_effects_render",
   "preview_mogrt_premiere_handoff",
   "preview_after_effects_render_handoff",
+  "preview_send_clip_to_after_effects",
   "validate_project_for_export",
   "verify_delivery_conformance",
   "read_sequence_captions",

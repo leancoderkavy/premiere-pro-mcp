@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { runInNewContext } from "node:vm";
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
+import { runWithUndoTracking } from "../../src/bridge/undo-tracking.js";
 import type { BridgeOptions } from "../../src/bridge/file-bridge.js";
 
 vi.mock("../../src/bridge/file-bridge.js", () => ({
@@ -152,9 +153,10 @@ describe("clear_sequence_in_out", () => {
     const seq = sequence({ inSeconds: 10, outSeconds: 20 });
     seq.setInPoint = () => {};
     host(seq);
-    const result = await targeting.clear_sequence_in_out.handler({}) as Result;
+    const result = await runWithUndoTracking(true, () => targeting.clear_sequence_in_out.handler({})) as Result;
     expect(result.success).toBe(false);
     expect(result.error).toContain("did not clear the sequence in point");
+    expect(result.data?.mutationOutcome).not.toBe("not_applied");
     expect(result.data).toMatchObject({ outcome: "failed", verified: false, inSeconds: 10, outSeconds: null });
   });
 });

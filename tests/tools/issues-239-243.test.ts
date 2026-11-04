@@ -483,9 +483,12 @@ describe("issue #240 — legacy structural tools verify or refuse the operation"
     expect(itemScript).toContain("app.project.deleteSequence(sequence)");
     expect(itemScript).toContain("if (__findProjectItemByNodeId(nodeId))");
 
+    // The batch plans every item against one timeline-usage index first; the
+    // chunk scripts that delete and read back are covered in delete-batch.test.ts.
     const manyScript = await scriptFor(utility.delete_multiple_project_items, { item_ids: ["item-1", "item-2"] });
     expect(manyScript).toContain("No project items were deleted");
-    expect(manyScript).toContain("The batch is not reported as successful");
+    expect(manyScript).toContain("__buildTimelineUsageIndex()");
+    expect(manyScript).toContain("__projectItemUsageFromIndex(item, index)");
 
     const binScript = await scriptFor(project.delete_bin, { bin_id: "bin-1" });
     expect(binScript).toContain("if (__findProjectItem(nodeId))");

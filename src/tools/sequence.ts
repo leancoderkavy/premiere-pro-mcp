@@ -135,7 +135,7 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
 
     duplicate_sequence: {
       description:
-        "Duplicate an existing sequence and report the new copy's sequence ID (id) and, when Premiere exposes it, its project item node ID (projectItemNodeId). Project-item tools accept either.",
+        "Duplicate an existing sequence and report the new copy's sequence ID (id) and, when Premiere exposes it, its project item node ID (projectItemNodeId). Project-item tools accept either. Readback verifies identity only; audio track-to-master routing is not verified. When sound is expected, check an export with export_sequence audio_check=expect_signal.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -149,7 +149,7 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { sequence_id: string }) => {
         const script = buildToolScript(`
           var seq = __findSequence("${escapeForExtendScript(args.sequence_id)}");
-          if (!seq) return __error("Sequence not found: ${escapeForExtendScript(args.sequence_id)}");
+          if (!seq) return __refuse("Sequence not found: ${escapeForExtendScript(args.sequence_id)}");
           
           // Report the copy itself: Premiere names every copy "<name> Copy", so a caller
           // looking it up by name can land on an older copy (live: a rerun edited the
@@ -167,7 +167,7 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
           // tools (rename, move, delete) can address the copy without a name lookup.
           var copyItemNodeId = "";
           try { copyItemNodeId = __nodeIdOf(copy.projectItem); } catch (eCopyItem) {}
-          return __result({ duplicated: true, verified: true, originalName: seq.name, originalId: seq.sequenceID, name: copy.name, id: copy.sequenceID, projectItemNodeId: copyItemNodeId || undefined });
+          return __result({ duplicated: true, verified: true, originalName: seq.name, originalId: seq.sequenceID, name: copy.name, id: copy.sequenceID, projectItemNodeId: copyItemNodeId || undefined, audioRoutingVerified: false, verificationScope: "Sequence copy identity only; audio track-to-master routing was not verified." });
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -194,7 +194,7 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           var project = app.project;
           var seq = __findSequence("${escapeForExtendScript(args.sequence_id)}");
-          if (!seq) return __error("Sequence not found: ${escapeForExtendScript(args.sequence_id)}");
+          if (!seq) return __refuse("Sequence not found: ${escapeForExtendScript(args.sequence_id)}");
           var sequenceId = String(seq.sequenceID);
           var name = seq.name;
           var usage = { clips: 0, sequences: [], details: [] };
@@ -288,7 +288,7 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { ignore_track_targeting?: boolean }) => {
         const script = buildToolScript(`
           var seq = __getCurrentActiveSequence();
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
 
           var before = {};
           for (var i = 0; i < app.project.sequences.numSequences; i++) {
@@ -442,16 +442,16 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { node_id: string }) => {
         const script = buildToolScript(`
           var seq = __getCurrentActiveSequence();
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found: ${escapeForExtendScript(args.node_id)}");
+          if (!result) return __refuse("Clip not found: ${escapeForExtendScript(args.node_id)}");
           
           var clip = result.clip;
           var clipName = clip.name;
           var projectItem = clip.projectItem;
           
-          if (!projectItem) return __error("Cannot find project item for this clip");
+          if (!projectItem) return __refuse("Cannot find project item for this clip");
           
           // Check if the project item is a sequence (type 3 = sequence)
           // For nested sequences, the projectItem should reference another sequence
@@ -812,9 +812,9 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
         const propertyValue = escapeForExtendScript(args.property_value);
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           if (typeof seq.attachCustomProperty !== "function") {
-            return __error("This Premiere build does not expose sequence.attachCustomProperty; no custom property was attached.");
+            return __refuse("This Premiere build does not expose sequence.attachCustomProperty; no custom property was attached.");
           }
 
           // A custom property is only real once it is in the sequence project
@@ -822,13 +822,13 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
           var sequenceItem = null;
           try { sequenceItem = seq.projectItem; } catch (itemError) { sequenceItem = null; }
           if (!sequenceItem || typeof sequenceItem.getXMPMetadata !== "function") {
-            return __error("The active sequence exposes no readable project item XMP packet, so an attached custom property cannot be verified. No property was attached.");
+            return __refuse("The active sequence exposes no readable project item XMP packet, so an attached custom property cannot be verified. No property was attached.");
           }
 
           var beforePacket = "";
           try { beforePacket = String(sequenceItem.getXMPMetadata() || ""); } catch (beforeError) { beforePacket = ""; }
           if (!beforePacket) {
-            return __error("Premiere returned no readable XMP packet for the active sequence, so an attached custom property cannot be verified. No property was attached.");
+            return __refuse("Premiere returned no readable XMP packet for the active sequence, so an attached custom property cannot be verified. No property was attached.");
           }
 
           try {
@@ -867,7 +867,7 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
       handler: async () => {
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           var enabled = __workAreaEnabled(seq);
           if (enabled === null) return __error("Work-area enabled state could not be read from this host.", { outcome: "failed" });
           return __result({ sequenceName: seq.name, workAreaEnabled: enabled });
@@ -904,10 +904,10 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
         }
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           var ext = null;
           try { ext = seq.getExportFileExtension("${escapeForExtendScript(args.preset_path)}"); }
-          catch (extensionError) { return __error("Premiere could not determine the export extension for this preset: " + extensionError.toString()); }
+          catch (extensionError) { return __refuse("Premiere could not determine the export extension for this preset: " + extensionError.toString()); }
           return __result({ sequenceName: seq.name, presetPath: "${escapeForExtendScript(args.preset_path)}", extension: ext === null || ext === undefined ? null : String(ext) });
         `);
         const result = await sendCommand(script, bridgeOptions);

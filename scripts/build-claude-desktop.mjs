@@ -6,6 +6,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateClaudeSource, validateClaudeStage } from "./validate-distribution.mjs";
+import { verifyClaudeRuntime } from "./verify-claude-runtime.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const stage = path.join(root, "build", "claude-desktop");
@@ -98,10 +99,14 @@ await writeFile(
   )}\n`,
 );
 
+// Compiled modules resolve ../package.json from server/dist, while npm installs
+// dependencies against the bundle root. Keep both package identities aligned.
+await copyFile(path.join(stage, "package.json"), path.join(stage, "server", "package.json"));
+
 await runNpm(["ci", "--omit=dev", "--ignore-scripts"], stage);
 await normalizeTextNewlines(path.join(stage, "server", "dist"));
 await Promise.all(
-  ["manifest.json", "package.json", "package-lock.json"].map(async (name) => {
+  ["manifest.json", "package.json", "package-lock.json", "server/package.json"].map(async (name) => {
     const file = path.join(stage, name);
     const text = await readFile(file, "utf8");
     const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
@@ -109,6 +114,7 @@ await Promise.all(
   }),
 );
 await validateClaudeStage(stage);
+await verifyClaudeRuntime(stage, packageJson.version);
 await runMcpb(["validate", path.join(stage, "manifest.json")]);
 
 const mcpbPath = path.join(

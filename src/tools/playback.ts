@@ -74,11 +74,11 @@ export function getPlaybackTools(bridgeOptions: BridgeOptions) {
         }
         const script = buildToolScript(`
           // Premiere accepts play() with nothing loaded and does nothing (#642).
-          if (typeof app.sourceMonitor.getProjectItem !== "function") return __error("Cannot confirm Source Monitor state; nothing was played.");
+          if (typeof app.sourceMonitor.getProjectItem !== "function") return __refuse("Cannot confirm Source Monitor state; nothing was played.");
           var loaded;
           try { loaded = app.sourceMonitor.getProjectItem(); }
-          catch (eLoaded) { return __error("Cannot read Source Monitor state; nothing was played."); }
-          if (loaded === null || loaded === undefined) return __error("No clip is loaded in the Source Monitor. Open one with open_in_source first.");
+          catch (eLoaded) { return __refuse("Cannot read Source Monitor state; nothing was played."); }
+          if (loaded === null || loaded === undefined) return __refuse("No clip is loaded in the Source Monitor. Open one with open_in_source first.");
           app.sourceMonitor.play(${speed});
           return __result({
             playbackRequested: true,
@@ -98,7 +98,7 @@ export function getPlaybackTools(bridgeOptions: BridgeOptions) {
       handler: async () => {
         const script = buildToolScript(`
           var pos = app.sourceMonitor.getPosition();
-          if (!pos) return __error("No clip open in Source Monitor");
+          if (!pos) return __refuse("No clip open in Source Monitor");
           return __result({ seconds: __ticksToSeconds(pos.ticks), ticks: pos.ticks });
         `);
         return sendCommand(script, bridgeOptions);

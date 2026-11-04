@@ -19,7 +19,7 @@ project state, make only requested changes, and verify the timeline after mutati
    silently fall back to CEP after a failed UXP probe.
 3. If `ping` fails, stop editing and tell the user to:
    - Open or restart Premiere Pro.
-   - Install the bridge with `npx -y premiere-pro-mcp@1.25.0 --install-cep` if needed.
+   - Install the bridge with `npx -y premiere-pro-mcp@1.29.0 --install-cep` if needed.
    - Open **Window > Extensions > MCP Bridge** and confirm it reports **Running**.
 4. Call `get_premiere_state` and inspect the active sequence before planning changes.
 5. Do not claim that a project, sequence, or export exists until a live tool result confirms it.
@@ -236,7 +236,10 @@ colour, or Graphics and Titles > Upgrade Caption to Graphic.
 3. For editable graphic clips, the editor runs Upgrade Caption to Graphic by
    hand after the Track Style is set. The graphics land on the top video track.
 4. Still-frame exports can omit caption tracks. Verify with playback or a short
-   burn-in `export_sequence` (see `render_verification`).
+   burn-in `export_sequence` (see `render_verification`). Save sequence In/Out
+   before setting the test range and restore them afterwards. If exactly one
+   mark is set (In-only or Out-only), stop the automated burn-in recipe before
+   changing marks; use playback or a manual export instead.
 
 ## Reaction Shorts
 

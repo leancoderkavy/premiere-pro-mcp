@@ -231,7 +231,7 @@ Examples:
       handler: async (args: { node_id: string }) => {
         const script = buildToolScript(`
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found: ${escapeForExtendScript(args.node_id)}");
+          if (!result) return __refuse("Clip not found: ${escapeForExtendScript(args.node_id)}");
           
           var clip = result.clip;
           var components = [];
@@ -393,7 +393,7 @@ Examples:
           
           // Project info
           var project = app.project;
-          if (!project) return __error("No project is open");
+          if (!project) return __refuse("No project is open");
           state.project = {
             name: project.name,
             path: project.path,
