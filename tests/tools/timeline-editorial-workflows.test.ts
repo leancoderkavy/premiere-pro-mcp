@@ -108,7 +108,9 @@ describe("reachable timeline/editorial contracts", () => {
     const reservedParent = existsSync(moved) ? moved : workspace;
     expect(readFileSync(path.join(reservedParent, "race.json"), "utf8")).toBe("");
     if (!existsSync(moved)) expect(process.platform).toBe("win32");
-  });
+    // On Windows every reservation re-verifies the bridge ACL through PowerShell (~17 spawns here),
+    // which alone runs 10-15s on CI runners.
+  }, 60_000);
   it("reads track targeting and mute from the DOM, and sync lock from QE only for the active sequence", async () => {
     // Live 26.5.2: these were always null, so predict_timeline_edit refused every sync_locked ripple.
     const clip = { nodeId: "clip", projectItem: { nodeId: "source", isSequence: () => false }, start: { ticks: "0" }, end: { ticks: time(2) }, inPoint: { ticks: "0" }, outPoint: { ticks: time(2) }, disabled: false, getLinkedItems: () => null, getSpeed: () => 1, isSpeedReversed: () => false };
