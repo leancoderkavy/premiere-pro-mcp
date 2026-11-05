@@ -11,6 +11,9 @@ import type { MutationReceipt } from "./mutation-receipt.js";
 // returned to the same client: keys are scoped per server instance (one per MCP session). Raw keys and raw arguments are never stored.
 // Nothing here is written to disk, sent to telemetry or kept past a restart.
 
+/** Shared by every request-scoped Streamable HTTP server in this process. */
+export const STATELESS_HTTP_IDEMPOTENCY_NAMESPACE = "stateless-http";
+
 export const IDEMPOTENCY_KEY_PATTERN = "^[A-Za-z0-9._:-]+$";
 export const IDEMPOTENCY_KEY_MAX_LENGTH = 128;
 export const IDEMPOTENCY_KEY_LIMIT = 200;
@@ -25,7 +28,7 @@ export const IDEMPOTENCY_KEY_SCHEMA = {
   minLength: 1,
   maxLength: IDEMPOTENCY_KEY_MAX_LENGTH,
   pattern: IDEMPOTENCY_KEY_PATTERN,
-  description: "Optional client-chosen key (1-128 chars of A-Z a-z 0-9 . _ : -) for this intended edit. Pass a fresh key per edit and reuse it only when retrying that same edit, for example after a client-side timeout. A repeat with the same tool, key and arguments is not run again: while the first call is running it fails with IDEMPOTENCY_IN_PROGRESS (poll get_last_operations); after it finished it returns the original outcome marked replayed. A definite failure with nothing applied (receipt outcome not_applied) may be retried with the same key. Reusing a key with different arguments fails with IDEMPOTENCY_KEY_REUSED. Scoped to this MCP session (the stdio server process or one HTTP session) and held in memory only (200 keys, 1 hour); it does not survive a restart or reconnect. Read-only invocations are never deduplicated.",
+  description: "Optional client-chosen key (1-128 chars of A-Z a-z 0-9 . _ : -) for this intended edit. Pass a fresh key per edit and reuse it only when retrying that same edit, for example after a client-side timeout. A repeat with the same tool, key and arguments is not run again: while the first call is running it fails with IDEMPOTENCY_IN_PROGRESS (poll get_last_operations); after it finished it returns the original outcome marked replayed. A definite failure with nothing applied (receipt outcome not_applied) may be retried with the same key. Reusing a key with different arguments fails with IDEMPOTENCY_KEY_REUSED. Scoped to this MCP session (the stdio server process, or the HTTP server process when Streamable HTTP is stateless per request) and held in memory only (200 keys, 1 hour); it does not survive a restart or reconnect. Read-only invocations are never deduplicated.",
 } as const;
 
 export type IdempotencyStatus = "running" | "succeeded" | "failed";
@@ -115,8 +118,10 @@ function touch(record: IdempotencyRecord, now: number): void {
  */
 export function claimIdempotencyKey(tool: string, key: string, args: unknown, sequenceForNewCall: () => number, now = Date.now(), namespace = ""): IdempotencyClaim {
   prune(now);
-  // namespace is the MCP server instance (one per stdio process or HTTP
-  // session), so two clients that pick the same key never see each other's calls.
+  // namespace is the MCP server instance (one per stdio process) or the
+  // shared HTTP-process scope, so two stdio clients that pick the same key
+  // never see each other's calls, while HTTP retries across request-scoped
+  // servers still deduplicate against one Premiere host.
   const scope = sha256(`${namespace}\u0000${tool}\u0000${key}`);
   const argsHash = hashArguments(args);
   const keyHashPrefix = idempotencyKeyHashPrefix(key);
