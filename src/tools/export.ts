@@ -1420,7 +1420,7 @@ ${sequenceRangeGuardScript(range)}
           var rangeEnd = ${args.end_seconds !== undefined ? args.end_seconds : "sequenceEndSeconds"};
           if (rangeEnd > sequenceEndSeconds) rangeEnd = sequenceEndSeconds;
           if (rangeStart < 0 || rangeEnd <= rangeStart) {
-            return __error("The requested review range is empty or outside the active sequence");
+            return __error("The requested review range is empty or outside the active sequence", { mutationOutcome: "not_applied", timelineChanged: false });
           }
 
           var requested = ${frameCount};
@@ -1533,7 +1533,7 @@ ${sequenceRangeGuardScript(range)}
           var rangeEnd = ${args.end_seconds !== undefined ? args.end_seconds : "sequenceEndSeconds"};
           if (rangeEnd > sequenceEndSeconds) rangeEnd = sequenceEndSeconds;
           if (rangeStart < 0 || rangeEnd <= rangeStart) {
-            return __error("The requested marker range is empty or outside the active sequence");
+            return __error("The requested marker range is empty or outside the active sequence", { mutationOutcome: "not_applied", timelineChanged: false });
           }
 
           var requiredType = ${markerType ? `"${escapeForExtendScript(markerType)}"` : "null"};
@@ -1552,7 +1552,7 @@ ${sequenceRangeGuardScript(range)}
             marker = seq.markers.getNextMarker(marker);
           }
           matched.sort(function(a, b) { return a.timeSeconds - b.timeSeconds; });
-          if (!matched.length) return __error("No matching sequence markers were found in the requested range");
+          if (!matched.length) return __error("No matching sequence markers were found in the requested range", { mutationOutcome: "not_applied", timelineChanged: false });
 
           var requested = Math.min(matched.length, ${limit});
           var frames = [];
@@ -1628,6 +1628,7 @@ ${sequenceRangeGuardScript(range)}
           var frames = [];
           var failures = [];
           var count = Math.min(track.clips.numItems, ${limit});
+          if (!count) return __error("The selected video track contains no clips", { mutationOutcome: "not_applied", timelineChanged: false });
           for (var i = 0; i < count; i++) {
             var clip = track.clips[i];
             var atSeconds = clip.start.seconds + ((clip.end.seconds - clip.start.seconds) / 2);
@@ -1642,7 +1643,6 @@ ${sequenceRangeGuardScript(range)}
             if (result.ok) frames.push({ index: i, clipName: clip.name, nodeId: clip.nodeId, timeSeconds: atSeconds, outputPath: result.path, method: result.method });
             else failures.push({ index: i, clipName: clip.name, timeSeconds: atSeconds, error: result.error, notes: result.notes });
           }
-          if (!count) return __error("The selected video track contains no clips");
           if (!frames.length) return __error("Premiere did not write any clip review frames");
           return __result({
             trackIndex: ${trackIndex}, requested: count, exported: frames.length,
@@ -2719,7 +2719,7 @@ ${ameQueueBatchStartScript(startBatch)}
 
           if (action === "create") {
             ${!args.output_path
-              ? `return __error("output_path is required for the 'create' action");`
+              ? `return __error("output_path is required for the 'create' action", { mutationOutcome: "not_applied", timelineChanged: false });`
               : `var outputPath = "${escapeForExtendScript(args.output_path)}";
                  var presetPath = "${escapeForExtendScript(presetPath ?? "")}";
 
@@ -2749,7 +2749,7 @@ ${ameQueueBatchStartScript(startBatch)}
           } else if (action === "attach") {
             ${args.proxy_path
               ? `var attachPath = "${escapeForExtendScript(args.proxy_path)}";
-                 if (!new File(attachPath).exists) return __error("Proxy file does not exist: " + attachPath);
+                 if (!new File(attachPath).exists) return __error("Proxy file does not exist: " + attachPath, { mutationOutcome: "not_applied", timelineChanged: false });
                  var attached = item.attachProxy(attachPath, 0);
                  if (!attached) {
                    var mediaPath = "";
@@ -2760,13 +2760,13 @@ ${ameQueueBatchStartScript(startBatch)}
                  try { proxyReadback = String(item.getProxyPath()); } catch (eProxyPath) {}
                  if (!item.hasProxy()) return __error("attachProxy() returned true but the item reports no proxy");
                  return __result({ action: "attach", item: item.name, proxyPath: proxyReadback || attachPath, attached: true, verified: true });`
-              : `return __error("proxy_path is required for attach action");`
+              : `return __error("proxy_path is required for attach action", { mutationOutcome: "not_applied", timelineChanged: false });`
             }
           } else if (action === "toggle") {
             // Proxy display is an application setting: app.getEnableProxies()/setEnableProxies()
             // (live 25.2; app.project.isProxyEnabled does not exist).
             if (typeof app.getEnableProxies !== "function" || typeof app.setEnableProxies !== "function") {
-              return __error("This Premiere build does not expose app.getEnableProxies/setEnableProxies; toggle proxies in the Program Monitor.");
+              return __error("This Premiere build does not expose app.getEnableProxies/setEnableProxies; toggle proxies in the Program Monitor.", { mutationOutcome: "not_applied", timelineChanged: false });
             }
             var requestedEnabled = ${args.enabled === undefined ? "null" : args.enabled ? "true" : "false"};
             var wasEnabled = Number(app.getEnableProxies()) === 1;
@@ -2791,7 +2791,7 @@ ${ameQueueBatchStartScript(startBatch)}
             });
           }
 
-          return __error("Unknown proxy action: " + action);
+          return __error("Unknown proxy action: " + action, { mutationOutcome: "not_applied", timelineChanged: false });
         `);
         const result = await sendCommand(script, bridgeOptions);
         const failure = result as { success: boolean; data?: { proxyPath?: string; mediaPath?: string } };
