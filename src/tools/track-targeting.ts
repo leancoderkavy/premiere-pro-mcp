@@ -639,6 +639,60 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           if (!item) return __refuse("Item not found");
 
           function __markSeconds(time) { return time && typeof time.seconds === "number" && isFinite(time.seconds) ? time.seconds : NaN; }
+          // Project-item marks can create an undo entry without changing a
+          // sequence. Keep this bounded snapshot separate from mark readback.
+          function __timelineSnapshot() {
+            try {
+              var sequence = app.project.activeSequence;
+              if (!sequence || !sequence.videoTracks || !sequence.audioTracks) return null;
+              if (sequence.sequenceID === undefined || sequence.sequenceID === null) return null;
+              function part(value) {
+                var text = String(value);
+                return text.length <= 4096 ? text.length + ":" + text : null;
+              }
+              var sequenceId = part(sequence.sequenceID);
+              if (sequenceId === null) return null;
+              var parts = [sequenceId], seen = 0;
+              function count(collection) {
+                var value = collection && collection.numItems;
+                return typeof value === "number" && isFinite(value) && value >= 0 && Math.floor(value) === value && value <= 10000 ? value : null;
+              }
+              function ticks(time) {
+                if (!time || time.ticks === undefined || time.ticks === null || String(time.ticks) === "" || !isFinite(Number(time.ticks))) return null;
+                return part(time.ticks);
+              }
+              function addTracks(tracks, type) {
+                if (!tracks || typeof tracks.numTracks !== "number" || !isFinite(tracks.numTracks) || Math.floor(tracks.numTracks) !== tracks.numTracks || tracks.numTracks < 0 || tracks.numTracks > 200) throw new Error("unreadable tracks");
+                for (var ti = 0; ti < tracks.numTracks; ti++) {
+                  var track = tracks[ti];
+                  var clipCount = track && count(track.clips), transitionCount = track && count(track.transitions);
+                  if (!track || clipCount === null || transitionCount === null) throw new Error("unreadable track");
+                  parts.push(type + ":" + ti + ":" + clipCount + ":" + transitionCount);
+                  for (var ci = 0; ci < clipCount; ci++) {
+                    if (++seen > 10000) throw new Error("snapshot limit");
+                    var timelineClip = track.clips[ci];
+                    var clipStart = timelineClip && ticks(timelineClip.start), clipEnd = timelineClip && ticks(timelineClip.end), clipIn = timelineClip && ticks(timelineClip.inPoint), clipOut = timelineClip && ticks(timelineClip.outPoint);
+                    if (!timelineClip || timelineClip.nodeId === undefined || timelineClip.nodeId === null || clipStart === null || clipEnd === null || clipIn === null || clipOut === null) throw new Error("unreadable clip");
+                    var clipId = part(timelineClip.nodeId);
+                    if (clipId === null) throw new Error("unreadable clip");
+                    parts.push("c:" + clipId + ":" + clipStart + ":" + clipEnd + ":" + clipIn + ":" + clipOut);
+                  }
+                  for (var ri = 0; ri < transitionCount; ri++) {
+                    if (++seen > 10000) throw new Error("snapshot limit");
+                    var transition = track.transitions[ri];
+                    var transitionStart = transition && ticks(transition.start), transitionEnd = transition && ticks(transition.end);
+                    if (!transition || transitionStart === null || transitionEnd === null) throw new Error("unreadable transition");
+                    var transitionId = part(transition.nodeId === undefined || transition.nodeId === null ? "" : transition.nodeId);
+                    var transitionType = part(transition.type === undefined || transition.type === null ? "" : transition.type);
+                    if (transitionId === null || transitionType === null) throw new Error("unreadable transition");
+                    parts.push("r:" + transitionId + ":" + transitionType + ":" + transitionStart + ":" + transitionEnd);
+                  }
+                }
+              }
+              addTracks(sequence.videoTracks, "v"); addTracks(sequence.audioTracks, "a");
+              return parts.join("|");
+            } catch (snapshotError) { return null; }
+          }
           var mediaDuration = NaN;
           var stillImage = false;
           var durationTolerance = 0.001;
@@ -681,7 +735,9 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
               }
             }
           } catch (durationReadError) {}
+          var inBefore = __markSeconds(item.getInPoint(4));
           var outBefore = __markSeconds(item.getOutPoint(4));
+          var timelineBefore = __timelineSnapshot();
           var inAfter = NaN, outAfter = NaN;
           try {
             ${clearIn ? `item.clearInPoint();` : ""}
@@ -691,6 +747,9 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           } catch (markError) {
             return __error("Mark clearing was attempted but the result could not be read. Inspect the marks before retrying.", { outcome: "committed_unverified", verified: false, marksChanged: null });
           }
+          var timelineAfter = __timelineSnapshot();
+          var timelineChanged = timelineBefore !== null && timelineAfter !== null ? timelineBefore !== timelineAfter : null;
+          var marksChanged = (isFinite(inBefore) && isFinite(inAfter) && inBefore !== inAfter) || (isFinite(outBefore) && isFinite(outAfter) && outBefore !== outAfter);
           var unverifiedFields = [];
           var messages = [];
           ${clearIn ? `if (!(Math.abs(inAfter) < 0.0005)) unverifiedFields.push("inPoint");
@@ -698,8 +757,8 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           ${clearOut ? `var outVerified = isFinite(outAfter) && isFinite(mediaDuration) && Math.abs(outAfter - mediaDuration) <= durationTolerance;
           if (!outVerified) unverifiedFields.push("outPoint");
           messages.push(outVerified ? "Out cleared to " + outAfter + " s" : (stillImage ? (isFinite(mediaDuration) ? "Premiere kept the still-image Out at " + outAfter + " s instead of its full duration " + mediaDuration + " s" : "Still-image Out cannot be independently verified: this item exposes no readable still duration") : "Out could not be independently verified against MediaDuration and MediaTimebase"));` : ""}
-          if (unverifiedFields.length) return __error(messages.join("; ") + "; inspect the marks before retrying.", { item: item.name, inSeconds: inAfter, outSeconds: outAfter, outcome: "committed_unverified", verified: false, marksChanged: null, unverifiedFields: unverifiedFields, stillImage: stillImage });
-          return __result({ item: item.name, clearedIn: ${clearIn}, clearedOut: ${clearOut}, inSeconds: inAfter, outSeconds: outAfter, stillImage: stillImage, verified: true });
+          if (unverifiedFields.length) return __error(messages.join("; ") + (marksChanged ? "; marks changed; inspect them before any further write." : "; inspect the marks before retrying."), { item: item.name, inSeconds: inAfter, outSeconds: outAfter, outcome: "committed_unverified", verified: false, marksChanged: marksChanged, timelineChanged: timelineChanged, timelineSnapshotVerified: timelineChanged === false, unverifiedFields: unverifiedFields, stillImage: stillImage });
+          return __result({ item: item.name, clearedIn: ${clearIn}, clearedOut: ${clearOut}, inSeconds: inAfter, outSeconds: outAfter, stillImage: stillImage, verified: true, marksChanged: marksChanged, timelineChanged: timelineChanged });
         `);
         return sendCommand(script, bridgeOptions);
       },

@@ -35,6 +35,34 @@ function fixture(video: any[], audio: any[], frame: unknown = TICKS / 25, backgr
 function linked(video: any, audio: any) { video.getLinkedItems = () => collection([audio]); audio.getLinkedItems = () => collection([video]); }
 beforeEach(() => vi.clearAllMocks());
 
+it("includes bounded transition ranges on active-sequence tracks for structural-edit discovery", async () => {
+  const seq = fixture([clip("v")], [clip("a")]);
+  seq.videoTracks[0].transitions = collection(Array.from({ length: 51 }, (_, index) => ({
+    nodeId: `video-transition-${index}`, type: "Cross Dissolve", start: time((10 + index) * TICKS), end: time((10.5 + index) * TICKS),
+  })));
+  seq.audioTracks[0].transitions = collection([{ nodeId: "audio-transition", type: "Constant Power", start: time(4 * TICKS), end: time(5 * TICKS) }]);
+
+  const result = await tools.get_active_sequence.handler({}) as any;
+
+  expect(result.success).toBe(true);
+  expect(result.data.videoTracks[0]).toMatchObject({ transitionCount: 51, transitionsTruncated: true });
+  expect(result.data.videoTracks[0].transitions).toHaveLength(50);
+  expect(result.data.videoTracks[0].transitions[0]).toMatchObject({ index: 0, nodeId: "video-transition-0", startSeconds: 10, endSeconds: 10.5, type: "Cross Dissolve" });
+  expect(result.data.audioTracks[0]).toMatchObject({ transitionCount: 1, transitionsTruncated: false, transitions: [expect.objectContaining({ nodeId: "audio-transition", type: "Constant Power" })] });
+});
+
+it("reports missing or unreadable active-sequence transitions as unknown", async () => {
+  const seq = fixture([clip("v")], [clip("a")]);
+  delete (seq.videoTracks[0] as any).transitions;
+  seq.audioTracks[0].transitions = collection([{ nodeId: "bad-transition", start: time(4 * TICKS) }]);
+
+  const result = await tools.get_active_sequence.handler({}) as any;
+
+  expect(result.success).toBe(true);
+  expect(result.data.videoTracks[0]).toMatchObject({ transitionCount: null, transitions: null, transitionsTruncated: null });
+  expect(result.data.audioTracks[0]).toMatchObject({ transitionCount: null, transitions: null, transitionsTruncated: null });
+});
+
 for (const toolName of toolNames) {
   const run = (args = {}) => tools[toolName].handler(args as never) as Promise<any>;
   describe(`${toolName} audio source and alignment readback`, () => {
