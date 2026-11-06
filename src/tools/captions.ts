@@ -1,5 +1,19 @@
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions, type CommandResult } from "../bridge/file-bridge.js";
+import { readFileSync, statSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { CAPTION_PLAN_OPTION_PROPERTIES } from "../ai/caption-plan.js";
+import { parseSubtitles, planToExportCues, writeCaptions } from "../ai/caption-export.js";
+import { CAPTION_PLAN_INPUT_PROPERTIES, CAPTION_TRANSCRIPT_INPUT_PROPERTIES, resolveCaptionPlan } from "./caption-inputs.js";
+import { resolveContainedOutputPath } from "./caption-authoring.js";
+import {
+  buildImportCaptionFileScript,
+  CAPTION_CUT_SOURCE_PROPERTY,
+  normalizeCutSource,
+  readCaptionSequence,
+  safeFileStem,
+  summarizeCaptionPlan,
+} from "./caption-host.js";
 import {
   buildCaptionTimingPlan,
   MAX_CAPTION_ARTIFACT_CHARACTERS,
@@ -123,20 +137,221 @@ function lectureCaptionWorkflow(plan: ReturnType<typeof buildCaptionTimingPlan>)
   };
 }
 
+/** The CEP script that creates a caption track from a project item, with before/after track-count readback. */
+export function buildCreateCaptionTrackScript(itemId: string, startSeconds: number, captionFormat: string): string {
+  const format = CAPTION_FORMATS[captionFormat];
+  return buildToolScript(`
+          var seq = app.project.activeSequence;
+          if (!seq) return __refuse("No active sequence");
+          
+          var item = __findProjectItem("${escapeForExtendScript(itemId)}");
+          if (!item) return __refuse("Caption item not found: ${escapeForExtendScript(itemId)}");
+
+          function __captionTrackCount(sequence) {
+            var tracks = null;
+            try {
+              if (typeof sequence.getCaptionTracks === "function") tracks = sequence.getCaptionTracks();
+              else if (sequence.captionTracks) tracks = sequence.captionTracks;
+            } catch (readError) { tracks = null; }
+            if (!tracks) return null;
+            try {
+              var count = tracks.numTracks !== undefined ? tracks.numTracks : tracks.length;
+              return typeof count === "number" && isFinite(count) && count >= 0 && count <= 9007199254740991 && Math.floor(count) === count ? count : null;
+            }
+            catch (countError) { return null; }
+          }
+          var beforeCount = __captionTrackCount(seq);
+          var result = false, hostError = null;
+          try { result = seq.createCaptionTrack(item, ${startSeconds}, ${format}); }
+          catch (createError) { hostError = createError.toString(); }
+          var afterCount = __captionTrackCount(seq);
+          var receipt = {
+            accepted: !!result,
+            verified: false,
+            outcome: "committed_unverified",
+            timelineChanged: beforeCount !== null && afterCount !== null && afterCount !== beforeCount ? true : null,
+            renderVerified: false,
+            item: item.name,
+            startSeconds: ${startSeconds},
+            format: "${escapeForExtendScript(captionFormat)}",
+            beforeTrackCount: beforeCount,
+            afterTrackCount: afterCount,
+            hostError: hostError
+          };
+          if (beforeCount !== null && afterCount !== null) {
+            if (afterCount !== beforeCount + 1) {
+              return __error("Caption-track creation was attempted but readback did not show exactly one new track. Inspect the sequence before retrying.", receipt);
+            }
+            receipt.created = true;
+            receipt.verified = true;
+            receipt.outcome = "verified";
+            receipt.verificationScope = "Caption-track count readback only; verify playback or exported frames before delivery.";
+            return __result(receipt);
+          }
+          receipt.verificationScope = "Caption-track readback is unavailable or invalid. No structural creation is claimed; verify playback or exported frames before delivery.";
+          if (hostError || !result) return __error("Caption-track creation did not confirm acceptance and its mutation outcome is unknown. Inspect the sequence before retrying.", receipt);
+          return __result(receipt);
+        `);
+}
+
+/** Creates the caption track in one CEP call and attaches styling notes and reversal guidance. */
+export async function createCaptionTrackOnHost(bridgeOptions: BridgeOptions, itemId: string, startSeconds: number, captionFormat: string): Promise<CommandResult> {
+  const response = await sendCommand(buildCreateCaptionTrackScript(itemId, startSeconds, captionFormat), bridgeOptions);
+  if (!response.data || typeof response.data !== "object" || Array.isArray(response.data)) return response;
+  const data = response.data as Record<string, unknown>;
+  if (!Object.prototype.hasOwnProperty.call(data, "beforeTrackCount")) return withStylingNotes(response);
+  return withStylingNotes({ ...response, data: { ...data, ...captionReversal(data) } });
+}
+
+/**
+ * Writes the SRT with flag "wx" to the first free '<stem> captions.srt', '<stem> captions 2.srt', ...
+ * in the workspace; a taken name (EEXIST, also a race) moves on to the next number.
+ */
+function writeDefaultSrt(workspace: string, stem: string, text: string): string {
+  let isDirectory = false;
+  try {
+    isDirectory = statSync(workspace).isDirectory();
+  } catch {
+    // reported below
+  }
+  if (!isDirectory) throw new Error("approved_workspace_path must be an existing directory");
+  for (let n = 1; n < 1000; n++) {
+    const candidate = path.join(workspace, n === 1 ? `${stem} captions.srt` : `${stem} captions ${n}.srt`);
+    try {
+      writeFileSync(candidate, text, { encoding: "utf8", flag: "wx" });
+      return candidate;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+    }
+  }
+  throw new Error("Could not find a free captions file name in approved_workspace_path; pass output_path.");
+}
+
+/**
+ * import_plan: read the sequence, plan at its frame rate, write and read back an SRT, import it
+ * (one CEP call) and create the caption track (a separate CEP call).
+ */
+async function importCaptionPlan(args: Record<string, unknown>, bridgeOptions: BridgeOptions) {
+  if (typeof args.approved_workspace_path !== "string" || !args.approved_workspace_path.trim()) {
+    return { success: false, error: "approved_workspace_path is required for action import_plan (the SRT is written there)." };
+  }
+  const workspace = args.approved_workspace_path.trim();
+  const startSeconds = finiteNonNegativeSeconds(args.start_seconds as number | undefined, "start_seconds");
+  const captionFormat = args.caption_format === undefined ? "subtitle" : args.caption_format;
+  if (typeof captionFormat !== "string" || !Object.prototype.hasOwnProperty.call(CAPTION_FORMATS, captionFormat)) {
+    return { success: false, error: `caption_format must be one of: ${Object.keys(CAPTION_FORMATS).join(", ")}` };
+  }
+  const cutSource = normalizeCutSource(args.cut_source);
+  if (args.output_path !== undefined) {
+    const explicit = resolveContainedOutputPath(workspace, args.output_path);
+    if (path.extname(explicit).toLocaleLowerCase() !== ".srt") return { success: false, error: "output_path must end in .srt" };
+  }
+
+  // 1. The sequence: frame rate (the plan is built at it) and, optionally, edit points.
+  const sequence = await readCaptionSequence(bridgeOptions, { include_edit_points: cutSource === "edit_points" });
+
+  // 2. The plan, at the sequence's frame rate.
+  // The caption track starts at start_seconds, so the plan may run until the sequence end minus that.
+  const planEnd = sequence.duration_seconds === null ? undefined : sequence.duration_seconds - startSeconds;
+  if (planEnd !== undefined && !(planEnd > 0)) {
+    return { success: false, error: `start_seconds ${startSeconds} is at or after the end of the sequence (${sequence.duration_seconds} s), so no caption could be shown. Nothing was written or imported.` };
+  }
+  const resolved = resolveCaptionPlan(args, {
+    frame_rate: sequence.fps,
+    ...(planEnd !== undefined ? { end_s: planEnd } : {}),
+    ...(cutSource === "edit_points" && sequence.edit_points ? { cut_times: sequence.edit_points } : {}),
+  });
+  const plan = resolved.plan;
+  if (plan.captions.length === 0) {
+    return { success: false, error: "The plan has no captions, so nothing was written or imported.", data: { plan: summarizeCaptionPlan(plan) } };
+  }
+  const warnings = [...plan.warnings];
+  if (sequence.edit_points_truncated) warnings.push("The sequence has more edit points than the host collected; later cuts were not used for snapping.");
+  if (plan.captions.some((c) => c.color)) {
+    warnings.push("The plan asks for speaker colours, but a native Premiere caption track has no scripting style API, so the colours are not applied. Use speaker_style label or hyphen for the native track, or add_caption_graphics with a colour field for burned-in colour.");
+  }
+  if (plan.captions.some((c) => c.italic || c.kind === "lyric")) {
+    warnings.push("Italics are not written to the SRT (Premiere may show the tags as text); lyric and italic captions import as plain text.");
+  }
+
+  // 3. The SRT, written once (flag wx) and parsed back.
+  const cues = planToExportCues(plan, { include_speaker: false, use_color: false }).map((cue) => ({ ...cue, italic: undefined }));
+  const written = writeCaptions("srt", cues);
+  let target: string;
+  if (args.output_path !== undefined) {
+    target = resolveContainedOutputPath(workspace, args.output_path);
+    writeFileSync(target, written.text, { encoding: "utf8", flag: "wx" });
+  } else {
+    target = writeDefaultSrt(workspace, safeFileStem(sequence.name), written.text);
+  }
+  const readBack = parseSubtitles(readFileSync(target, "utf8"), "srt");
+  if (readBack.cues.length !== plan.captions.length) {
+    return {
+      success: false,
+      error: `The SRT was written to ${target} but reads back ${readBack.cues.length} cues instead of ${plan.captions.length}; nothing was imported.`,
+      data: { srt_path: target, cue_count: plan.captions.length, cue_count_readback: readBack.cues.length, plan: summarizeCaptionPlan(plan) },
+    };
+  }
+  const srt = { path: target, cue_count: plan.captions.length, cue_count_readback: readBack.cues.length, warnings: written.warnings };
+
+  // 4. Import the file (one CEP call).
+  const imported = await sendCommand(buildImportCaptionFileScript(target), bridgeOptions);
+  const importData = (imported.data ?? {}) as Record<string, unknown>;
+  const item = importData.item as { nodeId?: string } | undefined;
+  if (!imported.success || !item?.nodeId) {
+    return {
+      success: false,
+      error: `The SRT was written but Premiere did not confirm importing it: ${imported.error ?? "no project item found"}. No caption track was created.`,
+      data: { srt, import: importData, plan: summarizeCaptionPlan(plan) },
+    };
+  }
+
+  // 5. Create the caption track in a separate CEP call (before/after track-count readback).
+  const track = await createCaptionTrackOnHost(bridgeOptions, item.nodeId, startSeconds, captionFormat);
+  const trackData = (track.data ?? {}) as Record<string, unknown>;
+  return {
+    success: track.success,
+    ...(track.success ? {} : { error: track.error }),
+    data: {
+      action: "import_plan",
+      outcome: track.success ? (trackData.outcome ?? "committed_unverified") : (trackData.outcome ?? "failed"),
+      sequence: { id: sequence.sequence_id, name: sequence.name, fps: sequence.fps, frame_width: sequence.frame_width, frame_height: sequence.frame_height, cut_source: cutSource, edit_point_count: sequence.edit_points?.length ?? null },
+      plan: summarizeCaptionPlan(plan),
+      srt,
+      imported_item: importData.item,
+      track: trackData,
+      warnings,
+      notes: [
+        "Re-running import_plan creates another caption track: CEP cannot delete or hide caption tracks (see track.reversal for guarded undo or UXP mute).",
+        "The cues are timed to the sequence's frames; Premiere may still show them with its default caption style.",
+      ],
+    },
+  };
+}
+
 export function getCaptionTools(bridgeOptions: BridgeOptions) {
   return {
     create_caption_track: {
       description:
-        "Import an already reviewed caption artifact into the active sequence, or create a local lecture-caption timing and review workflow plan. Import rejects unsupported formats before host dispatch and reports structural success only when valid count readback shows exactly one new caption track. Unreadable or unexpected results preserve committed_unverified diagnostics; inspect before retrying. Captions import with Premiere's default style; styling, per-word colour, and Upgrade Caption to Graphic stay manual (get_caption_style_guidance). The planning action never contacts Premiere or changes an artifact. Caption tracks render in export_sequence by default; CEP cannot remove or hide them. Import results include observed undoSteps (null when unavailable) and reversal guidance for guarded experimental QE multiple_undo or caption mute through a capable UXP panel.",
+        "Import an already reviewed caption artifact into the active sequence, create a local lecture-caption timing and review workflow plan, or (action import_plan) plan captions from a transcript or saved plan at the sequence's own frame rate, write an SRT inside approved_workspace_path (never overwriting), import it and create the native caption track, each host step in its own CEP call. import_plan clamps every caption to the sequence end (minus start_seconds): an out-time past it is shortened and a caption that would start at or after it is dropped, listed in plan.sequence_end_changes. It reports the plan summary, SRT cue-count readback, the imported item and the track-count receipt (verified or committed_unverified); speaker colours cannot be applied to a native caption track (use speaker_style label or hyphen, or add_caption_graphics), and a re-run creates another caption track. Import rejects unsupported formats before host dispatch and reports structural success only when valid count readback shows exactly one new caption track. Unreadable or unexpected results preserve committed_unverified diagnostics; inspect before retrying. Captions import with Premiere's default style; styling, per-word colour, and Upgrade Caption to Graphic stay manual (get_caption_style_guidance). The planning action never contacts Premiere or changes an artifact. Caption tracks render in export_sequence by default; CEP cannot remove or hide them. Import results include observed undoSteps (null when unavailable) and reversal guidance for guarded experimental QE multiple_undo or caption mute through a capable UXP panel.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
         properties: {
+          ...CAPTION_TRANSCRIPT_INPUT_PROPERTIES,
+          ...CAPTION_PLAN_INPUT_PROPERTIES,
+          ...CAPTION_PLAN_OPTION_PROPERTIES,
+          output_path: {
+            type: "string",
+            maxLength: 4096,
+            description: "For action import_plan, absolute path of the .srt to write inside approved_workspace_path. Default: '<sequence name> captions.srt' in the workspace, numbered ' 2', ' 3' when it exists. An existing file is never overwritten.",
+          },
+          cut_source: CAPTION_CUT_SOURCE_PROPERTY,
           action: {
             type: "string",
-            enum: ["import", "plan_lecture_workflow"],
+            enum: ["import", "plan_lecture_workflow", "import_plan"],
             default: "import",
-            description: "Use import (the default) to create a Premiere caption track, or plan_lecture_workflow for a read-only SRT/VTT timing and review plan.",
+            description: "Use import (the default) to create a Premiere caption track from an item already in the project, plan_lecture_workflow for a read-only SRT/VTT timing and review plan, or import_plan to plan captions from a transcript or saved plan at the sequence's frame rate, write an SRT, import it and create the caption track.",
           },
           item_id: {
             type: "string",
@@ -192,8 +407,8 @@ export function getCaptionTools(bridgeOptions: BridgeOptions) {
           },
         },
       },
-      handler: async (args: {
-        action?: "import" | "plan_lecture_workflow";
+      handler: async (args: Record<string, unknown> & {
+        action?: "import" | "plan_lecture_workflow" | "import_plan";
         item_id?: string;
         start_seconds?: number;
         caption_format?: string;
@@ -221,72 +436,15 @@ export function getCaptionTools(bridgeOptions: BridgeOptions) {
               },
             };
           }
-          if (action !== "import") return { success: false, error: "action must be either import or plan_lecture_workflow" };
+          if (action === "import_plan") return await importCaptionPlan(args, bridgeOptions);
+          if (action !== "import") return { success: false, error: "action must be import, plan_lecture_workflow or import_plan" };
           const itemId = requiredItemId(args.item_id);
           const startSeconds = finiteNonNegativeSeconds(args.start_seconds, "start_seconds");
         const captionFormat = args.caption_format === undefined ? "subtitle" : args.caption_format;
         if (typeof captionFormat !== "string" || !Object.prototype.hasOwnProperty.call(CAPTION_FORMATS, captionFormat)) {
           return { success: false, error: `caption_format must be one of: ${Object.keys(CAPTION_FORMATS).join(", ")}` };
         }
-        const format = CAPTION_FORMATS[captionFormat];
-
-        const script = buildToolScript(`
-          var seq = app.project.activeSequence;
-          if (!seq) return __refuse("No active sequence");
-          
-          var item = __findProjectItem("${escapeForExtendScript(itemId)}");
-          if (!item) return __refuse("Caption item not found: ${escapeForExtendScript(itemId)}");
-
-          function __captionTrackCount(sequence) {
-            var tracks = null;
-            try {
-              if (typeof sequence.getCaptionTracks === "function") tracks = sequence.getCaptionTracks();
-              else if (sequence.captionTracks) tracks = sequence.captionTracks;
-            } catch (readError) { tracks = null; }
-            if (!tracks) return null;
-            try {
-              var count = tracks.numTracks !== undefined ? tracks.numTracks : tracks.length;
-              return typeof count === "number" && isFinite(count) && count >= 0 && count <= 9007199254740991 && Math.floor(count) === count ? count : null;
-            }
-            catch (countError) { return null; }
-          }
-          var beforeCount = __captionTrackCount(seq);
-          var result = false, hostError = null;
-          try { result = seq.createCaptionTrack(item, ${startSeconds}, ${format}); }
-          catch (createError) { hostError = createError.toString(); }
-          var afterCount = __captionTrackCount(seq);
-          var receipt = {
-            accepted: !!result,
-            verified: false,
-            outcome: "committed_unverified",
-            timelineChanged: beforeCount !== null && afterCount !== null && afterCount !== beforeCount ? true : null,
-            renderVerified: false,
-            item: item.name,
-            startSeconds: ${startSeconds},
-            format: "${escapeForExtendScript(captionFormat)}",
-            beforeTrackCount: beforeCount,
-            afterTrackCount: afterCount,
-            hostError: hostError
-          };
-          if (beforeCount !== null && afterCount !== null) {
-            if (afterCount !== beforeCount + 1) {
-              return __error("Caption-track creation was attempted but readback did not show exactly one new track. Inspect the sequence before retrying.", receipt);
-            }
-            receipt.created = true;
-            receipt.verified = true;
-            receipt.outcome = "verified";
-            receipt.verificationScope = "Caption-track count readback only; verify playback or exported frames before delivery.";
-            return __result(receipt);
-          }
-          receipt.verificationScope = "Caption-track readback is unavailable or invalid. No structural creation is claimed; verify playback or exported frames before delivery.";
-          if (hostError || !result) return __error("Caption-track creation did not confirm acceptance and its mutation outcome is unknown. Inspect the sequence before retrying.", receipt);
-          return __result(receipt);
-        `);
-          const response = await sendCommand(script, bridgeOptions);
-          if (!response.data || typeof response.data !== "object" || Array.isArray(response.data)) return response;
-          const data = response.data as Record<string, unknown>;
-          if (!Object.prototype.hasOwnProperty.call(data, "beforeTrackCount")) return withStylingNotes(response);
-          return withStylingNotes({ ...response, data: { ...data, ...captionReversal(data) } });
+          return await createCaptionTrackOnHost(bridgeOptions, itemId, startSeconds, captionFormat);
         } catch (error) {
           return { success: false, error: error instanceof Error ? error.message : String(error) };
         }

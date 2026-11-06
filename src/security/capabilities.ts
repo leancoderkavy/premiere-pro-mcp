@@ -194,6 +194,10 @@ const TOOL_CAPABILITY_REQUIREMENTS: Readonly<Record<string, readonly Capability[
   import_image_sequence: ["edit", "filesystem"],
   import_media: ["edit", "filesystem"],
   import_mogrt: ["edit", "filesystem"],
+  // Places MOGRT clips read from disk; may also read a plan or transcript file.
+  add_caption_graphics: ["edit", "filesystem"],
+  // Uploads an audio or video file to a third-party engine and writes the transcript file; a sequence source may export it. Every source (media_path too) needs the full set: the file leaves the machine.
+  transcribe_audio: ["inspect", "export", "filesystem"],
   import_mogrt_from_library: ["edit", "filesystem"],
   import_sequences: ["edit", "filesystem"],
   import_transcript_uxp: ["edit", "filesystem"],
@@ -325,6 +329,7 @@ const ACTION_CAPABILITIES: Readonly<Record<string, Readonly<Record<string, reado
   },
   create_caption_track: {
     import: ["edit"],
+    import_plan: ["edit", "filesystem"],
     plan_lecture_workflow: ["inspect"],
   },
   manage_growing_media_uxp: {
@@ -585,6 +590,14 @@ export function capabilitiesForToolInvocation(toolName: string, args: unknown): 
   // Inline caption retiming is pure computation; reading input_path or writing
   // output_path touches the local filesystem and needs that authority too.
   if (toolName === "retime_caption_file" && args && typeof args === "object" && ((args as Record<string, unknown>).input_path !== undefined || (args as Record<string, unknown>).output_path !== undefined)) return ["inspect", "filesystem"];
+  // Caption planning and QA are pure computation unless they read or write workspace files.
+  if (toolName === "plan_captions" || toolName === "check_captions" || toolName === "read_sequence_captions") {
+    const record = args && typeof args === "object" && !Array.isArray(args) ? args as Record<string, unknown> : {};
+    const exportOption = record.export && typeof record.export === "object" && !Array.isArray(record.export) ? record.export as Record<string, unknown> : undefined;
+    const touchesFiles = record.transcript_path !== undefined || record.plan_output_path !== undefined || record.file_path !== undefined || record.plan_path !== undefined
+      || (toolName === "plan_captions" ? exportOption?.output_path !== undefined : record.export !== undefined);
+    return touchesFiles ? ["inspect", "filesystem"] : ["inspect"];
+  }
   if (toolName === "prepare_transcript_workflow" && args && typeof args === "object" && (args as Record<string, unknown>).start_if_missing === true) return ["inspect", "edit", "filesystem"];
   const inputRecord = args && typeof args === "object" && !Array.isArray(args) ? args as Record<string, unknown> : undefined;
   if (toolName === "inspect_timeline_snapshot" && inputRecord?.output_path !== undefined) return ["inspect", "filesystem"];
@@ -620,7 +633,7 @@ export function capabilitiesForToolInvocation(toolName: string, args: unknown): 
 export function toolMayChangeState(toolName: string): boolean {
   if (toolName === "inspect_timeline_snapshot") return true;
   // Argument-dependent escalations handled specially above.
-  if (toolName === "export_interchange_uxp" || toolName === "prepare_transcript_workflow" || toolName === "set_metadata" || toolName === "audit_project_structure" || toolName === "retime_caption_file" || toolName === "inspect_after_effects_render_templates") return true;
+  if (toolName === "plan_captions" || toolName === "check_captions" || toolName === "read_sequence_captions" || toolName === "export_interchange_uxp" || toolName === "prepare_transcript_workflow" || toolName === "set_metadata" || toolName === "audit_project_structure" || toolName === "retime_caption_file" || toolName === "inspect_after_effects_render_templates") return true;
   const actionMap = ACTION_CAPABILITIES[toolName];
   const candidates: (readonly Capability[])[] = actionMap
     ? [...Object.values(actionMap), [capabilityForTool(toolName)]]

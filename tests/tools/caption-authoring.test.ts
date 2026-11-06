@@ -58,7 +58,7 @@ describe("caption authoring tool schemas", () => {
     expect(build.style_preset.enum).toEqual(["clean", "bold_pop", "karaoke", "podcast", "lecture"]);
     const check = tools.check_caption_safe_zone.parameters.properties;
     expect(check.elements.maxItems).toBe(64);
-    expect(check.platform.enum).toEqual(["tiktok", "instagram_reels", "youtube_shorts", "instagram_feed", "youtube", "linkedin", "x"]);
+    expect(check.platform.enum).toEqual(["reels_9_16", "tiktok", "instagram_reels", "youtube_shorts", "instagram_feed", "youtube", "linkedin", "x"]);
   });
 });
 
@@ -110,6 +110,36 @@ describe("get_caption_style_guidance tool", () => {
     expect(data.style).not.toHaveProperty("custom_style");
     expect(Object.keys(data.safe_zones)).toContain("tiktok");
     expect(data.warnings).toEqual([]);
+  });
+
+  it("returns a standard's limits and plain rules, and always the standards table", async () => {
+    const data = await guidance({ standard: "bbc" });
+    expect(data.standard).toMatchObject({ id: "bbc", max_wpm: 180, max_cpl: 37, max_lines: 2 });
+    const rules = data.standard.rules.join("\n");
+    expect(rules).toMatch(/180 words a minute/);
+    expect(rules).toMatch(/not after an article, preposition/);
+    expect(rules).toMatch(/white, yellow, cyan, green/);
+    expect(rules).toContain("\u266a");
+    expect(data.standards_table.map((s: { id: string }) => s.id)).toEqual(["netflix_adult", "netflix_kids", "bbc", "dcmp", "social_9x16"]);
+    const adult = await guidance({ standard: "netflix_adult" });
+    expect(adult.standard.rules[0]).toMatch(/20 characters a second/);
+    expect(adult.standard.rules.join(" ")).toMatch(/lower line the longer/);
+    const social = await guidance({ standard: "social_9x16" });
+    expect(social.standard.rules.join(" ")).toMatch(/9:16 safe box/);
+    const plain = await guidance({});
+    expect(plain).not.toHaveProperty("standard");
+    expect(plain.standards_table).toHaveLength(5);
+    expect(await failure({ standard: "vhs" })).toMatch(/standard must be one of/);
+    expect(await failure({ standard: 5 })).toMatch(/standard must be one of/);
+  });
+
+  it("routes to the planner, QA, graphics and transcription tools", async () => {
+    const data = await guidance({});
+    expect(data.routes).toEqual(expect.arrayContaining(["plan_captions", "check_captions", "add_caption_graphics", "transcribe_audio", "create_caption_track"]));
+    expect(data.workflow.join("\n")).toMatch(/import_plan/);
+    expect(data.workflow.join("\n")).toMatch(/add_caption_graphics/);
+    expect(tools.get_caption_style_guidance.parameters.properties.standard.enum).toEqual(["netflix_adult", "netflix_kids", "bbc", "dcmp", "social_9x16"]);
+    expect(tools.get_caption_style_guidance.description.length).toBeLessThan(400);
   });
 
   it("rejects invalid presets", async () => {
@@ -446,5 +476,49 @@ describe("check_caption_safe_zone handler", () => {
       expect(build.success).toBe(false);
       expect(build.error).toBe("arguments must be an object");
     }
+  });
+});
+
+describe("check_caption_safe_zone reels_9_16", () => {
+  const frame = { width: 1080, height: 1920 };
+  const run = async (elements: unknown[], platform = "reels_9_16") => {
+    const result = await tools.check_caption_safe_zone.handler({ platform, frame, elements });
+    if (!result.success) throw new Error(result.error);
+    return result.data;
+  };
+  const element = (x: number, y: number, width: number, height: number) => ({ id: "cap", x, y, width, height, kind: "caption" });
+
+  it("is built from the shared 9:16 safe box (x 120-888, y 288-1248 at 1080x1920)", async () => {
+    const data = await run([element(120 / 1080, 288 / 1920, 768 / 1080, 960 / 1920)]);
+    expect(data.all_safe).toBe(true);
+    expect(data.zones.map((z: { id: string }) => z.id)).toEqual(["top_ui", "bottom_ui", "left_margin", "right_ui"]);
+    expect(data.recommended_caption_anchor.x).toBe(0.5);
+    expect(data.recommended_caption_anchor.y).toBeLessThan(1248 / 1920);
+    expect(data.assumptions.join(" ")).toMatch(/reels_9_16: .*TikTok, Instagram Reels and YouTube Shorts at once/);
+  });
+
+  it("flags every edge outside the box and suggests a clear position", async () => {
+    for (const [label, el] of [
+      ["top", element(0.2, 0.1, 0.5, 0.03)],
+      ["bottom", element(0.2, 0.7, 0.5, 0.03)],
+      ["left", element(0.05, 0.3, 0.3, 0.03)],
+      ["right", element(0.6, 0.3, 0.38, 0.03)],
+    ] as const) {
+      const data = await run([el]);
+      expect(data.all_safe, label).toBe(false);
+      const suggested = data.elements[0].suggested_position;
+      expect(suggested, label).not.toBeNull();
+      expect(suggested.y + el.height, label).toBeLessThanOrEqual(1248 / 1920 + 1e-3);
+      expect(suggested.y, label).toBeGreaterThanOrEqual(288 / 1920 - 1e-3);
+    }
+  });
+
+  it("marks the per-app 9:16 profiles as approximate", async () => {
+    for (const platform of ["tiktok", "instagram_reels", "youtube_shorts"]) {
+      const data = await run([element(0.2, 0.3, 0.2, 0.05)], platform);
+      expect(data.assumptions.join(" "), platform).toMatch(/Approximate: from public ad specs/);
+    }
+    const feed = await tools.check_caption_safe_zone.handler({ platform: "x", frame: { width: 1080, height: 1080 }, elements: [element(0.2, 0.3, 0.2, 0.05)] });
+    expect(feed.success && feed.data.assumptions.join(" ")).not.toMatch(/Approximate: from public ad specs/);
   });
 });
