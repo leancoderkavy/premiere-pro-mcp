@@ -1,12 +1,15 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 vi.mock("../../src/bridge/file-bridge.js", () => ({ sendCommand: vi.fn() }));
 
 import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { getCompetitorGapTools } from "../../src/tools/competitor-gaps.js";
-import { cleanupTempDirs, makeTempDir } from "../helpers/temp-dir.js";
+import { cleanupTempDirs, makeTempDir as makeRawTempDir } from "../helpers/temp-dir.js";
+
+/** A temp dir by its realpath: the tool returns canonical paths, and on macOS tmpdir() (/var/...) is a link to /private/var/.... */
+const makeTempDir = (prefix: string) => realpathSync(makeRawTempDir(prefix));
 
 const tool = getCompetitorGapTools({}).read_sequence_captions;
 const mocked = vi.mocked(sendCommand);

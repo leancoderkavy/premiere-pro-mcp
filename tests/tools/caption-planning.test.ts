@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -54,7 +54,8 @@ let root = "";
 let ws = "";
 let outside = "";
 beforeAll(() => {
-  root = mkdtempSync(path.join(tmpdir(), "caption-planning-"));
+  // realpath: the tools return canonical paths, and on macOS tmpdir() (/var/...) is a link to /private/var/....
+  root = realpathSync(mkdtempSync(path.join(tmpdir(), "caption-planning-")));
   ws = path.join(root, "work");
   outside = path.join(root, "outside");
   mkdirSync(ws);
@@ -206,6 +207,21 @@ describe("plan_output_path", () => {
     expect(bad(await plan({ transcript_text: SRT, plan_output_path: path.join(outside, "p.json"), approved_workspace_path: ws }))).toMatch(/contained within/);
     expect(existsSync(path.join(outside, "p.json"))).toBe(false);
     expect(existsSync(path.join(ws, "plan.txt"))).toBe(false);
+  });
+
+  it("returns canonical paths and never overwrites when the workspace is reached through a link (macOS /var -> /private/var)", async () => {
+    const link = path.join(root, "ws-link");
+    try {
+      symlinkSync(ws, link, process.platform === "win32" ? "junction" : "dir");
+    } catch {
+      return; // no link support here
+    }
+    const data = ok(await plan({ transcript_text: SRT, frame_rate: 25, plan_output_path: path.join(link, "linked.json"), export: { format: "srt", output_path: path.join(ws, "linked.srt") }, approved_workspace_path: link }));
+    expect(data.plan_path).toBe(path.join(ws, "linked.json"));
+    expect(data.export.path).toBe(path.join(ws, "linked.srt"));
+    // The same files named through the other form already exist.
+    expect(bad(await plan({ transcript_text: SRT, frame_rate: 25, plan_output_path: path.join(ws, "linked.json"), approved_workspace_path: link }))).toMatch(/already exists/);
+    expect(bad(await plan({ transcript_text: SRT, frame_rate: 25, export: { format: "srt", output_path: path.join(link, "linked.srt") }, approved_workspace_path: ws }))).toMatch(/already exists/);
   });
 
   it("truncates a large plan and requires a file for it", async () => {

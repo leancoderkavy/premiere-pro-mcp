@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { EventEmitter } from "node:events";
 import * as fs from "node:fs";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runInNewContext } from "node:vm";
@@ -70,7 +70,8 @@ function fakeSize(file: string, size: number) {
 }
 
 beforeEach(() => {
-  workspace = mkdtempSync(join(tmpdir(), "caption-transcription-"));
+  // realpath: the tool returns canonical paths, and on macOS tmpdir() (/var/...) is a link to /private/var/....
+  workspace = realpathSync(mkdtempSync(join(tmpdir(), "caption-transcription-")));
   media = join(workspace, "..", `ct-media-${Date.now()}-${Math.random().toString(16).slice(2)}.wav`);
   writeFileSync(media, wavBytes);
   vi.stubEnv("ELEVENLABS_API_KEY", KEY);
@@ -289,6 +290,31 @@ describe("media_path source", () => {
     const r = (await tool({ engines: { elevenlabs: engine } }).handler({ ...base(), media_path: media, output_path: target })) as { data: { transcript_path: string } };
     expect(r.data.transcript_path).toBe(target);
     expect(readFileSync(target, "utf8")).toContain("Hello world");
+  });
+
+  it("returns canonical paths when the workspace is reached through a link (macOS /var -> /private/var)", async () => {
+    const holder = realpathSync(mkdtempSync(join(tmpdir(), "caption-transcription-link-")));
+    try {
+      const link = join(holder, "ws");
+      try {
+        symlinkSync(workspace, link, process.platform === "win32" ? "junction" : "dir");
+      } catch {
+        return; // no link support here
+      }
+      const { engine } = fakeEngine();
+      const t = tool({ engines: { elevenlabs: engine } });
+      type R = { success: boolean; error?: string; data: { transcript_path: string; next: Array<{ arguments: Record<string, unknown> }> } };
+      const byDefault = (await t.handler({ ...base(), approved_workspace_path: link, media_path: media })) as R;
+      expect(byDefault.data.transcript_path.startsWith(join(workspace, "ct-media-"))).toBe(true);
+      expect(byDefault.data.next[0].arguments.approved_workspace_path).toBe(workspace);
+      const mixed = (await t.handler({ ...base(), approved_workspace_path: link, media_path: media, output_path: join(workspace, "mixed.json") })) as R;
+      expect(mixed.data.transcript_path).toBe(join(workspace, "mixed.json"));
+      const refused = (await t.handler({ ...base(), approved_workspace_path: workspace, media_path: media, output_path: join(link, "mixed.json") })) as R;
+      expect(refused.success).toBe(false);
+      expect(refused.error).toContain("already exists");
+    } finally {
+      rmSync(holder, { recursive: true, force: true });
+    }
   });
 
   it("fails if the file appears at output_path after the upload (wx), without a key leak", async () => {

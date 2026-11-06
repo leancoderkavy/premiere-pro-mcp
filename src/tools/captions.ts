@@ -1,6 +1,6 @@
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions, type CommandResult } from "../bridge/file-bridge.js";
-import { readFileSync, statSync, writeFileSync } from "node:fs";
+import { readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { CAPTION_PLAN_OPTION_PROPERTIES } from "../ai/caption-plan.js";
 import { parseSubtitles, planToExportCues, writeCaptions } from "../ai/caption-export.js";
@@ -205,18 +205,20 @@ export async function createCaptionTrackOnHost(bridgeOptions: BridgeOptions, ite
 
 /**
  * Writes the SRT with flag "wx" to the first free '<stem> captions.srt', '<stem> captions 2.srt', ...
- * in the workspace; a taken name (EEXIST, also a race) moves on to the next number.
+ * in the workspace; a taken name (EEXIST, also a race) moves on to the next number. The returned path is
+ * under the workspace's realpath, the same form resolveContainedOutputPath returns for an explicit output_path.
  */
 function writeDefaultSrt(workspace: string, stem: string, text: string): string {
-  let isDirectory = false;
+  let root = "";
   try {
-    isDirectory = statSync(workspace).isDirectory();
+    root = realpathSync(workspace);
+    if (!statSync(root).isDirectory()) root = "";
   } catch {
     // reported below
   }
-  if (!isDirectory) throw new Error("approved_workspace_path must be an existing directory");
+  if (!root) throw new Error("approved_workspace_path must be an existing directory");
   for (let n = 1; n < 1000; n++) {
-    const candidate = path.join(workspace, n === 1 ? `${stem} captions.srt` : `${stem} captions ${n}.srt`);
+    const candidate = path.join(root, n === 1 ? `${stem} captions.srt` : `${stem} captions ${n}.srt`);
     try {
       writeFileSync(candidate, text, { encoding: "utf8", flag: "wx" });
       return candidate;

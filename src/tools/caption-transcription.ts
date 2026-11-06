@@ -280,7 +280,9 @@ function workspaceDirectory(value: unknown): string {
     // reported below
   }
   if (!isDirectory) throw new Error("approved_workspace_path must be an existing directory");
-  return dir;
+  // The canonical path, so every path this tool writes or returns has the same form as resolveContainedOutputPath's
+  // (on macOS the temp directory /var/... is a link to /private/var/...).
+  return realpathSync(dir);
 }
 
 export function getCaptionTranscriptionTools(bridgeOptions: BridgeOptions, deps: CaptionTranscriptionDeps = {}) {

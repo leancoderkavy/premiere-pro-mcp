@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 vi.mock("../../src/bridge/file-bridge.js", () => ({ sendCommand: vi.fn() }));
@@ -11,8 +11,11 @@ vi.mock("node:fs", async (importOriginal) => {
 import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { getCaptionTools } from "../../src/tools/captions.js";
 import { resolveCaptionPlan, writeCaptionPlanDocument } from "../../src/tools/caption-inputs.js";
-import { cleanupTempDirs, makeTempDir } from "../helpers/temp-dir.js";
+import { cleanupTempDirs, makeTempDir as makeRawTempDir } from "../helpers/temp-dir.js";
 import { makeFakeCaptionHost, type FakeHostOptions } from "../helpers/fake-caption-host.js";
+
+/** A temp dir by its realpath: the tool returns canonical paths, and on macOS tmpdir() (/var/...) is a link to /private/var/.... */
+const makeTempDir = (prefix: string) => realpathSync(makeRawTempDir(prefix));
 
 const tool = getCaptionTools({}).create_caption_track;
 const mocked = vi.mocked(sendCommand);
@@ -48,6 +51,7 @@ afterAll(() => cleanupTempDirs());
 
 // The partial mock wraps the real function; keep a handle for the mismatch test.
 import * as realFs from "node:fs";
+
 const jest_actual_read = (await vi.importActual<typeof import("node:fs")>("node:fs")).readFileSync;
 const jest_actual_write = (await vi.importActual<typeof import("node:fs")>("node:fs")).writeFileSync;
 void realFs;
@@ -145,6 +149,31 @@ describe("create_caption_track action import_plan", () => {
     expect(mocked).not.toHaveBeenCalled();
     const wrongExtension = await call({ transcript_text: SRT, approved_workspace_path: dir, output_path: path.join(dir, "x.vtt") });
     expect(wrongExtension).toMatchObject({ success: false, error: "output_path must end in .srt" });
+  });
+
+  it("returns canonical paths and still never overwrites when the workspace is reached through a link (macOS /var -> /private/var)", async () => {
+    const real = makeTempDir("import-plan-");
+    const link = path.join(makeTempDir("import-plan-link-"), "ws");
+    try {
+      symlinkSync(real, link, process.platform === "win32" ? "junction" : "dir");
+    } catch {
+      return; // no link support here
+    }
+    install();
+    // Default name: the path is under the realpath, like the explicit output_path below.
+    const byDefault = await call({ transcript_text: SRT, approved_workspace_path: link });
+    expect(byDefault.success).toBe(true);
+    expect(byDefault.data.srt.path).toBe(path.join(real, "Reel_ Final_Cut captions.srt"));
+    // Workspace and output_path in different forms are still contained.
+    const mixed = await call({ transcript_text: SRT, approved_workspace_path: link, output_path: path.join(real, "mixed.srt") });
+    expect(mixed.data.srt.path).toBe(path.join(real, "mixed.srt"));
+    const mixedBack = await call({ transcript_text: SRT, approved_workspace_path: real, output_path: path.join(link, "mixed back.srt") });
+    expect(mixedBack.data.srt.path).toBe(path.join(real, "mixed back.srt"));
+    // A file named through the other form is still an existing file.
+    writeFileSync(path.join(real, "taken.srt"), "keep");
+    const refused = await call({ transcript_text: SRT, approved_workspace_path: real, output_path: path.join(link, "taken.srt") });
+    expect(refused).toMatchObject({ success: false, error: expect.stringContaining("already exists") });
+    expect(readFileSync(path.join(real, "taken.srt"), "utf8")).toBe("keep");
   });
 
   it("validates before contacting Premiere", async () => {
