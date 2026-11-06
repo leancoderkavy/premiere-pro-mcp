@@ -58,6 +58,26 @@ describe("timeline QA tool schemas", () => {
   });
 });
 
+describe("whole-timeline input completeness", () => {
+  it.each([
+    { totalClips: 2, matchingCount: 2, returned: 1, offset: 0, truncated: true, nextOffset: 1 },
+    { totalClips: 2, matchingCount: 2, returned: 1, offset: 1, truncated: false, nextOffset: null },
+    { totalClips: 2, matchingCount: 1, returned: 1, offset: 0, truncated: false, nextOffset: null },
+    { totalClips: 1, matchingCount: 1, returned: 1, offset: 0, truncated: false, nextOffset: 1 },
+  ])("refuses partial pages for audits and either side of diffs", async (pagination) => {
+    const complete = snapshot([clip("v1", 0, 5)]);
+    const partial = { ...complete, pagination };
+    for (const result of [
+      await tools.audit_timeline_health.handler({ snapshot: partial }),
+      await tools.diff_sequence_snapshots.handler({ before: partial, after: complete }),
+      await tools.diff_sequence_snapshots.handler({ before: complete, after: partial }),
+    ]) {
+      expect(result).toMatchObject({ success: false, error: expect.stringContaining("complete, unfiltered snapshot") });
+      expect(result).not.toHaveProperty("data");
+    }
+  });
+});
+
 describe("diff_sequence_snapshots", () => {
   const tool = tools.diff_sequence_snapshots;
 

@@ -152,8 +152,8 @@ function normalizeClip(raw: unknown, type: SnapshotTrackType, trackIndex: number
   if (end === undefined) fail(`${label}.end_seconds is required`);
   const inPoint = optionalSeconds(pick(raw, ["in_seconds", "inSeconds", "inPointSeconds", "inPoint"]), `${label}.in_seconds`);
   const outPoint = optionalSeconds(pick(raw, ["out_seconds", "outSeconds", "outPointSeconds", "outPoint"]), `${label}.out_seconds`);
-  const mediaPath = optionalText(pick(raw, ["media_path", "mediaPath", "filePath", "file_path", "path"]), `${label}.media_path`, 4096);
-  const projectItemId = optionalText(pick(raw, ["project_item_id", "projectItemId", "sourceProjectItemId", "source_project_item_id", "projectItem"]), `${label}.project_item_id`, 512);
+  const mediaPath = optionalText(pick(raw, ["media_path", "mediaPath", "sourceMediaPath", "filePath", "file_path", "path"]), `${label}.media_path`, 4096);
+  const projectItemId = optionalText(pick(raw, ["project_item_id", "projectItemId", "sourceProjectItemId", "sourceNodeId", "source_project_item_id", "projectItem"]), `${label}.project_item_id`, 512);
   const disabledRaw = raw.disabled !== undefined && raw.disabled !== null ? raw.disabled : raw.enabled !== undefined && raw.enabled !== null ? !raw.enabled : false;
   if (typeof disabledRaw !== "boolean") fail(`${label}.disabled must be a boolean`);
   let speed: number | undefined;
@@ -230,6 +230,17 @@ export function normalizeSequenceSnapshot(raw: unknown, options: NormalizeOption
     audio.forEach((track, position) => tracks.push(normalizeTrack(track, "audio", position, `${label}.audioTracks[${position}]`, state)));
   } else {
     fail(`${label} must contain a tracks array or videoTracks/audioTracks arrays`);
+  }
+  // Whole-timeline conclusions require every clip, not a filtered or later page.
+  if (raw.pagination !== undefined) {
+    const page = raw.pagination;
+    const clipCount = tracks.reduce((total, track) => total + track.clips.length, 0);
+    if (!isRecord(page) || page.truncated !== false || page.offset !== 0 ||
+        (page.nextOffset !== undefined && page.nextOffset !== null) ||
+        !Number.isSafeInteger(page.totalClips) || page.totalClips !== clipCount ||
+        page.matchingCount !== clipCount || page.returned !== clipCount) {
+      fail(`${label} must be a complete, unfiltered snapshot starting at offset 0; paginated or filtered results cannot support whole-timeline QA`);
+    }
   }
   const seen = new Set<string>();
   for (const track of tracks) {

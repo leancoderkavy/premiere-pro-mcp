@@ -29,6 +29,14 @@ const clean = () => raw(
 );
 
 describe("normalizeSequenceSnapshot", () => {
+  it("preserves full-sequence source identities for repeated-shot checks without returning private paths", () => {
+    const source = { sourceNodeId: "source-1", sourceMediaPath: "/private/media/scene.mov" };
+    const snapshot = norm(raw([[clip("v1", 0, 5, source), clip("v2", 5, 10, source)]]));
+    expect(snapshot.tracks[0].clips[0]).toMatchObject({ project_item_id: "source-1", media_basename: "scene.mov" });
+    expect(snapshot.tracks[0].clips[0].media_path_sha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(JSON.stringify(snapshot)).not.toContain("/private/media");
+    expect(JSON.stringify(auditTimelineHealth(snapshot))).toContain("repeated_shot");
+  });
   it("accepts the normalized shape and sorts tracks and clips deterministically", () => {
     const snapshot = norm({ frame_rate: 24, tracks: [
       { type: "audio", index: 0, clips: [clip("a", 0, 1)] },
