@@ -17,12 +17,16 @@ vi.mock("../../src/bridge/file-bridge.js", () => ({
 import { probeMediaDurationSeconds } from "../../src/tools/media-evidence.js";
 import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { getExportTools } from "../../src/tools/export.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 
 afterAll(cleanupTempDirs);
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const tools = getExportTools({ tempDir: "/tmp/export-seq", timeoutMs: 5000 } as BridgeOptions);
 type Result = { success: boolean; error?: string; data?: Record<string, unknown> };
+// Refusals before exportAsMediaDirect must say so; otherwise the dispatched
+// command's receipt is unknown and every later edit is locked.
+const notApplied = { mutationOutcome: "not_applied", timelineChanged: false };
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -70,6 +74,20 @@ const preset = join(makeTempDir("epr-"), "H264 Match Source - High bitrate.epr")
 writeFileSync(preset, "<PremiereData><ExporterFileType>1299148630</ExporterFileType></PremiereData>");
 
 describe("export_sequence", () => {
+  it("marks a missing default H.264 preset as not applied before rendering", async () => {
+    const render = vi.fn();
+    mockedSendCommand.mockImplementation(async (script: string) =>
+      JSON.parse(String(runInNewContext(script, {
+        app: { project: { activeSequence: { exportAsMediaDirect: render } } },
+        __findH264Preset: () => null,
+        __error: (error: string, data?: unknown) => JSON.stringify({ success: false, error, data }),
+      }))));
+    const result = await tools.export_sequence.handler({ output_path: "/out/final.mp4" });
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("default H.264 preset"), data: notApplied });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "export_sequence").outcome).toBe("not_applied");
+    expect(render).not.toHaveBeenCalled();
+  });
+
   it.each(["C:/Exports/final", "C:/Exports/final.mp4"])("passes native paths to Windows direct export for %s", async (outputPath) => {
     vi.mocked(probeMediaDurationSeconds).mockResolvedValue(24);
     const nativePreset = "C:\\Presets\\H264.epr";
@@ -103,7 +121,9 @@ describe("export_sequence", () => {
   it("refuses a .mp4 path for a preset that writes .mov (live: mislabeled QuickTime file)", async () => {
     const written = host();
     const result = await tools.export_sequence.handler({ output_path: "/out/full.mp4", preset_path: preset }) as Result;
-    expect(result).toMatchObject({ success: false, error: expect.stringContaining("writes .mov files but output_path ends in .mp4") });
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("writes .mov files but output_path ends in .mp4"), data: notApplied });
+    // Live 26.5.2: before this was tagged, the refusal locked recovery as unknown.
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "export_sequence").outcome).toBe("not_applied");
     expect([...written]).toEqual([]);
   });
 
@@ -144,7 +164,7 @@ describe("export_sequence", () => {
 
   it("refuses in_to_out without marks instead of rendering the whole sequence", async () => {
     const written = host();
-    await expect(tools.export_sequence.handler({ output_path: "/out/welcome.mov", preset_path: preset, range: "in_to_out" })).resolves.toMatchObject({ success: false, error: expect.stringContaining("needs sequence in/out points") });
+    await expect(tools.export_sequence.handler({ output_path: "/out/welcome.mov", preset_path: preset, range: "in_to_out" })).resolves.toMatchObject({ success: false, error: expect.stringContaining("needs sequence in/out points"), data: notApplied });
     expect(written.modes).toEqual([]);
   });
 
@@ -162,6 +182,7 @@ describe("export_sequence", () => {
     await expect(tools.export_sequence.handler({ output_path: "/out/welcome.mov", preset_path: preset, range: "work_area" })).resolves.toMatchObject({
       success: false,
       error: expect.stringContaining("needs the work area enabled"),
+      data: notApplied,
     });
     expect(written.modes).toEqual([]);
   });
@@ -171,6 +192,7 @@ describe("export_sequence", () => {
     await expect(tools.export_sequence.handler({ output_path: "/out/welcome.mov", preset_path: preset, range: "work_area" })).resolves.toMatchObject({
       success: false,
       error: expect.stringContaining("needs a work area around part of the sequence"),
+      data: notApplied,
     });
     expect(written.modes).toEqual([]);
   });
@@ -217,7 +239,7 @@ describe("export_sequence", () => {
 
   it("refuses an output_path that already exists, so a stale file cannot pass as the render", async () => {
     const written = host({ existing: ["/out/full.mov"] });
-    await expect(tools.export_sequence.handler({ output_path: "/out/full.mov", preset_path: preset })).resolves.toMatchObject({ success: false, error: expect.stringContaining("already exists") });
+    await expect(tools.export_sequence.handler({ output_path: "/out/full.mov", preset_path: preset })).resolves.toMatchObject({ success: false, error: expect.stringContaining("already exists"), data: notApplied });
     expect(written.modes).toEqual([]);
   });
 
