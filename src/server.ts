@@ -67,6 +67,9 @@ import { getMaskFitTools } from "./tools/mask-fit.js";
 import { getRhythmPlanTools } from "./tools/rhythm-plans.js";
 import { getShortsIntelligenceTools } from "./tools/shorts-intelligence.js";
 import { getCaptionAuthoringTools } from "./tools/caption-authoring.js";
+import { getCaptionPlanningTools } from "./tools/caption-planning.js";
+import { getCaptionTranscriptionTools } from "./tools/caption-transcription.js";
+import { getCaptionGraphicsTools } from "./tools/caption-graphics.js";
 import { getReactionShortsTools } from "./tools/reaction-shorts.js";
 import { getTranscriptWordEditTools } from "./tools/transcript-word-edits.js";
 import { getPlatformDeliveryTools } from "./tools/platform-delivery.js";
@@ -390,6 +393,9 @@ function collectStaticTools(
     ...getRhythmPlanTools(),
     ...getShortsIntelligenceTools(),
     ...getCaptionAuthoringTools(),
+    ...getCaptionPlanningTools(),
+    ...getCaptionTranscriptionTools(bridgeOptions),
+    ...getCaptionGraphicsTools(bridgeOptions),
     ...getReactionShortsTools(),
     ...getTranscriptWordEditTools(),
     ...getPlatformDeliveryTools(),

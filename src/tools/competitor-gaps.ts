@@ -3,6 +3,89 @@ import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 import { AUDIO_KEYFRAME_READBACK, dbToPremiereLevel, PREMIERE_MAX_LEVEL_DB } from "./audio.js";
 import type { UxpWebSocketBridge } from "../bridge/uxp-websocket-bridge.js";
+import { readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { CAPTION_EXPORT_FORMATS, countTtmlCues, parseSubtitles, writeCaptions, type CaptionExportFormat } from "../ai/caption-export.js";
+import { resolveContainedOutputPath } from "./caption-authoring.js";
+
+type CaptionExportRequest = { format: CaptionExportFormat; output_path: string; approved_workspace_path: string; track_index?: number };
+
+function parseCaptionExportRequest(value: unknown): CaptionExportRequest | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "object" || Array.isArray(value)) throw new Error("export must be an object with format, output_path and approved_workspace_path");
+  const raw = value as Record<string, unknown>;
+  const format = raw.format;
+  if (typeof format !== "string" || !(CAPTION_EXPORT_FORMATS as readonly string[]).includes(format)) throw new Error(`export.format must be one of: ${CAPTION_EXPORT_FORMATS.join(", ")}`);
+  if (typeof raw.output_path !== "string" || typeof raw.approved_workspace_path !== "string") throw new Error("export.output_path and export.approved_workspace_path are required");
+  if (raw.track_index !== undefined && (!Number.isInteger(raw.track_index) || (raw.track_index as number) < 0)) throw new Error("export.track_index must be a non-negative integer");
+  const target = resolveContainedOutputPath(raw.approved_workspace_path, raw.output_path);
+  if (path.extname(target).toLocaleLowerCase() !== `.${format}`) throw new Error(`export.output_path must end in .${format}`);
+  return { format: format as CaptionExportFormat, output_path: raw.output_path, approved_workspace_path: raw.approved_workspace_path, ...(raw.track_index !== undefined ? { track_index: raw.track_index as number } : {}) };
+}
+
+type HostCaption = { trackIndex?: unknown; startSeconds?: unknown; endSeconds?: unknown; text?: unknown };
+type QaReadyCue = { start_seconds: number; end_seconds: number; text: string };
+
+/** Captions with finite start, end after start, and non-empty text, in QA shape; null if any caption is unreadable. */
+function readableCaptionCues(captions: HostCaption[]): QaReadyCue[] | null {
+  if (!captions.length) return null;
+  const cues: QaReadyCue[] = [];
+  for (const c of captions) {
+    if (typeof c.startSeconds !== "number" || typeof c.endSeconds !== "number" || !Number.isFinite(c.startSeconds) || !Number.isFinite(c.endSeconds)) return null;
+    if (c.endSeconds <= c.startSeconds || typeof c.text !== "string" || !c.text.trim()) return null;
+    cues.push({ start_seconds: c.startSeconds, end_seconds: c.endSeconds, text: c.text });
+  }
+  return cues;
+}
+
+const captionTrackOf = (c: HostCaption): number => (typeof c.trackIndex === "number" ? c.trackIndex : 0);
+
+/** Readable cues per caption track (tracks with an unreadable caption are left out), in track order. */
+function cuesByTrack(captions: HostCaption[]): Array<{ track_index: number; cues: QaReadyCue[] }> {
+  const indices = [...new Set(captions.map(captionTrackOf))].sort((a, b) => a - b);
+  const out: Array<{ track_index: number; cues: QaReadyCue[] }> = [];
+  for (const index of indices) {
+    const cues = readableCaptionCues(captions.filter((c) => captionTrackOf(c) === index));
+    if (cues) out.push({ track_index: index, cues });
+  }
+  return out;
+}
+
+function exportReadableCaptions(request: CaptionExportRequest, captions: HostCaption[], trackCount: number) {
+  const tracks = new Set(captions.map(captionTrackOf));
+  let chosen = captions;
+  if (request.track_index !== undefined) {
+    const known = Math.max(trackCount, tracks.size ? Math.max(...tracks) + 1 : 0);
+    if (known > 0 && request.track_index >= known) {
+      return { written: false, refused: true, reason: `export.track_index ${request.track_index} matches no caption track: the host reports ${known} caption track${known === 1 ? "" : "s"} (index 0${known > 1 ? ` to ${known - 1}` : ""}). Nothing was exported.` };
+    }
+    chosen = captions.filter((c) => c.trackIndex === request.track_index);
+  } else if (tracks.size > 1) return { written: false, refused: true, reason: `The sequence has captions on ${tracks.size} caption tracks; pass export.track_index to choose one.` };
+  const cues = readableCaptionCues(chosen);
+  if (!cues) {
+    return {
+      written: false,
+      refused: true,
+      reason: "This Premiere host did not expose text and start/end times for every caption, so nothing was exported: most CEP builds expose no caption text. Export from the plan file or the SRT that create_caption_track import_plan wrote, or use Premiere's File > Export > Captions by hand.",
+    };
+  }
+  const exportCues = cues.map((c) => ({ start: c.start_seconds, end: c.end_seconds, lines: c.text.split(/\r\n?|\n/) }));
+  const out = writeCaptions(request.format, exportCues);
+  const target = resolveContainedOutputPath(request.approved_workspace_path, request.output_path);
+  writeFileSync(target, out.text, { encoding: "utf8", flag: "wx" });
+  const text = readFileSync(target, "utf8");
+  const readback = request.format === "ttml" ? countTtmlCues(text) : parseSubtitles(text, request.format).cues.length;
+  return {
+    written: readback === cues.length,
+    refused: false,
+    format: request.format,
+    path: target,
+    bytes: Buffer.byteLength(out.text, "utf8"),
+    cue_count: cues.length,
+    cue_count_readback: readback,
+    warnings: out.warnings,
+  };
+}
 
 type BatchTimelineClip = {
   item_id: string;
@@ -828,15 +911,33 @@ export function getCompetitorGapTools(
 
     read_sequence_captions: {
       description:
-        "Diagnose whether the active Premiere scripting host can enumerate caption tracks. It never treats an empty result as proof that the sequence has no captions, because most CEP builds expose caption creation but not caption reads.",
+        "Diagnose whether the active Premiere scripting host can enumerate caption tracks. It never treats an empty result as proof that the sequence has no captions, because most CEP builds expose caption creation but not caption reads. Cues are returned per track as cues_by_track [{track_index, cues:[{start_seconds,end_seconds,text}]}] for every caption track whose captions all have readable text and times, and as a flat cues list (ready for check_captions) only when the sequence has exactly one caption track and it is readable. Optional export {format, output_path, approved_workspace_path, track_index?} writes those cues to a new .srt/.vtt/.ttml (never overwriting, cue-count readback) and refuses with an explanation when the host exposes no caption text; the diagnostic is returned either way. Without export the call is read-only.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
         properties: {
           sequence_id: { type: "string", minLength: 1, maxLength: 512, description: "Sequence ID or name. Defaults to the active sequence." },
+          export: {
+            type: "object",
+            additionalProperties: false,
+            description: "Optional. Write the readable captions to a new caption file. Refused (with the diagnostic still returned) when the host exposes no caption text or timing.",
+            properties: {
+              format: { type: "string", enum: [...CAPTION_EXPORT_FORMATS], description: "srt, vtt or ttml." },
+              output_path: { type: "string", maxLength: 4096, description: "Absolute path of the new file, ending in the format's extension, inside approved_workspace_path. An existing file is never overwritten." },
+              approved_workspace_path: { type: "string", maxLength: 4096, description: "Absolute path of an existing directory the caller approved for file access." },
+              track_index: { type: "integer", minimum: 0, description: "Caption track to export when the sequence has several (0-based). An index that matches no caption track is refused with its own message." },
+            },
+            required: ["format", "output_path", "approved_workspace_path"],
+          },
         },
       },
-      handler: async (args: { sequence_id?: string }) => {
+      handler: async (args: { sequence_id?: string; export?: CaptionExportRequest }) => {
+        let exportRequest: CaptionExportRequest | undefined;
+        try {
+          exportRequest = parseCaptionExportRequest(args.export);
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
         const sequenceLookup = args.sequence_id
           ? `var seq = __findSequence("${escapeForExtendScript(args.sequence_id)}"); if (!seq) return __error("Sequence not found: ${escapeForExtendScript(args.sequence_id)}");`
           : "var seq = app.project.activeSequence; if (!seq) return __error(\"No active sequence\");";
@@ -882,7 +983,24 @@ export function getCompetitorGapTools(
               : "Premiere CEP normally exposes createCaptionTrack but not a caption-track read API. trackCount:0 and captions:[] do not prove this sequence has no captions. Read the source SRT/VTT outside Premiere when cue text and timing are required."
           });
         `);
-        return sendCommand(script, bridgeOptions);
+        const response = await sendCommand(script, bridgeOptions);
+        if (!response || !response.success || !response.data || typeof response.data !== "object" || Array.isArray(response.data)) return response;
+        const data = response.data as Record<string, unknown>;
+        const captions = Array.isArray(data.captions) ? (data.captions as HostCaption[]) : [];
+        const perTrack = cuesByTrack(captions);
+        const extra: Record<string, unknown> = {};
+        if (perTrack.length) extra.cues_by_track = perTrack;
+        // A flat list only when there is one caption track and it is readable: with several tracks a merged list would mix them.
+        if (perTrack.length === 1 && new Set(captions.map(captionTrackOf)).size === 1) extra.cues = perTrack[0].cues;
+        if (exportRequest) {
+          try {
+            const reportedTracks = Number(data.trackCount);
+            extra.export = exportReadableCaptions(exportRequest, captions, Number.isFinite(reportedTracks) && reportedTracks > 0 ? reportedTracks : 0);
+          } catch (error) {
+            extra.export = { written: false, refused: true, reason: error instanceof Error ? error.message : String(error) };
+          }
+        }
+        return Object.keys(extra).length ? { ...response, data: { ...data, ...extra } } : response;
       },
     },
 
