@@ -1248,7 +1248,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
           ${args.preset_path
             ? `var presetPath = "${escapeForExtendScript(args.preset_path)}";`
             : `var presetPath = __findH264Preset();
-               if (!presetPath) return __error("Could not locate a default H.264 preset. Pass preset_path explicitly.");`
+               if (!presetPath) return __error("Could not locate a default H.264 preset. Pass preset_path explicitly.", { mutationOutcome: "not_applied", timelineChanged: false });`
           }
 
           // Premiere's native exporters on Windows reject URI-style paths that File accepts.
@@ -1918,7 +1918,7 @@ ${sequenceRangeGuardScript(range)}
         const startBatch = args.start_batch !== false;
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __error("No active sequence", { mutationOutcome: "not_applied", timelineChanged: false });
           var encoder = app.encoder;
           if (!encoder || typeof encoder.encodeSequence !== "function") return __error("Adobe Media Encoder is not available; nothing was queued.", { mutationOutcome: "not_applied", timelineChanged: false });
           var savedProjectPath = "";

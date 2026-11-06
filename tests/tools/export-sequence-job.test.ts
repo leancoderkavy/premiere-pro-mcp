@@ -23,7 +23,7 @@ let workDir: string;
 let presetPath: string;
 
 /** A fake Premiere/AME host that really runs the generated ExtendScript. */
-function makeHost(options: { bind?: boolean; jobId?: string; savedPath?: string; extension?: string; hostExisting?: string[] } = {}) {
+function makeHost(options: { bind?: boolean; jobId?: string; savedPath?: string; extension?: string; hostExisting?: string[]; noSequence?: boolean } = {}) {
   const handlers: Record<string, Handler> = {};
   const dollar = { global: {} as Record<string, unknown> };
   const scripts: string[] = [];
@@ -46,7 +46,7 @@ function makeHost(options: { bind?: boolean; jobId?: string; savedPath?: string;
     getExportFileExtension: () => options.extension ?? "mp4",
     getInPoint: () => "2", getOutPoint: () => "6",
   };
-  const app = { project: { activeSequence: seq, path: options.savedPath ?? "/work/show.prproj" }, encoder };
+  const app = { project: { activeSequence: options.noSequence ? null : seq, path: options.savedPath ?? "/work/show.prproj" }, encoder };
   const run = (script: string) => {
     scripts.push(script);
     return JSON.parse(String(runInNewContext(script, {
@@ -133,8 +133,13 @@ describe("export_sequence_job_start", () => {
   it("marks every refusal before encodeSequence as not applied, so it sets no recovery lock", async () => {
     const notApplied = { mutationOutcome: "not_applied", timelineChanged: false };
     const outcome = (result: unknown) => mutationReceipt(false, (result as { data?: Record<string, unknown> }).data, { dispatched: true }, "export_sequence_job_start").outcome;
-    let host = makeHost({ savedPath: "" });
+    let host = makeHost({ noSequence: true });
     let result = await start();
+    expect(result).toMatchObject({ success: false, error: "No active sequence", data: notApplied });
+    expect(outcome(result)).toBe("not_applied");
+    expect(host.encoder.encodeSequence).not.toHaveBeenCalled();
+    host = makeHost({ savedPath: "" });
+    result = await start();
     expect(result).toMatchObject({ success: false, error: expect.stringContaining("Save the Premiere project"), data: notApplied });
     expect(outcome(result)).toBe("not_applied");
     host = makeHost();

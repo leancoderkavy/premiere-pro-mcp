@@ -74,6 +74,20 @@ const preset = join(makeTempDir("epr-"), "H264 Match Source - High bitrate.epr")
 writeFileSync(preset, "<PremiereData><ExporterFileType>1299148630</ExporterFileType></PremiereData>");
 
 describe("export_sequence", () => {
+  it("marks a missing default H.264 preset as not applied before rendering", async () => {
+    const render = vi.fn();
+    mockedSendCommand.mockImplementation(async (script: string) =>
+      JSON.parse(String(runInNewContext(script, {
+        app: { project: { activeSequence: { exportAsMediaDirect: render } } },
+        __findH264Preset: () => null,
+        __error: (error: string, data?: unknown) => JSON.stringify({ success: false, error, data }),
+      }))));
+    const result = await tools.export_sequence.handler({ output_path: "/out/final.mp4" });
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("default H.264 preset"), data: notApplied });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "export_sequence").outcome).toBe("not_applied");
+    expect(render).not.toHaveBeenCalled();
+  });
+
   it.each(["C:/Exports/final", "C:/Exports/final.mp4"])("passes native paths to Windows direct export for %s", async (outputPath) => {
     vi.mocked(probeMediaDurationSeconds).mockResolvedValue(24);
     const nativePreset = "C:\\Presets\\H264.epr";
