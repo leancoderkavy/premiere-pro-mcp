@@ -230,7 +230,7 @@
     "@modelcontextprotocol/node": "^2.1.0",
     "@modelcontextprotocol/server": "^2.0.0",
     "@posthog/core": "1.63.1",
-    "@posthog/types": "1.419.0",
+    "@posthog/types": "1.420.0",
     "jose": "^6.2.15",
     "posthog-node": "5.61.2",
     "ws": "^8.22.1",
