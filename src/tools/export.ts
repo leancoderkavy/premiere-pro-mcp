@@ -637,7 +637,7 @@ function presetExtensionGuardScript(): string {
             if (!givenExtension) {
               outputPath = outputPath + "." + presetExtension;
             } else if (givenExtension !== presetExtension && !(givenExtension === "m4v" && presetExtension === "mp4")) {
-              return __error("The preset writes ." + presetExtension + " files but output_path ends in ." + givenExtension + "; nothing was exported. Use ." + presetExtension + " or pick a preset for ." + givenExtension + " (get_encoder_presets lists each preset's extension).");
+              return __error("The preset writes ." + presetExtension + " files but output_path ends in ." + givenExtension + "; nothing was exported. Use ." + presetExtension + " or pick a preset for ." + givenExtension + " (get_encoder_presets lists each preset's extension).", { mutationOutcome: "not_applied", timelineChanged: false });
             }
           }`;
 }
@@ -655,7 +655,7 @@ function sequenceRangeGuardScript(range: "entire" | "in_to_out" | "work_area"): 
           var markIn = __sequencePointSeconds(seq.getInPoint());
           var markOut = __sequencePointSeconds(seq.getOutPoint());
           if (markIn === null || markOut === null || markOut <= markIn || (markIn <= 0 && Math.abs(markOut - rangeEnd) < 0.001)) {
-            return __error("range 'in_to_out' needs sequence in/out points around part of the sequence (set_sequence_in_out_points); nothing was exported.");
+            return __error("range 'in_to_out' needs sequence in/out points around part of the sequence (set_sequence_in_out_points); nothing was exported.", { mutationOutcome: "not_applied", timelineChanged: false });
           }
           rangeStart = markIn; rangeEnd = markOut;` : ""}
           ${range === "work_area" ? `
@@ -663,7 +663,7 @@ function sequenceRangeGuardScript(range: "entire" | "in_to_out" | "work_area"): 
           var workAreaEnabled = null;
           try { if (typeof seq.isWorkAreaEnabled === "function") workAreaEnabled = seq.isWorkAreaEnabled(); } catch (eWorkAreaEnabled) {}
           if (workAreaEnabled !== true) {
-            return __error("range 'work_area' needs the work area enabled (is_work_area_enabled); nothing was exported.");
+            return __error("range 'work_area' needs the work area enabled (is_work_area_enabled); nothing was exported.", { mutationOutcome: "not_applied", timelineChanged: false });
           }
           function readWorkAreaSeconds(value) {
             if (typeof value !== "number" && typeof value !== "string") return null;
@@ -679,7 +679,7 @@ function sequenceRangeGuardScript(range: "entire" | "in_to_out" | "work_area"): 
             if (typeof seq.getWorkAreaOutPoint === "function") workOut = readWorkAreaSeconds(seq.getWorkAreaOutPoint());
           } catch (eWorkAreaBounds) {}
           if (workIn === null || workOut === null || !isFinite(rangeEnd) || rangeEnd <= 0 || workIn < 0 || workOut <= workIn || workOut > rangeEnd || (workIn === 0 && Math.abs(workOut - rangeEnd) < 0.001)) {
-            return __error("range 'work_area' needs a work area around part of the sequence; nothing was exported. Set and read back a valid work area where supported, or use range 'in_to_out' after set_sequence_in_out_points.");
+            return __error("range 'work_area' needs a work area around part of the sequence; nothing was exported. Set and read back a valid work area where supported, or use range 'in_to_out' after set_sequence_in_out_points.", { mutationOutcome: "not_applied", timelineChanged: false });
           }
           rangeStart = workIn; rangeEnd = workOut;` : ""}`;
 }
@@ -1248,7 +1248,7 @@ export function getExportTools(bridgeOptions: BridgeOptions) {
           ${args.preset_path
             ? `var presetPath = "${escapeForExtendScript(args.preset_path)}";`
             : `var presetPath = __findH264Preset();
-               if (!presetPath) return __error("Could not locate a default H.264 preset. Pass preset_path explicitly.");`
+               if (!presetPath) return __error("Could not locate a default H.264 preset. Pass preset_path explicitly.", { mutationOutcome: "not_applied", timelineChanged: false });`
           }
 
           // Premiere's native exporters on Windows reject URI-style paths that File accepts.
@@ -1265,7 +1265,7 @@ ${sequenceRangeGuardScript(range)}
           // A file already at output_path must not pass the written-file check below.
           var existing = new File(outputPath);
           var existedBefore = existing.exists;
-          ${args.overwrite ? "" : `if (existedBefore) return __error("A file already exists at " + outputPath + "; nothing was exported. Choose a new output_path or pass overwrite: true.");`}
+          ${args.overwrite ? "" : `if (existedBefore) return __error("A file already exists at " + outputPath + "; nothing was exported. Choose a new output_path or pass overwrite: true.", { mutationOutcome: "not_applied", timelineChanged: false });`}
           var sizeBefore = existedBefore ? existing.length : -1;
           var modifiedBefore = existedBefore && existing.modified ? existing.modified.getTime() : null;
 
@@ -1918,13 +1918,13 @@ ${sequenceRangeGuardScript(range)}
         const startBatch = args.start_batch !== false;
         const script = buildToolScript(`
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __error("No active sequence", { mutationOutcome: "not_applied", timelineChanged: false });
           var encoder = app.encoder;
-          if (!encoder || typeof encoder.encodeSequence !== "function") return __error("Adobe Media Encoder is not available; nothing was queued.");
+          if (!encoder || typeof encoder.encodeSequence !== "function") return __error("Adobe Media Encoder is not available; nothing was queued.", { mutationOutcome: "not_applied", timelineChanged: false });
           var savedProjectPath = "";
           try { savedProjectPath = String(app.project.path || ""); } catch (projectPathError) { savedProjectPath = ""; }
           if (!savedProjectPath || savedProjectPath === "undefined") {
-            return __error("Save the Premiere project to a real .prproj path before an AME export job; nothing was queued.");
+            return __error("Save the Premiere project to a real .prproj path before an AME export job; nothing was queued.", { mutationOutcome: "not_applied", timelineChanged: false });
           }
           var outputFile = new File("${escapeForExtendScript(outputPath)}");
           if (!outputFile.parent || !outputFile.parent.exists) {
@@ -1936,9 +1936,9 @@ ${sequenceRangeGuardScript(range)}
           var presetPath = presetFile.fsName;
 ${presetExtensionGuardScript()}
 ${sequenceRangeGuardScript(range)}
-          if (new File(outputPath).exists) return __error("A file already exists at " + outputPath + "; nothing was queued. Choose a new output_path.");
+          if (new File(outputPath).exists) return __error("A file already exists at " + outputPath + "; nothing was queued. Choose a new output_path.", { mutationOutcome: "not_applied", timelineChanged: false });
           var encodeMode = ${range === "in_to_out" ? "encoder.ENCODE_IN_TO_OUT" : range === "work_area" ? "encoder.ENCODE_WORKAREA" : "encoder.ENCODE_ENTIRE"};
-          if (typeof encodeMode !== "number") return __error("Premiere does not expose the requested encode range mode; nothing was queued.");
+          if (typeof encodeMode !== "number") return __error("Premiere does not expose the requested encode range mode; nothing was queued.", { mutationOutcome: "not_applied", timelineChanged: false });
 
           // AME job events are recorded in an engine-global store so a later
           // get_export_job_status call can read them. Handlers ignore jobs this

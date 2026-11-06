@@ -722,6 +722,27 @@ full-catalog mode and cannot be combined with another pack. `ping` and
 `get_capabilities` remain listed for diagnosis, and every registered call still
 passes through the same capability guard; a pack never grants authority.
 
+#### Opt-in fast client setup
+
+Print a configuration snippet for a smaller discovery surface:
+
+```sh
+premiere-pro-mcp --print-client-config claude --fast
+```
+
+Replace `claude` with `cursor`, `vscode`, or `codex` for that client's format.
+Merge the printed entry into your client configuration, then restart its MCP
+connection. This command prints only; it does not edit client files or contact
+Premiere. It targets this installed copy using absolute local paths.
+
+The fast profile selects the existing `essential` pack, clears inherited explicit
+tool lists, and keeps full per-call guard schemas. Authority checks and mutation
+readback remain unchanged. It reduces discovery payload; it does not make
+Premiere execute edits faster. Tools outside the pack are unavailable in that
+session. For a broader workflow, change `PREMIERE_MCP_TOOL_PACKS` in the entry to
+another pack or `full`, then reconnect. Without `--fast`, configuration output
+and the default full catalog remain unchanged. No plugin install defaults change.
+
 ### Compact schema profile
 
 Every tool accepts two optional host guards per call, `expected_project_path`

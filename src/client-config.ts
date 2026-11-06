@@ -3,12 +3,12 @@ import path from "node:path";
 export const CLIENT_CONFIG_TARGETS = ["claude", "cursor", "vscode", "codex"] as const;
 export type ClientConfigTarget = typeof CLIENT_CONFIG_TARGETS[number];
 
-const usage = "Usage: premiere-pro-mcp --print-client-config <claude|cursor|vscode|codex>. Use this action alone.";
+const usage = "Usage: premiere-pro-mcp --print-client-config <claude|cursor|vscode|codex> [--fast]. Use this action alone.";
 
 /** Resolve this action before any installer, update, or server startup branch. */
 export function parseClientConfigAction(args: string[]): ClientConfigTarget | undefined {
   if (!args.some((arg) => arg === "--print-client-config" || arg.startsWith("--print-client-config="))) return undefined;
-  if (args.length !== 2 || args[0] !== "--print-client-config" ||
+  if (!(args.length === 2 || (args.length === 3 && args[2] === "--fast")) || args[0] !== "--print-client-config" ||
       !CLIENT_CONFIG_TARGETS.includes(args[1] as ClientConfigTarget)) {
     throw new Error(usage);
   }
@@ -25,6 +25,7 @@ export function renderClientConfig(
   nodeExecutable: string,
   serverEntrypoint: string,
   platform: NodeJS.Platform = process.platform,
+  fast = false,
 ): string {
   if (!CLIENT_CONFIG_TARGETS.includes(target)) throw new Error(usage);
   const paths = platform === "win32" ? path.win32 : path.posix;
@@ -33,9 +34,15 @@ export function renderClientConfig(
       throw new Error("Client configuration requires absolute paths without control characters or client variable expressions.");
     }
   }
-  const entry = { command: nodeExecutable, args: [serverEntrypoint] };
+  const env = {
+    PREMIERE_MCP_TOOL_PACKS: "essential",
+    PREMIERE_MCP_TOOL_LIST: "",
+    PREMIERE_MCP_SCHEMA_PROFILE: "full",
+  };
+  const entry = { command: nodeExecutable, args: [serverEntrypoint], ...(fast ? { env } : {}) };
   if (target === "codex") {
-    return `[mcp_servers.premiere-pro-leancoderkavy]\ncommand = ${JSON.stringify(entry.command)}\nargs = ${JSON.stringify(entry.args)}\n`;
+    return `[mcp_servers.premiere-pro-leancoderkavy]\ncommand = ${JSON.stringify(entry.command)}\nargs = ${JSON.stringify(entry.args)}\n`
+      + (fast ? `\n[mcp_servers.premiere-pro-leancoderkavy.env]\n${Object.entries(env).map(([key, value]) => `${key} = ${JSON.stringify(value)}`).join("\n")}\n` : "");
   }
   const config = target === "vscode"
     ? { servers: { "premiere-pro-leancoderkavy": { type: "stdio", ...entry } } }
