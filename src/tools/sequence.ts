@@ -202,12 +202,12 @@ export function getSequenceTools(bridgeOptions: BridgeOptions) {
           try { item = seq.projectItem; } catch (eItem) {}
           if (!item) {
             if (${args.confirm_remove_from_sequences === true ? "false" : "true"}) {
-              return __jsonStringify({ success: false, error: name + " has no readable project item, so nested timeline usage could not be checked. Nothing was deleted. Inspect find_item_usages or pass confirm_remove_from_sequences: true.", data: { code: "ITEM_USAGE_UNKNOWN" } });
+              return __jsonStringify({ success: false, error: name + " has no readable project item, so nested timeline usage could not be checked. Nothing was deleted. Inspect find_item_usages or pass confirm_remove_from_sequences: true.", data: { code: "ITEM_USAGE_UNKNOWN", mutationOutcome: "not_applied", timelineChanged: false } });
             }
           } else {
             usage = __projectItemUsage(item);
             if (usage.clips > 0 && ${args.confirm_remove_from_sequences === true ? "false" : "true"}) {
-              return __jsonStringify({ success: false, error: name + " is used by " + usage.clips + " timeline clip(s) in " + usage.sequences.join(", ") + ". Deleting it would remove those nested clips too, and this cannot be undone here, so nothing was deleted. Remove the nested clips first, or pass confirm_remove_from_sequences: true.", data: { code: "ITEM_IN_USE", usages: usage.details } });
+              return __jsonStringify({ success: false, error: name + " is used by " + usage.clips + " timeline clip(s) in " + usage.sequences.join(", ") + ". Deleting it would remove those nested clips too, and this cannot be undone here, so nothing was deleted. Remove the nested clips first, or pass confirm_remove_from_sequences: true.", data: { code: "ITEM_IN_USE", usages: usage.details, mutationOutcome: "not_applied", timelineChanged: false } });
             }
           }
           var accepted = project.deleteSequence(seq);

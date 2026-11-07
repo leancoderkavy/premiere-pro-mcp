@@ -105,7 +105,8 @@ describe("delete_multiple_project_items used-item index and chunks", () => {
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/Interview A.mp4 is used by 1 timeline clip\(s\) in Edit/);
     expect(result.error).toContain("No project items were deleted");
-    expect(result.data).toMatchObject({ code: "ITEM_IN_USE", usages: [{ sequence: "Edit", sequenceId: "edit-seq", clips: 1, tracks: [{ type: "video", index: 0, clips: 1 }] }] });
+    expect(result.data).toMatchObject({ code: "ITEM_IN_USE", mutationOutcome: "not_applied", timelineChanged: false, usages: [{ sequence: "Edit", sequenceId: "edit-seq", clips: 1, tracks: [{ type: "video", index: 0, clips: 1 }] }] });
+    expect(mutationReceipt(false, result.data, { dispatched: true }).outcome).toBe("not_applied");
     expect(mockedSendCommand).toHaveBeenCalledTimes(1);
     expect(footageNames()).toEqual(["Clip 0.mov", "Clip 1.mov"]);
     expect(rootNames()).toContain("Interview A.mp4");
@@ -176,6 +177,14 @@ describe("delete_multiple_project_items used-item index and chunks", () => {
     mockedSendCommand.mockImplementation(async (script, options) => original(script.replace("item.deleteBin();", "/* host no-op */"), options));
     const result = await getUtilityTools(bridgeOptions).delete_multiple_project_items.handler({ item_ids: ["Footage", "Edit"], confirm_remove_from_sequences: true }) as Result;
     expect(result).toMatchObject({ success: false, data: { deleted: 0, code: "DELETE_CHUNK_STOPPED" } });
+  });
+
+  it("tags a missing item as not_applied so a dispatched plan does not lock recovery", async () => {
+    project({ clipCount: 1 });
+    const result = await getUtilityTools(bridgeOptions).delete_multiple_project_items.handler({ item_ids: ["missing-clip"] }) as Result;
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("Item not found"), data: { mutationOutcome: "not_applied", timelineChanged: false } });
+    expect(mutationReceipt(false, result.data, { dispatched: true }).outcome).toBe("not_applied");
+    expect(mockedSendCommand).toHaveBeenCalledTimes(1);
   });
 
   it("caps a call at 500 items and validates ids before contacting Premiere", async () => {
