@@ -64,8 +64,8 @@ vi.mock("../../src/tools/discovery.js", () => {
 type Result = { structuredContent?: Record<string, unknown>; content: { type: string; text?: string }[]; isError?: boolean };
 const cleanups: (() => Promise<void>)[] = [];
 
-async function connected() {
-  const server = createServer({}, { toolPacks: "full", telemetry: { enabled: false, capture() {}, async shutdown() {} } });
+async function connected(options: { statelessHttp?: boolean } = {}) {
+  const server = createServer({}, { toolPacks: "full", telemetry: { enabled: false, capture() {}, async shutdown() {} }, ...options });
   const client = new Client({ name: "idempotency-test", version: "1.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -84,6 +84,15 @@ describe("idempotency_key over MCP", () => {
     const other = await second("set_idempotency_fixture", { mode: "ok", idempotency_key: "edit-1" });
     expect(other.structuredContent).not.toHaveProperty("idempotency");
     expect(fixture.calls).toEqual(["ok", "ok"]);
+  });
+
+  it("shares keys across request-scoped HTTP server instances", async () => {
+    const first = await connected({ statelessHttp: true });
+    const second = await connected({ statelessHttp: true });
+    await first("set_idempotency_fixture", { mode: "ok", idempotency_key: "edit-1" });
+    const retry = await second("set_idempotency_fixture", { mode: "ok", idempotency_key: "edit-1" });
+    expect(fixture.calls).toEqual(["ok"]);
+    expect(retry.structuredContent).toMatchObject({ ok: true, data: { call: 1 }, idempotency: { replayed: true, status: "succeeded", outcome: "verified" } });
   });
 
   it("runs the first call and replays a successful retry without running it again", async () => {
