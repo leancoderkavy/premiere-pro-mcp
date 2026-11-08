@@ -1,3 +1,4 @@
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { runInNewContext } from "node:vm";
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
@@ -194,7 +195,8 @@ describe("timeline-usage and offline guards", () => {
     const result = await getProjectTools(bridgeOptions).delete_bin.handler({ bin_id: "Old Bin" }) as Result;
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/holds media used by 1 timeline clip\(s\) in Edit/);
-    expect(result.data).toMatchObject({ code: "ITEM_IN_USE", usages: [{ sequence: "Edit", tracks: [{ type: "video", index: 0 }] }] });
+    expect(result.data).toMatchObject({ code: "ITEM_IN_USE", mutationOutcome: "not_applied", timelineChanged: false, usages: [{ sequence: "Edit", tracks: [{ type: "video", index: 0 }] }] });
+    expect(mutationReceipt(false, result.data, { dispatched: true }).outcome).toBe("not_applied");
     expect(names()).toContain("Old Bin");
     await expect(getProjectTools(bridgeOptions).delete_bin.handler({ bin_id: "Old Bin", confirm_remove_from_sequences: true }))
       .resolves.toMatchObject({ success: true, data: { deleted: true, verified: true, timelineClipsRemoved: 1, sequencesChanged: ["Edit"] } });
@@ -211,7 +213,8 @@ describe("timeline-usage and offline guards", () => {
     const result = await getProjectTools(bridgeOptions).delete_bin.handler({ bin_id: "Sequences" }) as Result;
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/holds media used by 1 timeline clip\(s\) in Edit/);
-    expect(result.data).toMatchObject({ code: "ITEM_IN_USE", usages: [{ sequence: "Edit", tracks: [{ type: "video", index: 0 }] }] });
+    expect(result.data).toMatchObject({ code: "ITEM_IN_USE", mutationOutcome: "not_applied", timelineChanged: false, usages: [{ sequence: "Edit", tracks: [{ type: "video", index: 0 }] }] });
+    expect(mutationReceipt(false, result.data, { dispatched: true }).outcome).toBe("not_applied");
     expect(names()).toContain("Sequences");
   });
 
@@ -220,7 +223,8 @@ describe("timeline-usage and offline guards", () => {
     const result = await getUtilityTools(bridgeOptions).delete_project_item.handler({ item_id: "seqitem" }) as Result;
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/used by 1 timeline clip\(s\) in Master/);
-    expect(result.data).toMatchObject({ code: "ITEM_IN_USE" });
+    expect(result.data).toMatchObject({ code: "ITEM_IN_USE", mutationOutcome: "not_applied", timelineChanged: false });
+    expect(mutationReceipt(false, result.data, { dispatched: true }).outcome).toBe("not_applied");
     expect(names()).toContain("Edit");
     await expect(getUtilityTools(bridgeOptions).delete_multiple_project_items.handler({ item_ids: ["bars", "seqitem"] }))
       .resolves.toMatchObject({ success: false, error: expect.stringContaining("No project items were deleted") });
@@ -232,7 +236,8 @@ describe("timeline-usage and offline guards", () => {
     const refused = await getSequenceTools(bridgeOptions).delete_sequence.handler({ sequence_id: "Edit" }) as Result;
     expect(refused.success).toBe(false);
     expect(refused.error).toMatch(/used by 1 timeline clip\(s\) in Master/);
-    expect(refused.data).toMatchObject({ code: "ITEM_IN_USE", usages: [{ sequence: "Master", tracks: [{ type: "video", index: 0 }] }] });
+    expect(refused.data).toMatchObject({ code: "ITEM_IN_USE", mutationOutcome: "not_applied", timelineChanged: false, usages: [{ sequence: "Master", tracks: [{ type: "video", index: 0 }] }] });
+    expect(mutationReceipt(false, refused.data, { dispatched: true }).outcome).toBe("not_applied");
     expect(nested.names()).toContain("Edit");
     await expect(getSequenceTools(bridgeOptions).delete_sequence.handler({ sequence_id: "Edit", confirm_remove_from_sequences: true }))
       .resolves.toMatchObject({ success: true, data: { deleted: true, verified: true, timelineClipsRemoved: 1, sequencesChanged: ["Master"] } });
@@ -245,7 +250,7 @@ describe("timeline-usage and offline guards", () => {
   it("refuses offline media unless allow_offline is true", async () => {
     const { names } = project({ offlineBars: true });
     await expect(getUtilityTools(bridgeOptions).delete_project_item.handler({ item_id: "bars" }))
-      .resolves.toMatchObject({ success: false, data: { code: "ITEM_OFFLINE", offlineItems: ["Bars 1080p"] } });
+      .resolves.toMatchObject({ success: false, data: { code: "ITEM_OFFLINE", offlineItems: ["Bars 1080p"], mutationOutcome: "not_applied", timelineChanged: false } });
     await expect(getUtilityTools(bridgeOptions).delete_multiple_project_items.handler({ item_ids: ["bars"] }))
       .resolves.toMatchObject({ success: false, error: expect.stringContaining("No project items were deleted") });
     expect(names()).toContain("Bars 1080p");
