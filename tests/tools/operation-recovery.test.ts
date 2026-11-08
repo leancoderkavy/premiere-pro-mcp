@@ -20,6 +20,15 @@ describe("reviewed operation reconciliation tools", () => {
     expect(mocks.sendCommand.mock.calls[0][0]).not.toContain("setInPoint");
     await expect(tools.inspect_operation_recovery.handler({ backend: "uxp" })).resolves.toMatchObject({ success: false, error: "UXP bridge is not configured" });
   });
+  it("omits the CEP snapshot only when requested and preserves revision identity", async () => {
+    const tools = getOperationRecoveryTools(undefined);
+    const full = await tools.inspect_operation_recovery.handler({ backend: "cep" });
+    const compact = await tools.inspect_operation_recovery.handler({ backend: "cep", include_snapshot: false });
+    expect(full).toHaveProperty("data.snapshot.clips");
+    expect(compact).not.toHaveProperty("data.snapshot");
+    expect(compact).toMatchObject({ success: true, data: { recoveryRequired: true, recoveryRevision: "cep-revision", hostStateRevision: (full as { data: { hostStateRevision: string } }).data.hostStateRevision, snapshotBoundary: "bounded_active_sequence_clip_identity_and_ranges" } });
+    await expect(tools.inspect_operation_recovery.handler({ backend: "cep", include_snapshot: true })).resolves.toEqual(full);
+  });
   it("requires fresh exact state and recovery revisions before clearing CEP recovery", async () => {
     const tools = getOperationRecoveryTools(undefined);
     const inspection = await tools.inspect_operation_recovery.handler({ backend: "cep" }) as { data: { hostStateRevision: string } };

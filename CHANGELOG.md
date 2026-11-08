@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `inspect_operation_recovery` accepts `include_snapshot: false` for compact CEP status checks while preserving host-state revision computation (default remains true).
+
 ### Fixed
 
 - `delete_project_item`, `delete_multiple_project_items`, `delete_bin`, and `delete_sequence` report in-use, offline, missing-item, and other pre-delete refusals as `not_applied`. Those replies used to omit an outcome, so a dispatched no-op receipt was unknown and set a recovery lock that blocked every later edit until it was acknowledged.
