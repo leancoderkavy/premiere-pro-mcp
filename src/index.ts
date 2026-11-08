@@ -152,7 +152,7 @@ try {
 
 if (args.includes("--help") || args.includes("-h")) {
   console.log(`
-premiere-pro-mcp — MCP server for Adobe Premiere Pro (445 default-profile tools)
+premiere-pro-mcp — MCP server for Adobe Premiere Pro (447 default-profile tools)
 
 Usage:
   premiere-pro-mcp              Start the MCP server (stdio transport)
@@ -433,3 +433,4 @@ main().catch((err) => {
   console.error("[premiere-pro-mcp] Fatal error:", summary);
   process.exit(1);
 });
+

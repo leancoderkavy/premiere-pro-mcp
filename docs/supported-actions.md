@@ -10,11 +10,11 @@ source catalog may include unreleased actions.
 
 | Surface | Count | Availability |
 | --- | ---: | --- |
-| Registered core actions | 447 | CEP/local server catalog; host and authority checks still apply |
-| Default-profile core actions | 445 | Advertised with `inspect,edit,export,filesystem` |
+| Registered core actions | 449 | CEP/local server catalog; host and authority checks still apply |
+| Default-profile core actions | 447 | Advertised with `inspect,edit,export,filesystem` |
 | Restricted core actions | 2 | Require explicit `unsafe-script` authority |
 | Authenticated UXP additions | 98 | Advertised only while a compatible authenticated UXP panel is connected |
-| Default profile with UXP | 543 | 445 core plus 98 UXP tools |
+| Default profile with UXP | 545 | 447 core plus 98 UXP tools |
 
 ## How to read support
 
@@ -39,6 +39,8 @@ operation” when the tool has no enum-based mode.
 | `acknowledge_operation_recovery` | Default profile | `backend`: `cep`, `uxp` | Acknowledge user-reviewed reconciliation of uncertain execution after current-state inspection. Requires the exact latest recovery and host-state revisions. Consumed operation IDs remain unavailable for replay; acknowledgement does not undo or retry a host edit. |
 | `add_adjustment_layer` | Default profile | Single operation | EXPERIMENTAL (QE DOM): add an adjustment layer at the playhead on the specified track. Refuses when the host lacks the QE APIs; verifies a new public TrackItem using isAdjustmentLayer and placement readback. |
 | `add_audio_keyframes` | Default profile | Single operation | Add audio level keyframes to create fades or level changes |
+| `add_audio_transition` | Default profile | Single operation | EXPERIMENTAL (undocumented QE DOM): Add a native audio crossfade at the cut between two adjacent clips on one audio track. Defaults to Constant Power. Verifies timeline placement and duration, not playback. This tool cannot bridge clips on different tracks. |
+| `add_audio_transition_to_clip` | Default profile | `position`: `start`, `end` | EXPERIMENTAL (undocumented QE DOM): Add a native audio transition to the start (fade-in) or end (fade-out) of a particular audio clip. Defaults to Constant Power. An edge shared with an adjacent audio clip can form a crossfade; requires host readback and listening to verify. |
 | `add_custom_metadata_field` | Default profile | Single operation | Add a custom metadata field to the project's metadata schema. This creates a schema/column definition only; it does not set a per-item value. Use set_metadata field_name/value or complete Project Metadata XML with readback to update a value. |
 | `add_keyframe` | Default profile | Single operation | Add and read back a keyframe on an effect property. The receipt warns when its time is outside the clip's visible range. Two-component numeric values must match the current host value shape; Motion Position and Anchor Point use normalized 0–1 coordinates only. Colour keys refuse because CEP has no lossless time-specific colour setter. This verifies stored parameter data only; render/playback verification remains host-dependent. |
 | `add_marker` | Default profile | Single operation | Add a marker to the active sequence or a clip and read its name, comments, color and duration back. EXPERIMENTAL (QE DOM): the receipt reports undoStackIndex movement, which does not prove QE can reverse the marker. Every marker attempt protects an engine undo boundary; undoTracked:false means the marker did not observably advance the QE index. Marker start and end storage are compared at exact integer ticks; unsupported time writes remain unverified with the created marker identity when available. |
