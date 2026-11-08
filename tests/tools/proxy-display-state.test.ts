@@ -12,6 +12,7 @@ vi.mock("../../src/bridge/file-bridge.js", () => ({
 
 import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { getExportTools } from "../../src/tools/export.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const bridgeOptions: BridgeOptions = { tempDir: "/tmp/test-bridge", timeoutMs: 5000 };
@@ -114,5 +115,19 @@ describe("manage_proxies toggle sets the application-wide proxy display state", 
     const result = await tools.manage_proxies.handler({ item_id: "i", action: 'toggle"; evil(); "' } as never);
     expect(result).toMatchObject({ success: false, error: expect.stringContaining("action must be") });
     expect(vi.mocked(sendCommand).mock.calls.length).toBe(before);
+  });
+
+  it("marks a create without output_path as not applied", async () => {
+    await tools.manage_proxies.handler({ item_id: "clip1", action: "create" });
+    const script = mockedSendCommand.mock.calls[0][0] as string;
+    const result = JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
+      app: { project: { rootItem: { children: { numItems: 1, 0: { nodeId: "clip1", name: "Clip", type: 1 } } } } },
+    })));
+    expect(result).toMatchObject({
+      success: false,
+      error: expect.stringContaining("output_path is required"),
+      data: { mutationOutcome: "not_applied", timelineChanged: false },
+    });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "manage_proxies").outcome).toBe("not_applied");
   });
 });
