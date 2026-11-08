@@ -19,10 +19,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `read_sequence_captions` returns QA-ready cues per track (`cues_by_track`, plus a flat `cues` only when there is exactly one readable caption track) when the host exposes caption text and timing, and with `export` writes them as SRT, WebVTT or TTML; it refuses the export when the host does not expose them.
 - `check_caption_safe_zone` adds `reels_9_16`, the box clear on TikTok, Instagram Reels and YouTube Shorts at once (x 120-888, y 288-1248 at 1080x1920). `get_caption_style_guidance` accepts `standard` and returns the standards table and rules.
 
+## [1.30.0] - 2026-11-07
+
+### Added
+
+- `inspect_operation_recovery` accepts `include_snapshot: false` for compact CEP status checks while preserving host-state revision computation (default remains true).
+
 ### Fixed
+
+- Stateless HTTP requests share process-wide idempotency keys so retrying an edit across request-scoped servers does not apply it twice. Stdio server instances remain isolated.
 
 - `delete_project_item`, `delete_multiple_project_items`, `delete_bin`, and `delete_sequence` report in-use, offline, missing-item, and other pre-delete refusals as `not_applied`. Those replies used to omit an outcome, so a dispatched no-op receipt was unknown and set a recovery lock that blocked every later edit until it was acknowledged.
 - `export_sequence` and `export_sequence_job_start` report every refusal made before rendering or queuing as `not_applied`: a preset whose extension does not match `output_path`, `in_to_out` without marks, a disabled or invalid work area, an existing output file, an unsaved project, Adobe Media Encoder not being available, and a missing encode range mode. These refusals used to return no outcome, so the dispatched command's receipt was unknown and set a recovery lock that blocked every later edit until it was acknowledged.
+- `export_sequence_review_frames`, `export_sequence_marker_review_frames`, `export_sequence_clip_review_frames`, and `manage_proxies` report the remaining pre-write refusals as `not_applied` (empty review/marker range, no matching markers, empty video track, missing `output_path`/`proxy_path`, missing proxy file, missing proxy-display APIs). Those used to lock later edits the same way.
 - `audit_timeline_health` and `diff_sequence_snapshots` accept the raw `get_sequence_structure`, `get_full_sequence_info` and `inspect_sequence_structure_uxp` results their descriptions name. The argument check no longer rejects their extra keys (pagination, `syncCheck`, `isMuted` and others) as `UNKNOWN_ARGUMENT`, and a `frameRate` reported as one frame's duration (`{ seconds, ticks }`) is converted to frames per second.
 
 ## [1.29.0] - 2026-11-02

@@ -7,6 +7,7 @@ vi.mock("../../src/bridge/file-bridge.js", () => ({
 
 import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { getExportTools } from "../../src/tools/export.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const tools = getExportTools({ tempDir: "/tmp/test", timeoutMs: 1000 });
@@ -71,5 +72,34 @@ describe("export_sequence_review_frames", () => {
     })));
     expect(calls).toBe(1);
     expect(result).toMatchObject({ success: false, error: "unrestored" });
+  });
+
+  it("marks a review range past the sequence end as not applied before still export", async () => {
+    await tools.export_sequence_review_frames.handler({ output_dir: "/tmp/review", frame_count: 4, start_seconds: 15 });
+    const script = mockedSendCommand.mock.calls[0][0];
+    let calls = 0;
+    const TICKS = 254016000000;
+    const result = JSON.parse(String(runInNewContext(String(script), {
+      app: { project: { activeSequence: { name: "Seq", end: String(TICKS * 10), sequenceID: "s1" } } },
+      Folder: function Folder(this: { exists: boolean; fsName: string }, path: string) {
+        this.exists = true;
+        this.fsName = path;
+      },
+      __ticksToSeconds: (ticks: string | number) => Number(ticks) / TICKS,
+      __secondsToTicks: (seconds: number) => Math.round(seconds * TICKS),
+      __exportStillFrame: () => {
+        calls += 1;
+        return { ok: true, path: "/tmp/review/review_001.png", method: "qe" };
+      },
+      __error: (msg: string, data?: unknown) => JSON.stringify({ success: false, error: msg, data }),
+      __result: (data: unknown) => JSON.stringify({ success: true, data }),
+    })));
+    expect(calls).toBe(0);
+    expect(result).toMatchObject({
+      success: false,
+      error: expect.stringContaining("empty or outside"),
+      data: { mutationOutcome: "not_applied", timelineChanged: false },
+    });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "export_sequence_review_frames").outcome).toBe("not_applied");
   });
 });

@@ -62,9 +62,17 @@ export function getOperationRecoveryTools(uxpBridge: UxpWebSocketBridge | undefi
     inspect_operation_recovery: {
       description: "Inspect unknown execution outcomes and a bounded current host-state revision. Inspection remains available while dependent mutations are blocked. No edit is replayed.",
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-      parameters: { type: "object", additionalProperties: false, properties, required: ["backend"] },
-      handler: async (args: { backend: "cep" | "uxp" }) => {
-        try { return { success: true, data: await inspect(args.backend) }; } catch (error) { return { success: false, error: error instanceof Error ? error.message : String(error) }; }
+      parameters: { type: "object", additionalProperties: false, properties: { ...properties, include_snapshot: { type: "boolean", description: "Include the bounded CEP clip snapshot (default true). Set false for compact status checks; host-state revision is still computed from the full snapshot. UXP diagnostics are unchanged." } }, required: ["backend"] },
+      handler: async (args: { backend: "cep" | "uxp"; include_snapshot?: boolean }) => {
+        if (args.include_snapshot !== undefined && typeof args.include_snapshot !== "boolean") return { success: false, error: "include_snapshot must be a boolean" };
+        try {
+          const data = await inspect(args.backend);
+          if (args.include_snapshot === false && "snapshot" in data) {
+            const { snapshot: _snapshot, ...status } = data;
+            return { success: true, data: status };
+          }
+          return { success: true, data };
+        } catch (error) { return { success: false, error: error instanceof Error ? error.message : String(error) }; }
       },
     },
     acknowledge_operation_recovery: {

@@ -115,7 +115,7 @@ import { resolveSchemaProfile, SESSION_GUARD_TOOL_NAME, type SchemaProfileSelect
 import { EXPECTED_CEP_TARGET_SCHEMA, EXPECTED_PROJECT_PATH_SCHEMA, GUARD_ARGUMENT_NAMES, GUARD_ARGUMENTS_SCHEMA } from "./workflows/guard-schemas.js";
 import { currentInvocation, withInvocationContext, reportProgress } from "./workflows/invocation-context.js";
 import { beginOperation, finishOperation, type OperationLogEntry } from "./workflows/operation-log.js";
-import { claimIdempotencyKey, completeIdempotencyKey, idempotencyResponse, IDEMPOTENCY_KEY_SCHEMA, type IdempotencyClaim } from "./workflows/idempotency.js";
+import { claimIdempotencyKey, completeIdempotencyKey, idempotencyResponse, IDEMPOTENCY_KEY_SCHEMA, STATELESS_HTTP_IDEMPOTENCY_NAMESPACE, type IdempotencyClaim } from "./workflows/idempotency.js";
 import { mutationReceipt } from "./workflows/mutation-receipt.js";
 import { argumentDiagnostics, strictDeclaredObjects } from "./workflows/strict-schema.js";
 import { recordPerformance } from "./workflows/performance-diagnostics.js";
@@ -484,7 +484,7 @@ export interface ServerOptions {
   bridgeMode?: PremiereBridgeMode;
   /** Overrides PREMIERE_MCP_SCHEMA_PROFILE (full or compact) for this server instance. */
   schemaProfile?: string;
-  /** Request-scoped transports cannot retain client-isolated session guards. */
+  /** Request-scoped transports cannot retain client-isolated session guards. Shares one process-wide idempotency namespace. */
   statelessHttp?: boolean;
   /** Overrides PREMIERE_MCP_TOOL_LIST for this server instance. */
   toolList?: string;
@@ -552,9 +552,13 @@ export function createServer(
   bridgeOptions: BridgeOptions,
   serverOptions: ServerOptions = {},
 ): McpServer {
-  // Idempotency keys are scoped to this server instance: one per stdio process,
-  // one per HTTP session.
-  const idempotencyNamespace = randomUUID();
+  // Idempotency keys are scoped to this server instance for stdio (one
+  // process). Stateless HTTP constructs a server per request, so those
+  // instances share one process-wide namespace — the same Premiere host —
+  // otherwise a client retry after timeout would apply the edit twice.
+  const idempotencyNamespace = serverOptions.statelessHttp
+    ? STATELESS_HTTP_IDEMPOTENCY_NAMESPACE
+    : randomUUID();
 
   const capabilities = resolveCapabilities();
   const schemaProfile: SchemaProfileSelection = serverOptions.schemaProfile === undefined
