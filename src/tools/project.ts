@@ -656,11 +656,11 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           var name = bin.name;
           var usage = __projectItemUsage(bin);
           if (usage.clips > 0 && ${args.confirm_remove_from_sequences === true ? "false" : "true"}) {
-            return __jsonStringify({ success: false, error: name + " holds media used by " + usage.clips + " timeline clip(s) in " + usage.sequences.join(", ") + ". Deleting the bin would remove those clips too, and this cannot be undone here, so nothing was deleted. Move the used items out first, or pass confirm_remove_from_sequences: true.", data: { code: "ITEM_IN_USE", usages: usage.details } });
+            return __jsonStringify({ success: false, error: name + " holds media used by " + usage.clips + " timeline clip(s) in " + usage.sequences.join(", ") + ". Deleting the bin would remove those clips too, and this cannot be undone here, so nothing was deleted. Move the used items out first, or pass confirm_remove_from_sequences: true.", data: { code: "ITEM_IN_USE", usages: usage.details, mutationOutcome: "not_applied", timelineChanged: false } });
           }
           var offline = __offlineItemsIn(bin);
           if (offline.length > 0 && ${args.allow_offline === true ? "false" : "true"}) {
-            return __jsonStringify({ success: false, error: name + " holds offline media: " + offline.join(", ") + ". Premiere can open a modal while deleting missing media, which blocks the bridge, so nothing was deleted. Use organize_project_items_uxp with action 'remove', delete it in the Project panel, or pass allow_offline: true.", data: { code: "ITEM_OFFLINE", offlineItems: offline } });
+            return __jsonStringify({ success: false, error: name + " holds offline media: " + offline.join(", ") + ". Premiere can open a modal while deleting missing media, which blocks the bridge, so nothing was deleted. Use organize_project_items_uxp with action 'remove', delete it in the Project panel, or pass allow_offline: true.", data: { code: "ITEM_OFFLINE", offlineItems: offline, mutationOutcome: "not_applied", timelineChanged: false } });
           }
           bin.deleteBin();
           if (__findProjectItem(nodeId)) {

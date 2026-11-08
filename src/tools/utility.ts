@@ -293,12 +293,12 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
           if (item.type === 1 || item.type === 2 || item.type === 4) {
             usage = __projectItemUsage(item);
             if (usage.clips > 0 && ${args.confirm_remove_from_sequences === true ? "false" : "true"}) {
-              return __jsonStringify({ success: false, error: name + (item.type === 2 ? " holds media used by " : " is used by ") + usage.clips + " timeline clip(s) in " + usage.sequences.join(", ") + ". Deleting it would remove those clips too, and this cannot be undone here, so nothing was deleted. Remove the clips first, or pass confirm_remove_from_sequences: true.", data: { code: "ITEM_IN_USE", usages: usage.details } });
+              return __jsonStringify({ success: false, error: name + (item.type === 2 ? " holds media used by " : " is used by ") + usage.clips + " timeline clip(s) in " + usage.sequences.join(", ") + ". Deleting it would remove those clips too, and this cannot be undone here, so nothing was deleted. Remove the clips first, or pass confirm_remove_from_sequences: true.", data: { code: "ITEM_IN_USE", usages: usage.details, mutationOutcome: "not_applied", timelineChanged: false } });
             }
             if (!sequence) {
               var offline = __offlineItemsIn(item);
               if (offline.length > 0 && ${args.allow_offline === true ? "false" : "true"}) {
-                return __jsonStringify({ success: false, error: (item.type === 2 ? name + " holds offline media: " : "Offline media: ") + offline.join(", ") + ". Premiere can open a modal while deleting missing media, which blocks the bridge, so nothing was deleted. Use organize_project_items_uxp with action 'remove', delete it in the Project panel, or pass allow_offline: true.", data: { code: "ITEM_OFFLINE", offlineItems: offline } });
+                return __jsonStringify({ success: false, error: (item.type === 2 ? name + " holds offline media: " : "Offline media: ") + offline.join(", ") + ". Premiere can open a modal while deleting missing media, which blocks the bridge, so nothing was deleted. Use organize_project_items_uxp with action 'remove', delete it in the Project panel, or pass allow_offline: true.", data: { code: "ITEM_OFFLINE", offlineItems: offline, mutationOutcome: "not_applied", timelineChanged: false } });
               }
             }
           }
@@ -314,7 +314,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
           } else {
             return __error(
               "Legacy CEP cannot safely delete this project item type through a documented API. " +
-              "No deletion was attempted; use organize_project_items_uxp with action 'remove' when the authenticated UXP bridge is connected, or remove it in Premiere's Project panel."
+              "No deletion was attempted; use organize_project_items_uxp with action 'remove' when the authenticated UXP bridge is connected, or remove it in Premiere's Project panel.",
+              { mutationOutcome: "not_applied", timelineChanged: false }
             );
           }
 
@@ -418,8 +419,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
           var seen = {};
           for (var i = 0; i < ids.length; i++) {
             var item = __findProjectItem(ids[i]);
-            if (!item) return __error("Item not found: " + ids[i] + ". No project items were deleted.");
-            if (item === app.project.rootItem) return __error("The project root cannot be deleted. No project items were deleted.");
+            if (!item) return __error("Item not found: " + ids[i] + ". No project items were deleted.", { mutationOutcome: "not_applied", timelineChanged: false });
+            if (item === app.project.rootItem) return __error("The project root cannot be deleted. No project items were deleted.", { mutationOutcome: "not_applied", timelineChanged: false });
             var nodeId = item.nodeId;
             if (typeof nodeId !== "string" || nodeId.length === 0) return __error("A project item has no readable node ID. No project items were deleted.", { mutationOutcome: "not_applied", verified: false, projectChanged: false });
             if (seen[nodeId]) continue;
@@ -428,7 +429,8 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
             if (item.type !== 2 && !isSequence && item.type !== 1 && item.type !== 4) {
               return __error(
                 "Legacy CEP cannot safely delete project item: " + item.name + ". " +
-                "No project items were deleted; use organize_project_items_uxp with action 'remove' for generic project-item deletion."
+                "No project items were deleted; use organize_project_items_uxp with action 'remove' for generic project-item deletion.",
+                { mutationOutcome: "not_applied", timelineChanged: false }
               );
             }
             var timelineClips = 0;
@@ -436,12 +438,12 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
               var itemUsage = __projectItemUsageFromIndex(item, index);
               timelineClips = itemUsage.clips;
               if (itemUsage.clips > 0 && ${args.confirm_remove_from_sequences === true ? "false" : "true"}) {
-                return __jsonStringify({ success: false, error: item.name + (item.type === 2 ? " holds media used by " : " is used by ") + itemUsage.clips + " timeline clip(s) in " + itemUsage.sequences.join(", ") + ". Deleting it would remove those clips too, and this cannot be undone here. No project items were deleted; pass confirm_remove_from_sequences: true to delete anyway.", data: { code: "ITEM_IN_USE", item: String(item.name), usages: itemUsage.details } });
+                return __jsonStringify({ success: false, error: item.name + (item.type === 2 ? " holds media used by " : " is used by ") + itemUsage.clips + " timeline clip(s) in " + itemUsage.sequences.join(", ") + ". Deleting it would remove those clips too, and this cannot be undone here. No project items were deleted; pass confirm_remove_from_sequences: true to delete anyway.", data: { code: "ITEM_IN_USE", item: String(item.name), usages: itemUsage.details, mutationOutcome: "not_applied", timelineChanged: false } });
               }
               if (!isSequence) {
                 var offlineItems = __offlineItemsIn(item);
                 if (offlineItems.length > 0 && ${args.allow_offline === true ? "false" : "true"}) {
-                  return __jsonStringify({ success: false, error: "Offline media in " + item.name + ": " + offlineItems.join(", ") + ". Premiere can open a modal while deleting missing media, which blocks the bridge. No project items were deleted; use organize_project_items_uxp with action 'remove', the Project panel, or pass allow_offline: true.", data: { code: "ITEM_OFFLINE", item: String(item.name), offlineItems: offlineItems } });
+                  return __jsonStringify({ success: false, error: "Offline media in " + item.name + ": " + offlineItems.join(", ") + ". Premiere can open a modal while deleting missing media, which blocks the bridge. No project items were deleted; use organize_project_items_uxp with action 'remove', the Project panel, or pass allow_offline: true.", data: { code: "ITEM_OFFLINE", item: String(item.name), offlineItems: offlineItems, mutationOutcome: "not_applied", timelineChanged: false } });
                 }
               }
             }
