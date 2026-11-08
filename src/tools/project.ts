@@ -86,16 +86,16 @@ export function getProjectTools(bridgeOptions: BridgeOptions) {
           if (!project) return __refuse("No project is open");
           var previousPath = String(project.path || "");
           if (__normProjectPath(previousPath) === __normProjectPath("${target}")) {
-            return __error("That is the current project's own path; use save_project instead.");
+            return __refuse("That is the current project's own path; use save_project instead.");
           }
           var outputFile = new File("${target}");
           if (!outputFile.parent || !outputFile.parent.exists) {
-            return __error("The Save As directory does not exist: " + outputFile.parent);
+            return __refuse("The Save As directory does not exist: " + outputFile.parent);
           }
-          if (outputFile.exists && ${args.overwrite !== true}) return __error("Output already exists; choose a new path or explicitly set overwrite true. Save As was not attempted.");
+          if (outputFile.exists && ${args.overwrite !== true}) return __refuse("Output already exists; choose a new path or explicitly set overwrite true. Save As was not attempted.");
           var existedBefore = !!outputFile.exists;
           var lengthBefore = existedBefore ? Number(outputFile.length) : -1;
-          if (existedBefore && !isFinite(lengthBefore)) return __error("Cannot read the existing output size; Save As was not attempted.");
+          if (existedBefore && !isFinite(lengthBefore)) return __refuse("Cannot read the existing output size; Save As was not attempted.");
           function readModified(file) {
             try {
               var modified = file.modified;

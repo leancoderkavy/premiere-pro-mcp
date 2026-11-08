@@ -822,7 +822,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
           var outputPath = "${escapeForExtendScript(args.output_path)}";
           var outputSlash = Math.max(outputPath.lastIndexOf("/"), outputPath.lastIndexOf(String.fromCharCode(92)));
           if (outputPath.lastIndexOf(".") <= outputSlash) outputPath += ".png";
-          if (new File(outputPath).exists && ${args.overwrite !== true}) return __error("Output already exists; choose a new output_path or explicitly set overwrite true. No frame was exported or imported.");
+          if (new File(outputPath).exists && ${args.overwrite !== true}) return __refuse("Output already exists; choose a new output_path or explicitly set overwrite true. No frame was exported or imported.");
           var res = __exportStillFrame(outputPath, timeTicks);
           if (!res.ok) return __error(res.error + " [" + res.notes.join("; ") + "]");
 
