@@ -11,6 +11,7 @@ import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { probeMediaDurationSeconds } from "../../src/tools/media-evidence.js";
 import { getExportTools } from "../../src/tools/export.js";
 import { MAX_EXPORT_JOBS, resetExportJobs } from "../../src/tools/export-job-store.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 
 const TICKS = 254016000000;
 const mockedSend = vi.mocked(sendCommand);
@@ -22,14 +23,14 @@ let workDir: string;
 let presetPath: string;
 
 /** A fake Premiere/AME host that really runs the generated ExtendScript. */
-function makeHost(options: { bind?: boolean; jobId?: string; savedPath?: string; extension?: string } = {}) {
+function makeHost(options: { bind?: boolean; jobId?: string; savedPath?: string; extension?: string; hostExisting?: string[]; noSequence?: boolean } = {}) {
   const handlers: Record<string, Handler> = {};
   const dollar = { global: {} as Record<string, unknown> };
   const scripts: string[] = [];
   class File {
     fsName: string;
     constructor(path: string) { this.fsName = path; }
-    get exists() { return this.fsName === presetPath || existsSync(this.fsName); }
+    get exists() { return this.fsName === presetPath || existsSync(this.fsName) || (options.hostExisting ?? []).includes(this.fsName); }
     get parent() { return { exists: existsSync(dirname(this.fsName)), fsName: dirname(this.fsName) }; }
   }
   const encoder: Record<string, unknown> = {
@@ -45,7 +46,7 @@ function makeHost(options: { bind?: boolean; jobId?: string; savedPath?: string;
     getExportFileExtension: () => options.extension ?? "mp4",
     getInPoint: () => "2", getOutPoint: () => "6",
   };
-  const app = { project: { activeSequence: seq, path: options.savedPath ?? "/work/show.prproj" }, encoder };
+  const app = { project: { activeSequence: options.noSequence ? null : seq, path: options.savedPath ?? "/work/show.prproj" }, encoder };
   const run = (script: string) => {
     scripts.push(script);
     return JSON.parse(String(runInNewContext(script, {
@@ -126,6 +127,39 @@ describe("export_sequence_job_start", () => {
     expect(await start({ output_path: join(workDir, "missing", "a.mp4") })).toMatchObject({ success: false, error: expect.stringContaining("output folder does not exist") });
     host = makeHost({ extension: "mov" });
     expect(await start()).toMatchObject({ success: false, error: expect.stringContaining("preset writes .mov") });
+    expect(host.encoder.encodeSequence).not.toHaveBeenCalled();
+  });
+
+  it("marks every refusal before encodeSequence as not applied, so it sets no recovery lock", async () => {
+    const notApplied = { mutationOutcome: "not_applied", timelineChanged: false };
+    const outcome = (result: unknown) => mutationReceipt(false, (result as { data?: Record<string, unknown> }).data, { dispatched: true }, "export_sequence_job_start").outcome;
+    let host = makeHost({ noSequence: true });
+    let result = await start();
+    expect(result).toMatchObject({ success: false, error: "No active sequence", data: notApplied });
+    expect(outcome(result)).toBe("not_applied");
+    expect(host.encoder.encodeSequence).not.toHaveBeenCalled();
+    host = makeHost({ savedPath: "" });
+    result = await start();
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("Save the Premiere project"), data: notApplied });
+    expect(outcome(result)).toBe("not_applied");
+    host = makeHost();
+    delete host.encoder.encodeSequence;
+    result = await start();
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("Media Encoder is not available"), data: notApplied });
+    expect(outcome(result)).toBe("not_applied");
+    // The file appeared after the server-side check but before Premiere queued the job.
+    host = makeHost({ hostExisting: [join(workDir, "episode.mp4")] });
+    result = await start();
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("nothing was queued"), data: notApplied });
+    expect(outcome(result)).toBe("not_applied");
+    host = makeHost();
+    delete host.encoder.ENCODE_ENTIRE;
+    result = await start();
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("encode range mode"), data: notApplied });
+    expect(outcome(result)).toBe("not_applied");
+    host = makeHost({ extension: "mov" });
+    result = await start();
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("preset writes .mov"), data: notApplied });
     expect(host.encoder.encodeSequence).not.toHaveBeenCalled();
   });
 

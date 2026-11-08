@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { PREMIERE_TICKS_PER_SECOND } from "./exact-time.js";
 import { secondsToFrame } from "./word-timeline.js";
 
 /**
@@ -101,6 +102,13 @@ function optionalSeconds(value: unknown, label: string): number | undefined {
   return round6(value);
 }
 
+// get_full_sequence_info reports frameRate as one frame's duration ({ seconds, ticks }).
+function frameRateFromRaw(value: unknown): unknown {
+  if (!isRecord(value)) return value;
+  const ticks = typeof value.ticks === "string" || typeof value.ticks === "number" ? Number(value.ticks) : NaN;
+  return Number.isFinite(ticks) && ticks > 0 ? round6(Number(PREMIERE_TICKS_PER_SECOND) / ticks) : value;
+}
+
 export function validateFrameRate(value: unknown, label = "frame_rate"): number {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 1 || value > 240) fail(`${label} must be a number between 1 and 240`);
   return value;
@@ -144,8 +152,8 @@ function normalizeClip(raw: unknown, type: SnapshotTrackType, trackIndex: number
   if (end === undefined) fail(`${label}.end_seconds is required`);
   const inPoint = optionalSeconds(pick(raw, ["in_seconds", "inSeconds", "inPointSeconds", "inPoint"]), `${label}.in_seconds`);
   const outPoint = optionalSeconds(pick(raw, ["out_seconds", "outSeconds", "outPointSeconds", "outPoint"]), `${label}.out_seconds`);
-  const mediaPath = optionalText(pick(raw, ["media_path", "mediaPath", "filePath", "file_path", "path"]), `${label}.media_path`, 4096);
-  const projectItemId = optionalText(pick(raw, ["project_item_id", "projectItemId", "sourceProjectItemId", "source_project_item_id", "projectItem"]), `${label}.project_item_id`, 512);
+  const mediaPath = optionalText(pick(raw, ["media_path", "mediaPath", "sourceMediaPath", "filePath", "file_path", "path"]), `${label}.media_path`, 4096);
+  const projectItemId = optionalText(pick(raw, ["project_item_id", "projectItemId", "sourceProjectItemId", "sourceNodeId", "source_project_item_id", "projectItem"]), `${label}.project_item_id`, 512);
   const disabledRaw = raw.disabled !== undefined && raw.disabled !== null ? raw.disabled : raw.enabled !== undefined && raw.enabled !== null ? !raw.enabled : false;
   if (typeof disabledRaw !== "boolean") fail(`${label}.disabled must be a boolean`);
   let speed: number | undefined;
@@ -223,6 +231,17 @@ export function normalizeSequenceSnapshot(raw: unknown, options: NormalizeOption
   } else {
     fail(`${label} must contain a tracks array or videoTracks/audioTracks arrays`);
   }
+  // Whole-timeline conclusions require every clip, not a filtered or later page.
+  if (raw.pagination !== undefined) {
+    const page = raw.pagination;
+    const clipCount = tracks.reduce((total, track) => total + track.clips.length, 0);
+    if (!isRecord(page) || page.truncated !== false || page.offset !== 0 ||
+        (page.nextOffset !== undefined && page.nextOffset !== null) ||
+        !Number.isSafeInteger(page.totalClips) || page.totalClips !== clipCount ||
+        page.matchingCount !== clipCount || page.returned !== clipCount) {
+      fail(`${label} must be a complete, unfiltered snapshot starting at offset 0; paginated or filtered results cannot support whole-timeline QA`);
+    }
+  }
   const seen = new Set<string>();
   for (const track of tracks) {
     const key = `${track.type}:${track.index}`;
@@ -238,7 +257,7 @@ export function normalizeSequenceSnapshot(raw: unknown, options: NormalizeOption
 
   let frameRate: number;
   let frameRateSource: SequenceSnapshot["frame_rate_source"];
-  const rawRate = pick(raw, ["frame_rate", "frameRate", "fps", "timebase"]);
+  const rawRate = frameRateFromRaw(pick(raw, ["frame_rate", "frameRate", "fps", "timebase"]));
   if (options.frameRateOverride !== undefined) {
     frameRate = validateFrameRate(options.frameRateOverride, "frame_rate");
     frameRateSource = "override";

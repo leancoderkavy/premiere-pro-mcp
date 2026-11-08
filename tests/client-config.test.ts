@@ -43,6 +43,31 @@ describe("configuration for an exact local installation", () => {
     expect(parseClientConfigAction(["--print-client-config", "codex"])).toBe("codex");
   });
 
+  it.each(["claude", "cursor", "vscode", "codex"] as const)("prints an opt-in fast profile for %s", (client) => {
+    expect(parseClientConfigAction(["--print-client-config", client, "--fast"])).toBe(client);
+    const output = renderClientConfig(client, "/usr/bin/node", "/opt/mcp/index.js", "darwin", true);
+    const expected = { PREMIERE_MCP_TOOL_PACKS: "essential", PREMIERE_MCP_TOOL_LIST: "", PREMIERE_MCP_SCHEMA_PROFILE: "full" };
+    if (client === "codex") {
+      expect(output).toContain("[mcp_servers.premiere-pro-leancoderkavy.env]");
+      for (const [key, value] of Object.entries(expected)) expect(output).toContain(`${key} = ${JSON.stringify(value)}\n`);
+    } else {
+      const config = JSON.parse(output);
+      expect((config.servers ?? config.mcpServers)["premiere-pro-leancoderkavy"].env).toEqual(expected);
+    }
+  });
+
+  it("rejects extra actions even with fast configuration selected", () => {
+    expect(() => parseClientConfigAction(["--print-client-config", "claude", "--fast", "--install-cep"])).toThrow("Use this action alone");
+    expect(() => parseClientConfigAction(["--print-client-config", "claude", "--unknown"])).toThrow("Use this action alone");
+  });
+
+  it("prints the fast environment through the built CLI", () => {
+    const result = spawnSync(process.execPath, [path.resolve("dist/index.js"), "--print-client-config", "claude", "--fast"], { encoding: "utf8", timeout: 10000, windowsHide: true });
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout).mcpServers["premiere-pro-leancoderkavy"].env.PREMIERE_MCP_TOOL_PACKS).toBe("essential");
+  });
+
   it("emits clean JSON from the built CLI that can launch the same package", () => {
     const cli = path.resolve("dist/index.js");
     const result = spawnSync(process.execPath, [cli, "--print-client-config", "claude"], { encoding: "utf8", timeout: 10000, windowsHide: true });
