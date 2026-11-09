@@ -4,8 +4,10 @@ import { getHelpersSource } from "../../src/bridge/script-builder.js";
 
 vi.mock("../../src/bridge/file-bridge.js", () => ({ sendCommand: vi.fn(), sendRawCommand: vi.fn(), getTempDir: vi.fn() }));
 import { sendCommand } from "../../src/bridge/file-bridge.js";
+import { runWithUndoTracking } from "../../src/bridge/undo-tracking.js";
 import { getSelectionTools } from "../../src/tools/selection.js";
 import { getMarkerTools } from "../../src/tools/markers.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 const send = vi.mocked(sendCommand);
 const selections = getSelectionTools({});
 const markerTools = getMarkerTools({});
@@ -44,7 +46,9 @@ describe("selection receipts verify final stored selection", () => {
   });
   it.each(cases)("%s refuses a missing sequence", async (name, args) => {
     execute(null);
-    await expect(invoke(name, args)).resolves.toMatchObject({ success: false, error: "No active sequence" });
+    const result = await runWithUndoTracking(true, () => invoke(name, args)) as { success: boolean; error?: string; data?: Record<string, unknown> };
+    expect(result).toMatchObject({ success: false, error: "No active sequence", data: { mutationOutcome: "not_applied", timelineChanged: false } });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, name).outcome).toBe("not_applied");
   });
   it("reports unavailable readback without counting attempts as selected clips", async () => {
     selectionHost({ unreadable: true });
@@ -52,7 +56,9 @@ describe("selection receipts verify final stored selection", () => {
   });
   it("refuses inversion before writing when the initial selection is unreadable", async () => {
     const state = selectionHost({ unreadable: true });
-    await expect(selections.invert_selection.handler()).resolves.toMatchObject({ success: false, error: expect.stringContaining("nothing was changed") });
+    const result = await runWithUndoTracking(true, () => selections.invert_selection.handler()) as { success: boolean; error?: string; data?: Record<string, unknown> };
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("nothing was changed"), data: { mutationOutcome: "not_applied", timelineChanged: false } });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "invert_selection").outcome).toBe("not_applied");
     expect(state.selected).toBe(false);
   });
   it("keeps quoted and newline names literal in emitted script", async () => {
