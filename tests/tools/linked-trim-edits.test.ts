@@ -16,6 +16,7 @@ import { probeMediaDurationTicks } from "../../src/tools/media-evidence.js";
 import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { getAdvancedTools } from "../../src/tools/advanced.js";
 import { getTimelineTools } from "../../src/tools/timeline.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const TICKS = 254016000000;
@@ -673,8 +674,18 @@ describe("physical media bounds for adjacent edits (#718/#719)", () => {
     const { video, audio } = host();
     vi.mocked(probeMediaDurationTicks).mockResolvedValue(null);
     const before = [...video, ...audio].map((clip) => clip.snapshot());
-    await expect(tools.roll_edit.handler({ node_id: "v1", offset_seconds: 0.5 })).resolves.toMatchObject({ success: false, error: expect.stringContaining("duration could not be verified") });
+    const result = await tools.roll_edit.handler({ node_id: "v1", offset_seconds: 0.5 }) as Result;
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("duration could not be verified"), data: { mutationOutcome: "not_applied", timelineChanged: false } });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "roll_edit").outcome).toBe("not_applied");
     expect(mockedSendCommand).toHaveBeenCalledTimes(1);
+    expect([...video, ...audio].map((clip) => clip.snapshot())).toEqual(before);
+  });
+  it("refuses a missing clip as not_applied before any host write", async () => {
+    const { video, audio } = host();
+    const before = [...video, ...audio].map((clip) => clip.snapshot());
+    const result = await tools.roll_edit.handler({ node_id: "missing", offset_seconds: 0.5 }) as Result;
+    expect(result).toMatchObject({ success: false, error: "Clip not found", data: { mutationOutcome: "not_applied", timelineChanged: false } });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "roll_edit").outcome).toBe("not_applied");
     expect([...video, ...audio].map((clip) => clip.snapshot())).toEqual(before);
   });
   it.each(["roll_edit", "slide_edit"] as const)("refuses unsafe physical tick bounds before %s", async (tool) => {

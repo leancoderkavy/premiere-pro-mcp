@@ -8,6 +8,7 @@ import { runWithExpectedHostTarget } from "../../src/bridge/project-guard.js";
 vi.mock("../../src/bridge/file-bridge.js", () => ({ sendCommand: vi.fn() }));
 import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { getTimelineTools } from "../../src/tools/timeline.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 
 // One long-lived engine, as in the CEP panel: helper globals survive between commands.
 function engine(undoIndex: { value: number | null }) {
@@ -84,5 +85,18 @@ describe("refusals in tool scripts", () => {
     const tools = getTimelineTools({});
     const result = await runWithUndoTracking(true, () => tools.enable_disable_clip.handler({ node_id: "000fffff", enabled: false }));
     expect(result).toMatchObject({ success: false, error: "Clip not found: 000fffff", data: { mutationOutcome: "not_applied", timelineChanged: false } });
+  });
+
+  it.each([
+    ["remove_from_timeline", { node_id: "000fffff" }],
+    ["move_clip", { node_id: "000fffff", new_start_seconds: 5 }],
+    ["duplicate_clip", { node_id: "000fffff" }],
+  ] as const)("%s refuses a stale node ID as not_applied", async (name, args) => {
+    const run = engine({ value: 7 });
+    vi.mocked(sendCommand).mockImplementation(async (script) => run(script));
+    const tools = getTimelineTools({});
+    const result = await runWithUndoTracking(true, () => tools[name].handler(args as never)) as { success: boolean; data?: Record<string, unknown> };
+    expect(result).toMatchObject({ success: false, error: "Clip not found: 000fffff", data: { mutationOutcome: "not_applied", timelineChanged: false } });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, name).outcome).toBe("not_applied");
   });
 });

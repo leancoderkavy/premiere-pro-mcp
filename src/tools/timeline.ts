@@ -411,7 +411,7 @@ export function getTimelineTools(
         }
         const script = buildToolScript(`
           var result = __findClip("${nodeId}");
-          if (!result) return __error("Clip not found: ${nodeId}");
+          if (!result) return __refuse("Clip not found: ${nodeId}");
           var outcome = __removeClipAndPartners(result, ${args.include_linked !== false});
           if (!outcome.ok) return __error(outcome.error);
           try {
@@ -472,7 +472,7 @@ export function getTimelineTools(
         const nodeId = escapeForExtendScript(args.node_id);
         const script = buildToolScript(`
           var result = __findClip("${nodeId}");
-          if (!result) return __error("Clip not found: ${nodeId}");
+          if (!result) return __refuse("Clip not found: ${nodeId}");
 
           var clip = result.clip;
           var clipName = clip.name;
@@ -480,7 +480,7 @@ export function getTimelineTools(
           // Snap both visible edges to the active sequence frame grid.
           var seq = app.project.activeSequence;
           var frameTicks = seq && seq.timebase ? parseFloat(seq.timebase) : NaN;
-          if (!isFinite(frameTicks) || frameTicks <= 0) return __error("The active sequence frame grid could not be read; no move was attempted.");
+          if (!isFinite(frameTicks) || frameTicks <= 0) return __refuse("The active sequence frame grid could not be read; no move was attempted.");
 
           // Capture the visible span and source range as tick strings before any
           // write. Premiere can mutate the same Time instance on write, so never
@@ -491,11 +491,11 @@ export function getTimelineTools(
           var originalInPointTicks = String(clip.inPoint.ticks);
           var originalOutPointTicks = String(clip.outPoint.ticks);
           var spanTicks = parseFloat(originalEndTicks) - parseFloat(originalStartTicks);
-          if (!(spanTicks > 0)) return __error("Clip has an empty or inverted timeline range; move was not attempted.");
+          if (!(spanTicks > 0)) return __refuse("Clip has an empty or inverted timeline range; move was not attempted.");
           if (Math.abs(parseFloat(originalStartTicks) / frameTicks - Math.round(parseFloat(originalStartTicks) / frameTicks)) > 0.001 ||
               Math.abs(parseFloat(originalEndTicks) / frameTicks - Math.round(parseFloat(originalEndTicks) / frameTicks)) > 0.001 ||
               Math.abs(spanTicks / frameTicks - Math.round(spanTicks / frameTicks)) > 0.001) {
-            return __error("The clip's existing start, end or duration is off the active sequence frame grid. Repair it in Premiere before moving; no change was attempted.");
+            return __refuse("The clip's existing start, end or duration is off the active sequence frame grid. Repair it in Premiere before moving; no change was attempted.");
           }
 
           var requestedStartTicks = __secondsToTicks(${args.new_start_seconds});
@@ -513,17 +513,17 @@ export function getTimelineTools(
           // repositioned-but-not-moved.
           var targetTracks = result.trackType === "video" ? seq.videoTracks : seq.audioTracks;
           if (${args.new_track_index} >= targetTracks.numTracks) {
-            return __error("Track index ${args.new_track_index} is out of range: the sequence has " + targetTracks.numTracks + " " + result.trackType + " track(s).");
+            return __refuse("Track index ${args.new_track_index} is out of range: the sequence has " + targetTracks.numTracks + " " + result.trackType + " track(s).");
           }
 
           // TrackItem has no DOM moveToTrack; only the QE clip exposes one.
           app.enableQE();
           var qeSeq = qe.project.getActiveSequence();
-          if (!qeSeq) return __error("No active sequence (QE); cannot change track.");
+          if (!qeSeq) return __refuse("No active sequence (QE); cannot change track.");
           var qeTrack = result.trackType === "video"
             ? qeSeq.getVideoTrackAt(result.trackIndex)
             : qeSeq.getAudioTrackAt(result.trackIndex);
-          if (!qeTrack) return __error("QE track not found; cannot change track.");
+          if (!qeTrack) return __refuse("QE track not found; cannot change track.");
 
           // QE item indices count gaps ("Empty" items) alongside clips, so the
           // DOM clip index does not map onto getItemAt. Match on start time.
@@ -534,7 +534,7 @@ export function getTimelineTools(
             if (!cand || String(cand.type) !== "Clip") continue;
             if (Math.abs(parseFloat(cand.start.ticks) - wantStart) < 1) { qeClip = cand; break; }
           }
-          if (!qeClip) return __error("Could not locate the clip among the QE track's items; cannot change track.");
+          if (!qeClip) return __refuse("Could not locate the clip among the QE track's items; cannot change track.");
 
           // QE moveToTrack takes track *deltas*, not an absolute index.
           var videoDelta = result.trackType === "video" ? (${args.new_track_index} - result.trackIndex) : 0;
@@ -1047,16 +1047,16 @@ export function getTimelineTools(
             return __editOk(trimPayload);
           }
           var target = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!target) return __error("Clip not found: " + "${escapeForExtendScript(args.node_id)}");
+          if (!target) return __refuse("Clip not found: " + "${escapeForExtendScript(args.node_id)}");
 
-          ${args.new_out_seconds !== undefined ? `var requestedWindowError = __sourceWindowError(target.clip, ${mediaDurationTicks}, null, __secondsToTicks(${args.new_out_seconds}), "trim"); if (requestedWindowError) return __error(requestedWindowError);` : ""}
+          ${args.new_out_seconds !== undefined ? `var requestedWindowError = __sourceWindowError(target.clip, ${mediaDurationTicks}, null, __secondsToTicks(${args.new_out_seconds}), "trim"); if (requestedWindowError) return __refuse(requestedWindowError);` : ""}
           var trimFrameTicks = __sequenceFrameTicks(app.project.activeSequence);
-          if (!isFinite(trimFrameTicks)) return __error("The active sequence frame grid could not be read; no trim was attempted.");
+          if (!isFinite(trimFrameTicks)) return __refuse("The active sequence frame grid could not be read; no trim was attempted.");
           var requestedTrimDeltaTicks = ${args.new_in_seconds !== undefined
             ? `__secondsToTicks(${args.new_in_seconds}) - parseFloat(target.clip.inPoint.ticks)`
             : `__secondsToTicks(${args.new_out_seconds}) - parseFloat(target.clip.outPoint.ticks)`};
           var __trimDeltaTicks = __snapSequenceTicks(app.project.activeSequence, requestedTrimDeltaTicks);
-          if (requestedTrimDeltaTicks !== 0 && __trimDeltaTicks === 0) return __error("The requested trim offset is smaller than one frame after sequence-grid snapping; no trim was attempted.");
+          if (requestedTrimDeltaTicks !== 0 && __trimDeltaTicks === 0) return __refuse("The requested trim offset is smaller than one frame after sequence-grid snapping; no trim was attempted.");
           return __runLinkedEdit(target, "${escapeForExtendScript(args.node_id)}", ${args.include_linked === false ? "false" : "true"}, __editOne, "trim");
         `);
         return sendCommand(script, bridgeOptions);
@@ -1321,9 +1321,9 @@ export function getTimelineTools(
             return __editOk(payload);
           }
           var target = __findClip("${nodeId}");
-          if (!target) return __error("Clip not found: " + "${nodeId}");
+          if (!target) return __refuse("Clip not found: " + "${nodeId}");
           var __durationFrameTicks = __sequenceFrameTicks(app.project.activeSequence);
-          if (!isFinite(__durationFrameTicks)) return __error("The active sequence frame grid could not be read; no duration change was attempted.");
+          if (!isFinite(__durationFrameTicks)) return __refuse("The active sequence frame grid could not be read; no duration change was attempted.");
           var __durationRequestedEndTicks = ${mode === "duration"
             ? `parseFloat(target.clip.start.ticks) + __secondsToTicks(${requested})`
             : `__secondsToTicks(${requested})`};
@@ -1380,10 +1380,10 @@ export function getTimelineTools(
           if (!seq) return __refuse("No active sequence (QE)");
           
           var track = ${trackType === "video" ? `seq.getVideoTrackAt(${trackIndex})` : `seq.getAudioTrackAt(${trackIndex})`};
-          if (!track) return __error("QE track not found");
+          if (!track) return __refuse("QE track not found");
 
           var domTrack = ${trackType === "video" ? `domSequence.videoTracks[${trackIndex}]` : `domSequence.audioTracks[${trackIndex}]`};
-          if (!domTrack) return __error("DOM track not found");
+          if (!domTrack) return __refuse("DOM track not found");
           var frameTicks = domSequence.timebase ? parseFloat(domSequence.timebase) : NaN;
           if (!frameTicks || isNaN(frameTicks)) frameTicks = TICKS_PER_SECOND / 24;
           var boundaryTolerance = frameTicks / 2;
@@ -1416,7 +1416,7 @@ export function getTimelineTools(
 
           var eligibleBefore = __eligibleClips(domTrack, cutTicks);
           if (!eligibleBefore.length) {
-            return __error("No clip on the requested ${trackType} track strictly spans ${args.time_seconds}s; no razor was attempted.");
+            return __refuse("No clip on the requested ${trackType} track strictly spans ${args.time_seconds}s; no razor was attempted.");
           }
 
           // QE razor() parses its argument as a timecode string (a tick count is a
@@ -1480,18 +1480,18 @@ export function getTimelineTools(
         const nodeId = escapeForExtendScript(args.node_id);
         const script = buildToolScript(`
           var result = __findClip("${nodeId}");
-          if (!result) return __error("Clip not found: ${nodeId}");
+          if (!result) return __refuse("Clip not found: ${nodeId}");
           var clip = result.clip;
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           var item = clip.projectItem;
-          if (!item) return __error("Cannot find source project item for clip");
+          if (!item) return __refuse("Cannot find source project item for clip");
           var frameTicks = seq.timebase ? parseFloat(seq.timebase) : TICKS_PER_SECOND / 24;
           var startTicks = parseFloat(clip.start.ticks);
           var endTicks = parseFloat(clip.end.ticks);
           var inTicks = parseFloat(clip.inPoint.ticks);
           if (!isFinite(startTicks) || !isFinite(endTicks) || !isFinite(inTicks) || !(endTicks > startTicks)) {
-            return __error("Premiere did not report a readable range for this clip; nothing was changed.");
+            return __refuse("Premiere did not report a readable range for this clip; nothing was changed.");
           }
           // outPoint can read back stale after a timeline end edit, so the copy's
           // source range is the in point plus the visible duration.
@@ -1546,8 +1546,8 @@ export function getTimelineTools(
           var audioFrom = !isVideo ? result.trackIndex + 1 : (partner ? partner.trackIndex + 1 : 0);
           var videoTarget = hasVideo ? freeTrack(seq.videoTracks, videoFrom) : -1;
           var audioTarget = hasAudio ? freeTrack(seq.audioTracks, audioFrom) : -1;
-          if (hasVideo && videoTarget < 0) return __error("No video track above V" + (videoFrom) + " is free for " + __ticksToSeconds(startTicks) + "-" + __ticksToSeconds(endTicks) + "s. Add one with add_tracks and retry; nothing was changed.");
-          if (hasAudio && audioTarget < 0) return __error("No audio track above A" + (audioFrom) + " is free for " + __ticksToSeconds(startTicks) + "-" + __ticksToSeconds(endTicks) + "s. Add one with add_tracks and retry; nothing was changed.");
+          if (hasVideo && videoTarget < 0) return __refuse("No video track above V" + (videoFrom) + " is free for " + __ticksToSeconds(startTicks) + "-" + __ticksToSeconds(endTicks) + "s. Add one with add_tracks and retry; nothing was changed.");
+          if (hasAudio && audioTarget < 0) return __refuse("No audio track above A" + (audioFrom) + " is free for " + __ticksToSeconds(startTicks) + "-" + __ticksToSeconds(endTicks) + "s. Add one with add_tracks and retry; nothing was changed.");
 
           function idsOn(track) {
             var ids = {};
@@ -1571,7 +1571,7 @@ export function getTimelineTools(
           // sample late.
           if (markMediaType === 2) markBias = __ticksToSeconds(TICKS_PER_SECOND / __itemAudioSampleRate(item) / 4);
           var originalMarks = __itemMarksForRestore(item, markMediaType);
-          if (!originalMarks) return __error("Project-item marks could not be read reliably for restoration; nothing was changed.");
+          if (!originalMarks) return __refuse("Project-item marks could not be read reliably for restoration; nothing was changed.");
           var reuseHighRateMarks = false;
           if (markMediaType === 2 && __itemAudioSampleRate(item) > 48000) {
             var savedIn = Number(originalMarks.inTicks), savedOut = Number(originalMarks.outTicks);

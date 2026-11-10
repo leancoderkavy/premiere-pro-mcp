@@ -17,6 +17,7 @@ import {
 import { getAdvancedTools } from "../../src/tools/advanced.js";
 import { capabilityForTool, guardToolHandler, resolveCapabilities } from "../../src/security/capabilities.js";
 import { buildPremiereInstructions } from "../../src/workflows/agent-instructions.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const bridgeOptions = { tempDir: "/tmp/test", timeoutMs: 1000 };
@@ -264,6 +265,8 @@ describe("set_clip_duration host behavior", () => {
     expect(tooShort.error).toContain("at least one frame");
     const missing = await run({ node_id: "nope", duration_seconds: 3 }, [clip]);
     expect(missing.error).toContain("Clip not found");
+    expect(missing.data).toMatchObject({ mutationOutcome: "not_applied", timelineChanged: false });
+    expect(mutationReceipt(false, missing.data, { dispatched: true }, "set_clip_duration").outcome).toBe("not_applied");
     expect(clip.writes).toEqual([]);
   });
 });
