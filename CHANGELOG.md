@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- UXP: when Claude Desktop runs more than one copy of the server, the copy that receives UXP work now takes the loopback port over from the copy holding it (authenticated `POST /uxp/handoff`) and waits for the panel's automatic reconnect, instead of reporting `uxpConnected: false` while the panel shows "Connected" (#958).
+
 ## [1.30.0] - 2026-11-07
 
 ### Added
