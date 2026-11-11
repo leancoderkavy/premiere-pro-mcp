@@ -72,9 +72,12 @@ describe("UXP MCP tools", () => {
     const bridge = {
       request: vi.fn(),
       getState: vi.fn(() => state),
+      claim: vi.fn(async () => false),
     } as unknown as UxpWebSocketBridge;
     const result = await getUxpTools(bridge).get_uxp_capabilities.handler();
     expect(result).toEqual({ success: true, data: { ...state, capabilitiesSource: "handshake" } });
+    // Discovery may take the loopback port over from another server process, but never calls the host.
+    expect(bridge.claim).toHaveBeenCalledTimes(1);
     expect(bridge.request).not.toHaveBeenCalled();
   });
 
