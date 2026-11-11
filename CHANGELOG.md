@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Keyframe mutators (`add_keyframe`, `remove_keyframe`, `remove_keyframe_range`, `set_keyframe_interpolation`, `set_effect_property`) report pre-write refusals such as a missing clip, missing effect, time past the clip end, or no key at the requested time as `not_applied`. Those dispatched no-ops used to omit an outcome, so the receipt was unknown and set a recovery lock that blocked every later edit until it was acknowledged.
+
 ## [1.30.0] - 2026-11-07
 
 ### Added

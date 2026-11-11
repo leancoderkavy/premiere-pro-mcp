@@ -2,6 +2,7 @@ import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { runInNewContext } from "node:vm";
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
+import { runWithUndoTracking } from "../../src/bridge/undo-tracking.js";
 import type { BridgeOptions } from "../../src/bridge/file-bridge.js";
 
 vi.mock("../../src/bridge/file-bridge.js", () => ({
@@ -72,7 +73,7 @@ function host(options: HostOptions = {}) {
   const seq = { videoTracks: { numTracks: 1, 0: { clips: { numItems: 1, 0: clip } } }, audioTracks: { numTracks: 0 } };
   function Time(this: { ticks: string }) { this.ticks = "0"; }
   mockedSendCommand.mockImplementation(async (script: string) =>
-    JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { app: { project: { activeSequence: seq } }, Time }))));
+    JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, { app: { project: { activeSequence: seq } }, Time, qe: { project: { undoStackIndex: () => 10 } } }))));
   return {
     mediaKeys: () => sorted().map((k) => [k / TICKS, keys.get(k)]),
     interpolation,
@@ -236,6 +237,57 @@ describe("set_keyframe_interpolation", () => {
     await expect(tools.set_keyframe_interpolation.handler({ ...target, time_seconds: 2, interpolation: "toString" }))
       .resolves.toMatchObject({ success: false, error: "interpolation must be linear, hold or bezier." });
     expect(state.interpolation).toEqual({});
+  });
+});
+
+describe("keyframe pre-write refusals stay not_applied", () => {
+  type Result = { success: boolean; error?: string; data?: Record<string, unknown> };
+  const mutating = (fn: () => Promise<unknown>) => runWithUndoTracking(true, fn) as Promise<Result>;
+
+  it("add_keyframe refuses a stale clip without locking later edits", async () => {
+    host();
+    const result = await mutating(() => tools.add_keyframe.handler({ ...target, node_id: "missing", time_seconds: 1, value: 20 }));
+    expect(result).toMatchObject({ success: false, error: "Clip not found", data: { mutationOutcome: "not_applied", timelineChanged: false } });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "add_keyframe").outcome).toBe("not_applied");
+  });
+
+  it("add_keyframe refuses a missing effect without locking later edits", async () => {
+    host();
+    const result = await mutating(() => tools.add_keyframe.handler({ ...target, effect_name: "Lumetri Color", time_seconds: 1, value: 20 }));
+    expect(result).toMatchObject({ success: false, error: "Effect not found", data: { mutationOutcome: "not_applied", timelineChanged: false } });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "add_keyframe").outcome).toBe("not_applied");
+  });
+
+  it("add_keyframe refuses a time past the clip end as not_applied", async () => {
+    const state = host();
+    const result = await mutating(() => tools.add_keyframe.handler({ ...target, time_seconds: 12, value: 20 }));
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("past the clip's end at 10s"), data: { mutationOutcome: "not_applied", timelineChanged: false } });
+    expect(state.mediaKeys()).toEqual([]);
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "add_keyframe").outcome).toBe("not_applied");
+  });
+
+  it("set_effect_property refuses a missing effect without locking later edits", async () => {
+    host();
+    const result = await mutating(() => tools.set_effect_property.handler({ ...target, effect_name: "Lumetri Color", value: 50 }));
+    expect(result).toMatchObject({ success: false, error: "Effect not found: Lumetri Color", data: { mutationOutcome: "not_applied", timelineChanged: false } });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "set_effect_property").outcome).toBe("not_applied");
+  });
+
+  it("remove_keyframe refuses a stale clip through the shared lookup helper", async () => {
+    host();
+    const result = await mutating(() => tools.remove_keyframe.handler({ ...target, node_id: "missing", time_seconds: 2 }));
+    expect(result).toMatchObject({ success: false, error: "Clip not found", data: { mutationOutcome: "not_applied", timelineChanged: false } });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "remove_keyframe").outcome).toBe("not_applied");
+  });
+
+  it("remove_keyframe and set_keyframe_interpolation refuse a missing key as not_applied", async () => {
+    host({ mediaKeys: [[32, 20]] });
+    const missing = await mutating(() => tools.remove_keyframe.handler({ ...target, time_seconds: 3 }));
+    expect(missing).toMatchObject({ success: false, error: expect.stringContaining("keys are at [2]s"), data: { mutationOutcome: "not_applied", timelineChanged: false } });
+    const interp = await mutating(() => tools.set_keyframe_interpolation.handler({ ...target, time_seconds: 1, interpolation: "linear" }));
+    expect(interp).toMatchObject({ success: false, error: expect.stringContaining("No keyframe at 1s"), data: { mutationOutcome: "not_applied", timelineChanged: false } });
+    expect(mutationReceipt(false, missing.data, { dispatched: true }, "remove_keyframe").outcome).toBe("not_applied");
+    expect(mutationReceipt(false, interp.data, { dispatched: true }, "set_keyframe_interpolation").outcome).toBe("not_applied");
   });
 });
 

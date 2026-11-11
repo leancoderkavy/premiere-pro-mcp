@@ -29,7 +29,7 @@ function propertyIndexError(propertyIndex: number | undefined): string | null {
 function propertyLookupScript(args: { node_id: string; effect_name: string; property_name: string; property_index?: number }): string {
   return `
           var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __error("Clip not found");
+          if (!result) return __refuse("Clip not found");
           var clip = result.clip;
           var comp = null;
           for (var i = 0; i < clip.components.numItems; i++) {
@@ -38,11 +38,11 @@ function propertyLookupScript(args: { node_id: string; effect_name: string; prop
               break;
             }
           }
-          if (!comp) return __error("Effect not found");
+          if (!comp) return __refuse("Effect not found");
           var resolvedProperty = __resolveProperty(comp, "${escapeForExtendScript(args.property_name)}", ${args.property_index === undefined ? "null" : args.property_index});
-          if (resolvedProperty.error) return __error(resolvedProperty.error);
+          if (resolvedProperty.error) return __refuse(resolvedProperty.error);
           var prop = resolvedProperty.property;
-          if (!prop) return __error("Property not found: ${escapeForExtendScript(args.property_name)}");`;
+          if (!prop) return __refuse("Property not found: ${escapeForExtendScript(args.property_name)}");`;
 }
 
 function propertyIndexParameter() {
@@ -53,11 +53,11 @@ function propertyIndexParameter() {
 function keyBaseScript(times: Array<[string, number]>): string {
   return `
           var keyBase = __clipKeyframeBase(clip);
-          if (!keyBase.ok) return __error(keyBase.error);
+          if (!keyBase.ok) return __refuse(keyBase.error);
           ${times
             .map(
               ([name, seconds]) =>
-                `if (${seconds} > keyBase.durationSeconds + 0.0005) return __error("${name} ${seconds}s is past the clip's end at " + keyBase.durationSeconds + "s. Nothing was changed.");`,
+                `if (${seconds} > keyBase.durationSeconds + 0.0005) return __refuse("${name} ${seconds}s is past the clip's end at " + keyBase.durationSeconds + "s. Nothing was changed.");`,
             )
             .join("\n          ")}`;
 }
@@ -99,7 +99,7 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
             }
           }
           
-          if (!comp) return __error("Effect not found: " + effectName);
+          if (!comp) return __refuse("Effect not found: " + effectName);
           
           var props = [];
           for (var p = 0; p < comp.properties.numItems; p++) {
@@ -211,12 +211,12 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
               break;
             }
           }
-          if (!comp) return __error("Effect not found: ${escapeForExtendScript(args.effect_name)}");
+          if (!comp) return __refuse("Effect not found: ${escapeForExtendScript(args.effect_name)}");
           
           var resolvedProperty = __resolveProperty(comp, "${escapeForExtendScript(args.property_name)}", ${args.property_index === undefined ? "null" : args.property_index});
-          if (resolvedProperty.error) return __error(resolvedProperty.error);
+          if (resolvedProperty.error) return __refuse(resolvedProperty.error);
           var prop = resolvedProperty.property;
-          if (!prop) return __error("Property not found: ${escapeForExtendScript(args.property_name)}");
+          if (!prop) return __refuse("Property not found: ${escapeForExtendScript(args.property_name)}");
 
           var requestedValue = ${requestedValue};
           var builtInComponent = result.trackType === "audio" ? __isIntrinsicAudioComponent(comp) : __isBuiltInComponent(comp);
@@ -228,11 +228,11 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
           var currentColor = __readColorValue(prop);
           if (currentColor) {
             var colorVarying = false;
-            try { colorVarying = !!prop.isTimeVarying(); } catch (colorVaryingError) { return __error("Colour animation state could not be read; nothing was changed."); }
-            if (colorVarying) return __error("Keyframed colour parameters cannot be changed through set_effect_property because CEP has no lossless time-specific colour API; nothing was changed.");
-            if (!(requestedValue instanceof Array) || requestedValue.length !== 4) return __error("Colour values require [alpha, red, green, blue]; nothing was changed.");
+            try { colorVarying = !!prop.isTimeVarying(); } catch (colorVaryingError) { return __refuse("Colour animation state could not be read; nothing was changed."); }
+            if (colorVarying) return __refuse("Keyframed colour parameters cannot be changed through set_effect_property because CEP has no lossless time-specific colour API; nothing was changed.");
+            if (!(requestedValue instanceof Array) || requestedValue.length !== 4) return __refuse("Colour values require [alpha, red, green, blue]; nothing was changed.");
             for (var colorIndex = 0; colorIndex < 4; colorIndex++) {
-              if (typeof requestedValue[colorIndex] !== "number" || Math.floor(requestedValue[colorIndex]) !== requestedValue[colorIndex] || requestedValue[colorIndex] < 0 || requestedValue[colorIndex] > 255) return __error("Colour channels must be integers from 0 to 255; nothing was changed.");
+              if (typeof requestedValue[colorIndex] !== "number" || Math.floor(requestedValue[colorIndex]) !== requestedValue[colorIndex] || requestedValue[colorIndex] < 0 || requestedValue[colorIndex] > 255) return __refuse("Colour channels must be integers from 0 to 255; nothing was changed.");
             }
             try { prop.setColorValue(requestedValue[0], requestedValue[1], requestedValue[2], requestedValue[3], true); }
             catch (colorWriteError) { return __error("Premiere could not set the requested colour property: " + colorWriteError.toString()); }
@@ -245,8 +245,8 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
             return __result(colorData);
           }
           if (typeof prop.isTimeVarying === "function") {
-            try { if (prop.isTimeVarying()) return __error("Keyframed parameters require a time-specific keyframe tool; nothing was changed."); }
-            catch (animationReadError) { return __error("Parameter animation state could not be read; nothing was changed."); }
+            try { if (prop.isTimeVarying()) return __refuse("Keyframed parameters require a time-specific keyframe tool; nothing was changed."); }
+            catch (animationReadError) { return __refuse("Parameter animation state could not be read; nothing was changed."); }
           }
           var allowRawAudioValue = ${args.allow_out_of_range_audio_value === true ? "true" : "false"};
           // Audio effect parameters use normalized 0-1 values; a number outside
@@ -255,7 +255,7 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
             var currentAudioValue = null;
             try { currentAudioValue = prop.getValue(); } catch (currentAudioError) {}
             if (typeof currentAudioValue === "number" && currentAudioValue >= 0 && currentAudioValue <= 1) {
-              return __error("Audio effect parameters take Premiere's normalized 0-1 value, not Hz, dB or ms; " + requestedValue + " is outside 0-1 and the current value is " + currentAudioValue + ". Nothing was changed. Pass a 0-1 value calibrated by rendering, or allow_out_of_range_audio_value true if this parameter accepts raw values.", __withScaleFields({ set: false, verified: false, outcome: "not_applied", effect: "${escapeForExtendScript(args.effect_name)}", property: "${escapeForExtendScript(args.property_name)}", propertyIndex: resolvedProperty.index, value: currentAudioValue, requestedValue: requestedValue }));
+              return __refuse("Audio effect parameters take Premiere's normalized 0-1 value, not Hz, dB or ms; " + requestedValue + " is outside 0-1 and the current value is " + currentAudioValue + ". Nothing was changed. Pass a 0-1 value calibrated by rendering, or allow_out_of_range_audio_value true if this parameter accepts raw values.", __withScaleFields({ set: false, verified: false, outcome: "not_applied", effect: "${escapeForExtendScript(args.effect_name)}", property: "${escapeForExtendScript(args.property_name)}", propertyIndex: resolvedProperty.index, value: currentAudioValue, requestedValue: requestedValue }));
             }
           }
           try {
@@ -352,12 +352,12 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
               break;
             }
           }
-          if (!comp) return __error("Effect not found");
+          if (!comp) return __refuse("Effect not found");
           
           var resolvedProperty = __resolveProperty(comp, "${escapeForExtendScript(args.property_name)}", ${args.property_index === undefined ? "null" : args.property_index});
-          if (resolvedProperty.error) return __error(resolvedProperty.error);
+          if (resolvedProperty.error) return __refuse(resolvedProperty.error);
           var prop = resolvedProperty.property;
-          if (!prop) return __error("Property not found");
+          if (!prop) return __refuse("Property not found");
           
           var isTimeVarying = false;
           try { isTimeVarying = prop.isTimeVarying(); } catch(e) {}
@@ -365,7 +365,7 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
           if (!isTimeVarying) {
             return __result({ keyframes: [], isTimeVarying: false, message: "Property has no keyframes" });
           }
-          if (__readColorValue(prop)) return __error("Keyframed colour values cannot be read losslessly through CEP; key times may be inspected in Effect Controls, but no colour samples are returned.");
+          if (__readColorValue(prop)) return __refuse("Keyframed colour values cannot be read losslessly through CEP; key times may be inspected in Effect Controls, but no colour samples are returned.");
           
           // Without a usable time base (speed change, reverse) only media time is reported.
           var keyBase = __clipKeyframeBase(clip);
@@ -460,22 +460,22 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
               break;
             }
           }
-          if (!comp) return __error("Effect not found");
+          if (!comp) return __refuse("Effect not found");
           
           var resolvedProperty = __resolveProperty(comp, "${escapeForExtendScript(args.property_name)}", ${args.property_index === undefined ? "null" : args.property_index});
-          if (resolvedProperty.error) return __error(resolvedProperty.error);
+          if (resolvedProperty.error) return __refuse(resolvedProperty.error);
           var prop = resolvedProperty.property;
-          if (!prop) return __error("Property not found");
-          if (__readColorValue(prop)) return __error("Keyframed colour writes are not supported by CEP because no lossless time-specific colour setter exists; nothing was changed.");
+          if (!prop) return __refuse("Property not found");
+          if (__readColorValue(prop)) return __refuse("Keyframed colour writes are not supported by CEP because no lossless time-specific colour setter exists; nothing was changed.");
           try {
-            if (!prop.areKeyframesSupported()) return __error("Property does not support keyframes");
+            if (!prop.areKeyframesSupported()) return __refuse("Property does not support keyframes");
           } catch(eSupports) {}
           ${keyBaseScript([["time_seconds", args.time_seconds]])}
 
           var wantedValue = ${valueLiteral};
           var currentValue;
           try { currentValue = typeof prop.getValue === "function" ? prop.getValue() : prop.getValueAtTime(__clipKeyTime(keyBase, ${args.time_seconds})); }
-          catch (shapeError) { return __error("The current property value shape could not be read; nothing was changed."); }
+          catch (shapeError) { return __refuse("The current property value shape could not be read; nothing was changed."); }
           function keyValueMatches(actual, wanted) {
             if (typeof wanted === "number") return typeof actual === "number" && isFinite(actual) && Math.abs(actual - wanted) <= 0.0001;
             if (Object.prototype.toString.call(actual) !== "[object Array]" || actual.length !== wanted.length) return false;
@@ -483,9 +483,9 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
             return true;
           }
           var wantedVector = Object.prototype.toString.call(wantedValue) === "[object Array]";
-          if (wantedVector ? Object.prototype.toString.call(currentValue) !== "[object Array]" || currentValue.length !== 2 || wantedValue.length !== 2 || typeof currentValue[0] !== "number" || typeof currentValue[1] !== "number" || !isFinite(currentValue[0]) || !isFinite(currentValue[1]) : typeof currentValue !== "number" || !isFinite(currentValue)) return __error("value must match the current scalar or two-component property shape; nothing was changed.");
+          if (wantedVector ? Object.prototype.toString.call(currentValue) !== "[object Array]" || currentValue.length !== 2 || wantedValue.length !== 2 || typeof currentValue[0] !== "number" || typeof currentValue[1] !== "number" || !isFinite(currentValue[0]) || !isFinite(currentValue[1]) : typeof currentValue !== "number" || !isFinite(currentValue)) return __refuse("value must match the current scalar or two-component property shape; nothing was changed.");
           if (wantedVector && (comp.matchName === "AE.ADBE Motion" || comp.displayName === "Motion") && (__videoIntrinsicPropertyMatches(prop, "Position") || __videoIntrinsicPropertyMatches(prop, "Anchor Point"))) {
-            if (wantedValue[0] < 0 || wantedValue[0] > 1 || wantedValue[1] < 0 || wantedValue[1] > 1) return __error("Motion Position and Anchor Point keyframes require normalized values from 0 to 1; nothing was changed.");
+            if (wantedValue[0] < 0 || wantedValue[0] > 1 || wantedValue[1] < 0 || wantedValue[1] > 1) return __refuse("Motion Position and Anchor Point keyframes require normalized values from 0 to 1; nothing was changed.");
           }
 
           // Enable keyframes if not already
@@ -564,7 +564,7 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
 
           var key = __findKeyNear(prop, __clipKeyTime(keyBase, ${args.time_seconds}));
           if (!key) {
-            return __error("No keyframe at ${args.time_seconds}s on this property; keys are at [" + __clipKeySeconds(keyBase, prop).join(", ") + "]s from the clip's start. Nothing was changed.");
+            return __refuse("No keyframe at ${args.time_seconds}s on this property; keys are at [" + __clipKeySeconds(keyBase, prop).join(", ") + "]s from the clip's start. Nothing was changed.");
           }
           var removedSeconds = __clipSecondsFromKey(keyBase, key);
           prop.removeKey(key);
@@ -649,7 +649,7 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
           }
           var inRange = __keysInRange();
           if (!inRange.length) {
-            return __error("No keyframes between ${args.start_seconds}s and ${args.end_seconds}s; keys are at [" + __clipKeySeconds(keyBase, prop).join(", ") + "]s from the clip's start. Nothing was changed.");
+            return __refuse("No keyframes between ${args.start_seconds}s and ${args.end_seconds}s; keys are at [" + __clipKeySeconds(keyBase, prop).join(", ") + "]s from the clip's start. Nothing was changed.");
           }
           var removedStoredKeys = [];
           for (var r = 0; r < inRange.length; r++) {
@@ -738,7 +738,7 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
 
           var key = __findKeyNear(prop, __clipKeyTime(keyBase, ${args.time_seconds}));
           if (!key) {
-            return __error("No keyframe at ${args.time_seconds}s on this property; keys are at [" + __clipKeySeconds(keyBase, prop).join(", ") + "]s from the clip's start. Nothing was changed.");
+            return __refuse("No keyframe at ${args.time_seconds}s on this property; keys are at [" + __clipKeySeconds(keyBase, prop).join(", ") + "]s from the clip's start. Nothing was changed.");
           }
           prop.setInterpolationTypeAtKey(key, ${interpType}, true);
 
@@ -796,8 +796,8 @@ export function getKeyframeTools(bridgeOptions: BridgeOptions) {
           var colorValue = __readColorValue(prop);
           if (colorValue) {
             var colorTimeVarying = false;
-            try { colorTimeVarying = !!prop.isTimeVarying(); } catch (colorTimeError) { return __error("Colour animation state could not be read, so no value is reported."); }
-            if (colorTimeVarying) return __error("Keyframed colour cannot be sampled losslessly through CEP; use Effect Controls to inspect that time.");
+            try { colorTimeVarying = !!prop.isTimeVarying(); } catch (colorTimeError) { return __refuse("Colour animation state could not be read, so no value is reported."); }
+            if (colorTimeVarying) return __refuse("Keyframed colour cannot be sampled losslessly through CEP; use Effect Controls to inspect that time.");
             readableValue = { value: colorValue, valueType: "color_argb" };
           } else {
             readableValue = __readableParamValue(prop, prop.getValueAtTime(time));
