@@ -44,7 +44,26 @@ export function decodeEntities(s: string): string {
 
 /** One line of cue text as shown: markup tags (<i>, <c.x>, <00:01.000>) and ASS overrides ({\an8}) removed, entities decoded. */
 export function cleanCueLine(line: string): string {
-  return decodeEntities(line.replace(/<[^>]*>|\{\\[^}]*\}/g, ""));
+  // Consume each complete markup region once, including nested delimiters.
+  // A single regex replacement can expose a new tag (<scr<script>ipt>).
+  let text = "";
+  let depth = 0;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === "<") {
+      // Unclosed literal text (for example "Tom <3") is not a markup region.
+      if (depth === 0 && line.indexOf(">", i + 1) === -1) {
+        text += line.slice(i);
+        break;
+      }
+      depth++;
+    } else if (char === ">" && depth > 0) {
+      depth--;
+    } else if (depth === 0) {
+      text += char;
+    }
+  }
+  return decodeEntities(text.replace(/\{\\[^}]*\}/g, ""));
 }
 
 /** Matches "NAME: text" at the start of a cue body. */

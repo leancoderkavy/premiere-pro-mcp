@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { cleanCueLine } from "../../src/ai/caption-transcript.js";
 import { CAPTION_EXPORT_FORMATS, countTtmlCues, detectSubtitleFormat, formatTime, parseSubtitles, planToExportCues, writeCaptions, writeSrt, writeTtml, writeVtt, type ExportCue } from "../../src/ai/caption-export.js";
 import { buildCaptionPlan as buildCaptions } from "../../src/ai/caption-plan.js";
 
@@ -235,5 +236,17 @@ describe("review fixes: control characters and shared cue text", () => {
     const r = parseSubtitles("1\n00:00:01,000 --> 00:00:02,000\n{\\an8}Tom &amp; &quot;Jerry&quot; it&#39;s &#x41;\n");
     expect(r.cues[0].lines).toEqual([`Tom & "Jerry" it's A`]);
     expect(parseSubtitles(writeVtt([{ start: 0, end: 1, lines: ["Tom & Jerry <3"] }]).text).cues[0].lines).toEqual(["Tom & Jerry <3"]);
+  });
+});
+
+describe("subtitle markup normalization", () => {
+  it("does not expose nested tags after removing an inner tag", () => {
+    expect(cleanCueLine("<scr<script>ipt>alert(1)</scr</script>ipt>")).toBe("alert(1)");
+    expect(cleanCueLine("before <b<i>>bold</b</i>> after")).toBe("before bold after");
+  });
+  it("keeps literal comparisons and decodes entities once for plain-text captions", () => {
+    expect(cleanCueLine("Tom <3 &amp; Jerry")).toBe("Tom <3 & Jerry");
+    expect(cleanCueLine("&amp;lt;i&amp;gt; &lt;3")).toBe("&lt;i&gt; <3");
+    expect(cleanCueLine("{\\an8}<i>Hello</i>")).toBe("Hello");
   });
 });
