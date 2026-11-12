@@ -16,6 +16,7 @@ function evaluate(script: string, extras: Record<string, unknown>) {
     __findClip: () => extras.result,
     __result: (data: unknown) => JSON.stringify({ success: true, data }),
     __error: (error: string, data?: unknown) => JSON.stringify({ success: false, error, data }),
+    __refuse: (error: string, data?: unknown) => JSON.stringify({ success: false, error, data }),
     __resolveProperty: (component: { properties: unknown[] }) => ({ property: component.properties[0], index: 0 }),
     __readColorValue: () => null,
     __isBuiltInComponent: () => false,
