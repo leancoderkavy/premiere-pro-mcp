@@ -61,7 +61,7 @@ const READ_ONLY_TOOLS = new Set([
 ]);
 const DESTRUCTIVE_PREFIXES = ["delete_", "remove_", "ripple_delete", "close_"];
 const DESTRUCTIVE_TOOLS = new Set(["manage_project_context"]);
-const OPEN_WORLD_TOOLS = new Set(["execute_extendscript", "send_raw_script"]);
+const OPEN_WORLD_TOOLS = new Set(["execute_extendscript", "send_raw_script", "transcribe_audio"]);
 
 /** Conservative MCP hints. They describe expected behavior, never authorization. */
 export function annotationsForTool(name: string, explicit?: ToolAnnotations): ToolAnnotations {

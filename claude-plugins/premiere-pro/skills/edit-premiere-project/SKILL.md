@@ -241,6 +241,23 @@ colour, or Graphics and Titles > Upgrade Caption to Graphic.
    mark is set (In-only or Out-only), stop the automated burn-in recipe before
    changing marks; use playback or a manual export instead.
 
+## Captions to a standard
+
+1. Get a word-timed transcript: Premiere Speech to Text (`prepare_transcript_workflow`,
+   `get_clip_transcript_uxp`), an SRT/VTT, or `transcribe_audio`. `transcribe_audio`
+   uploads an audio or video file to ElevenLabs, a third party: ask the user before passing
+   `confirm_upload: true`.
+2. Call `plan_captions` with a `standard`, the sequence `frame_rate` or
+   `sequence_timebase_ticks`, `cut_times` from `detect_scene_edits`, and the
+   transcript's `offset`. Review `changes` and `violations`, then save the plan with
+   `plan_output_path`.
+3. Native track: `create_caption_track` with `action: "import_plan"` and
+   `plan_path`. Burned-in: `add_caption_graphics` with `plan_path`, the `.mogrt` and
+   its text fields. Pass `expected_project_path`; read back `committed_unverified`
+   results before retrying.
+4. Lint with `check_captions`. Fit and safe-area results are estimates; check them on
+   screen with playback or a short export.
+
 ## Reaction Shorts
 
 Use the Premiere MCP planners before styling captions in the host UI.
