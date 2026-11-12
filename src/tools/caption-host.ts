@@ -57,11 +57,16 @@ export interface CaptionSequenceInfo {
   edit_points_truncated?: boolean;
 }
 
+/** Pre-write refusal so a dispatched sequence inspect does not lock later Premiere edits. */
+export function captionNotApplied(error: string, extra: Record<string, unknown> = {}) {
+  return { success: false as const, error, data: { ...extra, mutationOutcome: "not_applied" as const, timelineChanged: false as const } };
+}
+
 /** One read-only CEP script that describes the target sequence. */
 export function buildCaptionSequenceReadScript(opts: CaptionSequenceReadOptions = {}): string {
   const lookup = opts.sequence_id
-    ? `var seq = __findSequence("${escapeForExtendScript(opts.sequence_id)}"); if (!seq) return __error("Sequence not found: ${escapeForExtendScript(opts.sequence_id)}");`
-    : "var seq = app.project.activeSequence; if (!seq) return __error(\"No active sequence\");";
+    ? `var seq = __findSequence("${escapeForExtendScript(opts.sequence_id)}"); if (!seq) return __refuse("Sequence not found: ${escapeForExtendScript(opts.sequence_id)}");`
+    : "var seq = app.project.activeSequence; if (!seq) return __refuse(\"No active sequence\");";
   const excluded = opts.exclude_video_track === undefined ? "-1" : String(Math.trunc(opts.exclude_video_track));
   return buildToolScript(`
     ${lookup}
