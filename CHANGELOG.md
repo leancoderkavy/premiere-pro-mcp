@@ -9,6 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - Selection tools report a missing active sequence, and `invert_selection` reports an unreadable current selection, as `not_applied`. Those dispatched no-ops used to omit an outcome, so the receipt was unknown and set a recovery lock that blocked every later edit until it was acknowledged.
+- Structural timeline edits (`move_clip`, `remove_from_timeline`, `trim_clip`, `set_clip_duration`, `split_clip`, `duplicate_clip`) report pre-write refusals such as a missing clip, missing sequence, or unreadable frame grid as `not_applied`. Those dispatched no-ops used to omit an outcome, so the receipt was unknown and set a recovery lock that blocked every later edit until it was acknowledged.
+- Adjacent-edit preflight (`set_clip_duration`, `roll_edit`, `slide_edit`) keeps `not_applied` when the host refuses a stale clip ID or Node-side duration evidence is missing. The wrapper used to drop the inspection receipt, so a dispatched no-op locked later edits the same way.
 
 ## [1.30.0] - 2026-11-07
 

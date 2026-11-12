@@ -5,6 +5,14 @@ import { probeMediaDurationTicks } from "./media-evidence.js";
 interface SourceEntry { nodeId: string; mediaPath: string; position: string; trackType: "video" | "audio"; trackIndex: number; clipIndex: number; }
 interface SourceEvidence { projectDocumentId: string; sequenceId: string; linkedNodeIds: string[]; entries: SourceEntry[]; }
 
+function notApplied(error: string, data?: Record<string, unknown>) {
+  return {
+    success: false as const,
+    error,
+    data: { mutationOutcome: "not_applied" as const, timelineChanged: false as const, ...data },
+  };
+}
+
 // Scoped to adjacent edits: unknown linkage must not silently become primary-only.
 const strictLinkedPartners = `
   function adjacentLinkedPartners(target) {
@@ -36,11 +44,11 @@ export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId:
     if (!seq.sequenceID) return __refuse("Sequence identity cannot be verified; nothing was changed.");
     var documentId = null;
     try { documentId = app.project.documentID; } catch (documentIdentityError) {}
-    if ((typeof documentId !== "string" && typeof documentId !== "number") || String(documentId).replace(/\\s/g, "") === "") return __error("Project identity cannot be verified; nothing was changed.");
+    if ((typeof documentId !== "string" && typeof documentId !== "number") || String(documentId).replace(/\\s/g, "") === "") return __refuse("Project identity cannot be verified; nothing was changed.");
     ${strictLinkedPartners}
     var targets = [target], linkedNodeIds = [];
     var partners = [];
-    ${includeLinked ? 'try { partners = adjacentLinkedPartners(target); } catch (linkedError) { return __error("Linked membership could not be read; nothing was changed. " + String(linkedError)); } for (var pi = 0; pi < partners.length; pi++) { targets.push(partners[pi]); linkedNodeIds.push(String(partners[pi].clip.nodeId)); }' : ''}
+    ${includeLinked ? 'try { partners = adjacentLinkedPartners(target); } catch (linkedError) { return __refuse("Linked membership could not be read; nothing was changed. " + String(linkedError)); } for (var pi = 0; pi < partners.length; pi++) { targets.push(partners[pi]); linkedNodeIds.push(String(partners[pi].clip.nodeId)); }' : ''}
     var entries = [], seen = {};
     for (var ti = 0; ti < targets.length; ti++) {
       var current = targets[ti];
@@ -49,31 +57,36 @@ export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId:
       ${slide ? 'clips.push(track.clips[current.clipIndex - 1]);' : ''}
       for (var ci = 0; ci < clips.length; ci++) {
         var clip = clips[ci];
-        if (!clip) return __error("Required adjacent clip is missing; nothing was changed.");
+        if (!clip) return __refuse("Required adjacent clip is missing; nothing was changed.");
         var speed = null, reversed = null;
         // isSpeedReversed() returns 0/1 rather than false/true on 25.2.3.
         try { speed = Number(clip.getSpeed()); reversed = clip.isSpeedReversed(); } catch (speedError) {}
-        if ((speed !== 1 && speed !== 100) || (reversed !== false && reversed !== 0)) return __error("Only verified forward, normal-speed clips support this source-bound edit; nothing was changed.");
+        if ((speed !== 1 && speed !== 100) || (reversed !== false && reversed !== 0)) return __refuse("Only verified forward, normal-speed clips support this source-bound edit; nothing was changed.");
         var id = String(clip.nodeId);
         if (seen[id]) continue;
         seen[id] = true;
         var path = "";
         try { path = String(clip.projectItem.getMediaPath() || ""); } catch (pathError) {}
-        if (!path) return __error("Physical media duration cannot be verified for an edited clip; nothing was changed.");
-        if (entries.length >= 256) return __error("Too many linked edit sources to inspect safely; nothing was changed.");
+        if (!path) return __refuse("Physical media duration cannot be verified for an edited clip; nothing was changed.");
+        if (entries.length >= 256) return __refuse("Too many linked edit sources to inspect safely; nothing was changed.");
         var placement = __findClip(id);
-        if (!placement) return __error("Edited clip placement cannot be verified; nothing was changed.");
+        if (!placement) return __refuse("Edited clip placement cannot be verified; nothing was changed.");
         entries.push({ nodeId: id, mediaPath: path, position: __clipPositionKey(id), trackType: placement.trackType, trackIndex: placement.trackIndex, clipIndex: placement.clipIndex });
       }
     }
     return __result({ projectDocumentId: String(documentId), sequenceId: String(seq.sequenceID), linkedNodeIds: linkedNodeIds, entries: entries });
   `), options);
-  if (!inspection.success) return { success: false as const, error: inspection.error || "Could not inspect edit sources; nothing was changed." };
+  if (!inspection.success) {
+    const data = inspection.data && typeof inspection.data === "object" && !Array.isArray(inspection.data)
+      ? inspection.data as Record<string, unknown>
+      : undefined;
+    return notApplied(inspection.error || "Could not inspect edit sources; nothing was changed.", data);
+  }
   const data = inspection.data as SourceEvidence | undefined;
   if (!data || typeof data.projectDocumentId !== "string" || !data.projectDocumentId.trim() || typeof data.sequenceId !== "string" || !Array.isArray(data.linkedNodeIds) || data.linkedNodeIds.length > 256 || data.linkedNodeIds.some((id) => typeof id !== "string" || !id) || new Set(data.linkedNodeIds).size !== data.linkedNodeIds.length || !Array.isArray(data.entries) || !data.entries.length || data.entries.length > 256 ||
     data.entries.some((entry) => !entry || typeof entry.nodeId !== "string" || typeof entry.mediaPath !== "string" || !entry.mediaPath || typeof entry.position !== "string" || entry.position.includes("?") ||
       (entry.trackType !== "video" && entry.trackType !== "audio") || !Number.isInteger(entry.trackIndex) || entry.trackIndex < 0 || !Number.isInteger(entry.clipIndex) || entry.clipIndex < 0)) {
-    return { success: false as const, error: "Physical media evidence was incomplete; nothing was changed." };
+    return notApplied("Physical media evidence was incomplete; nothing was changed.");
   }
   const durationTicks = new Map<string, number>();
   for (const entry of data.entries) {
@@ -81,7 +94,7 @@ export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId:
       const still = single && /\.(png|jpe?g|tiff?|psd|gif|bmp|tga|webp|heic|heif|exr|dpx|ai|eps)$/i.test(entry.mediaPath);
       if (still) { durationTicks.set(entry.mediaPath, 0); continue; }
       const endTicks = await probeMediaDurationTicks(entry.mediaPath);
-      if (endTicks === null || !Number.isSafeInteger(endTicks) || endTicks <= 0) return { success: false as const, error: "Physical media duration could not be verified. Install ffprobe and use readable finite media; nothing was changed." };
+      if (endTicks === null || !Number.isSafeInteger(endTicks) || endTicks <= 0) return notApplied("Physical media duration could not be verified. Install ffprobe and use readable finite media; nothing was changed.");
       durationTicks.set(entry.mediaPath, endTicks);
     }
   }
@@ -91,40 +104,40 @@ export async function prepareAdjacentMediaBounds(options: BridgeOptions, nodeId:
     var sourceEvidence = [${entries}];
     var currentDocumentId = null;
     try { currentDocumentId = app.project.documentID; } catch (documentIdentityError) {}
-    if (currentDocumentId === null || currentDocumentId === undefined || String(currentDocumentId) !== "${escapeForExtendScript(data.projectDocumentId)}") return __error("Active project changed or its identity cannot be verified during media inspection; nothing was changed.");
-    if (String(app.project.activeSequence.sequenceID) !== "${escapeForExtendScript(data.sequenceId)}") return __error("Active sequence changed during media inspection; nothing was changed.");
+    if (currentDocumentId === null || currentDocumentId === undefined || String(currentDocumentId) !== "${escapeForExtendScript(data.projectDocumentId)}") return __refuse("Active project changed or its identity cannot be verified during media inspection; nothing was changed.");
+    if (String(app.project.activeSequence.sequenceID) !== "${escapeForExtendScript(data.sequenceId)}") return __refuse("Active sequence changed during media inspection; nothing was changed.");
     var validatedPartners = [];
     ${includeLinked ? `var currentTarget = __findClip("${escapeForExtendScript(nodeId)}");
-    if (!currentTarget) return __error("Edit target disappeared; nothing was changed.");
-    try { validatedPartners = adjacentLinkedPartners(currentTarget); } catch (linkedError) { return __error("Linked membership could not be read; nothing was changed. " + String(linkedError)); }
+    if (!currentTarget) return __refuse("Edit target disappeared; nothing was changed.");
+    try { validatedPartners = adjacentLinkedPartners(currentTarget); } catch (linkedError) { return __refuse("Linked membership could not be read; nothing was changed. " + String(linkedError)); }
     var expectedLinkedIds = [${data.linkedNodeIds.map((id) => '"' + escapeForExtendScript(id) + '"').join(",")}];
-    if (validatedPartners.length !== expectedLinkedIds.length) return __error("Linked membership changed during media inspection; nothing was changed.");
-    for (var pi = 0; pi < validatedPartners.length; pi++) if (String(validatedPartners[pi].clip.nodeId) !== expectedLinkedIds[pi]) return __error("Linked membership changed during media inspection; nothing was changed.");` : ''}
+    if (validatedPartners.length !== expectedLinkedIds.length) return __refuse("Linked membership changed during media inspection; nothing was changed.");
+    for (var pi = 0; pi < validatedPartners.length; pi++) if (String(validatedPartners[pi].clip.nodeId) !== expectedLinkedIds[pi]) return __refuse("Linked membership changed during media inspection; nothing was changed.");` : ''}
     var sourceEnds = {}, sourcePhysicalEnds = {}, sourceDurationDrifts = [];
     for (var ei = 0; ei < sourceEvidence.length; ei++) {
       var evidence = sourceEvidence[ei], inspected = __findClip(evidence.nodeId);
-      if (!inspected || __clipPositionKey(evidence.nodeId) !== evidence.position) return __error("Clip placement or source window changed during media inspection; nothing was changed.");
-      if (inspected.trackType !== evidence.trackType || inspected.trackIndex !== evidence.trackIndex || inspected.clipIndex !== evidence.clipIndex) return __error("Clip track or collection position changed during media inspection; nothing was changed.");
+      if (!inspected || __clipPositionKey(evidence.nodeId) !== evidence.position) return __refuse("Clip placement or source window changed during media inspection; nothing was changed.");
+      if (inspected.trackType !== evidence.trackType || inspected.trackIndex !== evidence.trackIndex || inspected.clipIndex !== evidence.clipIndex) return __refuse("Clip track or collection position changed during media inspection; nothing was changed.");
       var currentPath = "";
       try { currentPath = String(inspected.clip.projectItem.getMediaPath() || ""); } catch (pathError) {}
-      if (currentPath !== evidence.mediaPath) return __error("Media source changed during duration inspection; nothing was changed.");
+      if (currentPath !== evidence.mediaPath) return __refuse("Media source changed during duration inspection; nothing was changed.");
       var speed = null, reversed = null;
       try { speed = Number(inspected.clip.getSpeed()); reversed = inspected.clip.isSpeedReversed(); } catch (speedError) {}
-      if ((speed !== 1 && speed !== 100) || (reversed !== false && reversed !== 0)) return __error("Clip speed changed or cannot be verified; nothing was changed.");
+      if ((speed !== 1 && speed !== 100) || (reversed !== false && reversed !== 0)) return __refuse("Clip speed changed or cannot be verified; nothing was changed.");
       sourcePhysicalEnds[evidence.nodeId] = evidence.endTicks;
       ${single ? "if (evidence.endTicks === 0) { sourceEnds[evidence.nodeId] = null; continue; }" : ""}
       var existingIn = parseFloat(inspected.clip.inPoint.ticks), existingOut = parseFloat(inspected.clip.outPoint.ticks);
       var windowError = __sourceWindowError(inspected.clip, evidence.endTicks, null, null, "existing");
-      if (windowError) return __error(windowError);
+      if (windowError) return __refuse(windowError);
       sourceEnds[evidence.nodeId] = Math.max(evidence.endTicks, existingOut);
       var recordDuration = parseFloat(inspected.clip.end.ticks) - parseFloat(inspected.clip.start.ticks);
       var durationDriftTicks = recordDuration - (existingOut - existingIn);
       var durationDriftAllowed = Math.abs(durationDriftTicks) <= 1;
       ${slide ? `var durationFrameTicks = __sequenceFrameTicks(app.project.activeSequence);
-      if (!isFinite(durationFrameTicks)) return __error("The active sequence frame grid could not be read; no slide was attempted.");
+      if (!isFinite(durationFrameTicks)) return __refuse("The active sequence frame grid could not be read; no slide was attempted.");
       durationDriftAllowed = Math.abs(durationDriftTicks) <= durationFrameTicks / 2 || Math.abs(Math.abs(durationDriftTicks) - durationFrameTicks) <= 1;
       if (Math.abs(durationDriftTicks) > 1) sourceDurationDrifts.push({ nodeId: evidence.nodeId, timelineMinusSourceTicks: durationDriftTicks, timelineMinusSourceSeconds: __ticksToSeconds(durationDriftTicks), timelineMinusSourceFrames: durationDriftTicks / durationFrameTicks });` : ""}
-      if (!isFinite(recordDuration) || recordDuration <= 0 || (!${single ? "true" : "false"} && !durationDriftAllowed)) return __error("An existing normal-speed clip has inconsistent timeline/source duration. Nothing was changed.");
+      if (!isFinite(recordDuration) || recordDuration <= 0 || (!${single ? "true" : "false"} && !durationDriftAllowed)) return __refuse("An existing normal-speed clip has inconsistent timeline/source duration. Nothing was changed.");
     }
   ` };
 }
