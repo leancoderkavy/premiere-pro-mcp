@@ -12,7 +12,9 @@ vi.mock("../../src/bridge/file-bridge.js", () => ({
 }));
 
 import { sendCommand } from "../../src/bridge/file-bridge.js";
+import { runWithUndoTracking } from "../../src/bridge/undo-tracking.js";
 import { getProjectTools } from "../../src/tools/project.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const tools = getProjectTools({ tempDir: "/tmp/project-lifecycle", timeoutMs: 5000 } as BridgeOptions);
@@ -249,9 +251,22 @@ describe("project lifecycle tools", () => {
   it("refuses a missing parent before Save As", async () => {
     const h = host({ missingParent: true });
     await tools.open_project.handler({ path: "/p/Main.prproj" });
-    await expect(tools.save_project_as.handler({ path: "/p/Backup.prproj", overwrite: true })).resolves.toMatchObject({
-      success: false, error: expect.stringContaining("directory does not exist"),
+    const result = await runWithUndoTracking(true, () => tools.save_project_as.handler({ path: "/p/Backup.prproj", overwrite: true })) as Result;
+    expect(result).toMatchObject({
+      success: false, error: expect.stringContaining("directory does not exist"), data: { mutationOutcome: "not_applied", timelineChanged: false },
     });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "save_project_as").outcome).toBe("not_applied");
+    expect(h.saveCalls()).toBe(0);
+  });
+
+  it("refuses Save As to the current project's own path before writing", async () => {
+    const h = host();
+    await tools.open_project.handler({ path: "/p/Main.prproj" });
+    const result = await runWithUndoTracking(true, () => tools.save_project_as.handler({ path: "/p/Main.prproj" })) as Result;
+    expect(result).toMatchObject({
+      success: false, error: expect.stringContaining("current project's own path"), data: { mutationOutcome: "not_applied", timelineChanged: false },
+    });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "save_project_as").outcome).toBe("not_applied");
     expect(h.saveCalls()).toBe(0);
   });
 
