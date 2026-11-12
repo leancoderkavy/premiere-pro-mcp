@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { CAPTION_SAFE_AREAS } from "./caption-fit.js";
 import { digestWordTimeline, normalizeToken, sentenceRanges, validateWordTimeline, type TranscriptWord, type WordTimeline } from "./word-timeline.js";
 
 /**
@@ -14,7 +15,7 @@ export type CaptionFormat = (typeof CAPTION_FORMATS)[number];
 export const CAPTION_STYLE_PRESETS = ["clean", "bold_pop", "karaoke", "podcast", "lecture"] as const;
 export type CaptionStylePreset = (typeof CAPTION_STYLE_PRESETS)[number];
 
-export const SAFE_ZONE_PLATFORMS = ["tiktok", "instagram_reels", "youtube_shorts", "instagram_feed", "youtube", "linkedin", "x"] as const;
+export const SAFE_ZONE_PLATFORMS = ["reels_9_16", "tiktok", "instagram_reels", "youtube_shorts", "instagram_feed", "youtube", "linkedin", "x"] as const;
 export type SafeZonePlatform = (typeof SAFE_ZONE_PLATFORMS)[number];
 
 export const SAFE_ZONE_ELEMENT_KINDS = ["caption", "title", "logo", "graphic"] as const;
@@ -164,6 +165,8 @@ type PlatformProfile = {
   orientation: "vertical" | "horizontal" | "any";
   zones: PlatformZone[];
   recommended_caption_anchor: { x: number; y: number };
+  /** Set on the 9:16 app profiles: the numbers are approximate, from public ad specs and templates. */
+  note?: string;
 };
 
 const EDGE_MARGIN = 0.05;
@@ -174,8 +177,27 @@ const titleSafeZones = (): PlatformZone[] => [
   { id: "right_margin", x: 1 - EDGE_MARGIN, y: 0, width: EDGE_MARGIN, height: 1, description: "Title-safe right margin (5%)." },
 ];
 
+/**
+ * Occlusion zones for "everything outside the safe box": four bands around it, so one source of truth
+ * (CAPTION_SAFE_AREAS in caption-fit.ts) serves this check and the caption fit tools.
+ */
+const zonesOutsideBox = (box: { left: number; top: number; right: number; bottom: number }): PlatformZone[] => [
+  { id: "top_ui", x: 0, y: 0, width: 1, height: box.top, description: "Top interface band (status bar, tabs, search) on at least one of the three apps." },
+  { id: "bottom_ui", x: 0, y: box.bottom, width: 1, height: 1 - box.bottom, description: "Bottom interface band (username, caption, sound, navigation) on at least one of the three apps." },
+  { id: "left_margin", x: 0, y: box.top, width: box.left, height: box.bottom - box.top, description: "Left margin kept clear on at least one of the three apps." },
+  { id: "right_ui", x: box.right, y: box.top, width: 1 - box.right, height: box.bottom - box.top, description: "Right action rail (like, comment, share) on at least one of the three apps." },
+];
+const REELS_BOX = CAPTION_SAFE_AREAS.reels_9_16;
+const APPROXIMATE_9_16 = "Approximate: from public ad specs and third-party templates, not an official guide; re-check yearly and test on a device.";
+
 /** Approximate platform UI occlusion zones as normalized rects (x, y top-left). Verify against current platform overlay guides. */
 export const PLATFORM_SAFE_ZONES: Record<SafeZonePlatform, PlatformProfile> = {
+  reels_9_16: {
+    orientation: "vertical",
+    zones: zonesOutsideBox(REELS_BOX),
+    recommended_caption_anchor: { x: 0.5, y: Math.round((REELS_BOX.bottom - 0.04) * 10000) / 10000 },
+    note: `The shared safe box that is clear on TikTok, Instagram Reels and YouTube Shorts at once (x 120-888, y 288-1248 at 1080x1920). ${APPROXIMATE_9_16}`,
+  },
   tiktok: {
     orientation: "vertical",
     zones: [
@@ -184,6 +206,7 @@ export const PLATFORM_SAFE_ZONES: Record<SafeZonePlatform, PlatformProfile> = {
       { id: "bottom_caption_area", x: 0, y: 0.78, width: 1, height: 0.22, description: "Username, caption text, sound ticker, and tab bar." },
     ],
     recommended_caption_anchor: { x: 0.5, y: 0.68 },
+    note: `This app's own overlays. ${APPROXIMATE_9_16}`,
   },
   instagram_reels: {
     orientation: "vertical",
@@ -193,6 +216,7 @@ export const PLATFORM_SAFE_ZONES: Record<SafeZonePlatform, PlatformProfile> = {
       { id: "bottom_caption_area", x: 0, y: 0.8, width: 1, height: 0.2, description: "Username, caption, audio attribution, and tab bar." },
     ],
     recommended_caption_anchor: { x: 0.5, y: 0.7 },
+    note: `This app's own overlays. ${APPROXIMATE_9_16}`,
   },
   youtube_shorts: {
     orientation: "vertical",
@@ -202,6 +226,7 @@ export const PLATFORM_SAFE_ZONES: Record<SafeZonePlatform, PlatformProfile> = {
       { id: "bottom_caption_area", x: 0, y: 0.82, width: 1, height: 0.18, description: "Channel, title, sound, and navigation bar." },
     ],
     recommended_caption_anchor: { x: 0.5, y: 0.7 },
+    note: `This app's own overlays. ${APPROXIMATE_9_16}`,
   },
   instagram_feed: { orientation: "any", zones: titleSafeZones(), recommended_caption_anchor: { x: 0.5, y: 0.86 } },
   youtube: { orientation: "horizontal", zones: titleSafeZones(), recommended_caption_anchor: { x: 0.5, y: 0.86 } },
@@ -903,6 +928,7 @@ export function checkCaptionSafeZone(input: { platform: unknown; frame: unknown;
       "Overlay zones are approximate normalized rectangles derived from typical mobile app layouts; verify against current platform overlay guides.",
       "Overlay placement varies by device, app version, locale, and caption length; keep a margin beyond the listed zones.",
       "Suggested positions minimize top-left displacement and do not account for other on-screen elements.",
+      ...(profile.note ? [`${platform}: ${profile.note}`] : []),
     ],
     warnings,
     plan_revision: `sha256:${createHash("sha256").update(JSON.stringify({ platform, frame: { width, height }, elements })).digest("hex")}`,

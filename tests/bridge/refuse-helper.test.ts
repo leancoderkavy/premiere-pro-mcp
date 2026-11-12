@@ -8,6 +8,7 @@ import { runWithExpectedHostTarget } from "../../src/bridge/project-guard.js";
 vi.mock("../../src/bridge/file-bridge.js", () => ({ sendCommand: vi.fn() }));
 import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { getTimelineTools } from "../../src/tools/timeline.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 
 // One long-lived engine, as in the CEP panel: helper globals survive between commands.
 function engine(undoIndex: { value: number | null }) {
@@ -37,6 +38,17 @@ describe("__refuse", () => {
     expect(result.data.refusedBeforeChange).toBeUndefined();
     expect(result.data.timelineChanged).toBe(true);
     expect(result.error).toContain("recorded 1 undo entry");
+  });
+
+  it("preserves an unchanged timeline only with an explicit snapshot receipt", () => {
+    const undo = { value: 4 };
+    const run = engine(undo);
+    const generic = run(runWithUndoTracking(true, () => buildScript(`qe.project.undoStackIndex = function () { return 5; }; return __error("Generic", { timelineChanged: false });`)));
+    expect(generic.data.timelineChanged).toBe(true);
+    const snapshot = run(runWithUndoTracking(true, () => buildScript(`qe.project.undoStackIndex = function () { return 6; }; return __error("Snapshot", { timelineChanged: false, timelineSnapshotVerified: true });`)));
+    expect(snapshot.data).toMatchObject({ timelineChanged: false, undoSteps: 1 });
+    expect(snapshot.data.timelineSnapshotVerified).toBeUndefined();
+    expect(snapshot.error).toContain("active-sequence snapshot was unchanged");
   });
 
   it("falls back to __error when the undo index is unreadable", () => {
@@ -84,5 +96,18 @@ describe("refusals in tool scripts", () => {
     const tools = getTimelineTools({});
     const result = await runWithUndoTracking(true, () => tools.enable_disable_clip.handler({ node_id: "000fffff", enabled: false }));
     expect(result).toMatchObject({ success: false, error: "Clip not found: 000fffff", data: { mutationOutcome: "not_applied", timelineChanged: false } });
+  });
+
+  it.each([
+    ["remove_from_timeline", { node_id: "000fffff" }],
+    ["move_clip", { node_id: "000fffff", new_start_seconds: 5 }],
+    ["duplicate_clip", { node_id: "000fffff" }],
+  ] as const)("%s refuses a stale node ID as not_applied", async (name, args) => {
+    const run = engine({ value: 7 });
+    vi.mocked(sendCommand).mockImplementation(async (script) => run(script));
+    const tools = getTimelineTools({});
+    const result = await runWithUndoTracking(true, () => tools[name].handler(args as never)) as { success: boolean; data?: Record<string, unknown> };
+    expect(result).toMatchObject({ success: false, error: "Clip not found: 000fffff", data: { mutationOutcome: "not_applied", timelineChanged: false } });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, name).outcome).toBe("not_applied");
   });
 });

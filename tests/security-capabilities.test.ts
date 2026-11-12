@@ -63,6 +63,17 @@ describe("capability profiles", () => {
     expect(capabilityForTool("trim_clip")).toBe("edit");
   });
 
+  it("requires inspect, export and filesystem for every transcribe_audio source, media_path included", async () => {
+    const full = ["inspect", "export", "filesystem"];
+    expect(capabilitiesForToolInvocation("transcribe_audio", {})).toEqual(full);
+    expect(capabilitiesForToolInvocation("transcribe_audio", { media_path: "/approved/a.wav" })).toEqual(full);
+    expect(capabilitiesForToolInvocation("transcribe_audio", { use_active_sequence: true })).toEqual(full);
+    const handler = vi.fn(async () => "ok");
+    const guarded = guardToolHandler("transcribe_audio", handler, resolveCapabilities("inspect,filesystem"), () => "upload-op");
+    await expect(guarded({ media_path: "/approved/a.wav" })).rejects.toMatchObject({ code: "CAPABILITY_DENIED", capability: "export" });
+    expect(handler).not.toHaveBeenCalled();
+  });
+
   it("requires filesystem authority before an export-extension lookup can inspect a local preset", async () => {
     expect(capabilitiesForToolInvocation("get_export_file_extension", { preset_path: "/tmp/preset.epr" }))
       .toEqual(["inspect", "filesystem"]);

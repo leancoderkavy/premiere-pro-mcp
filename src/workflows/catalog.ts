@@ -58,8 +58,8 @@ export const WORKFLOW_CATALOG = [
   {
     id: "caption-and-style",
     title: "Caption and style a sequence",
-    summary: "Inspect the active sequence, create captions, apply styling, verify timing, and save.",
-    recommendedTools: ["get_active_sequence", "create_caption_track", "get_sequence_structure", "save_project"],
+    summary: "Inspect the active sequence, plan captions to a published standard, create a caption track or burned-in caption graphics, check them, verify timing, and save.",
+    recommendedTools: ["get_active_sequence", "plan_captions", "create_caption_track", "add_caption_graphics", "check_captions", "get_sequence_structure", "save_project"],
   },
   {
     id: "delivery",

@@ -83,7 +83,7 @@ export function getSelectionTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           ${SELECTION_READBACK}
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
 
           var query = "${escapeForExtendScript(args.name)}".toLowerCase();
           var addToSel = ${args.add_to_selection ? "true" : "false"};
@@ -149,7 +149,7 @@ export function getSelectionTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           ${SELECTION_READBACK}
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
 
           var count = 0;
           function selectAll(tracks) {
@@ -179,7 +179,7 @@ export function getSelectionTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           ${SELECTION_READBACK}
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
 
           var count = 0;
           for (var t = 0; t < seq.videoTracks.numTracks; t++) {
@@ -235,7 +235,7 @@ export function getSelectionTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           ${SELECTION_READBACK}
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
 
           var startTicks = __secondsToTicks(${args.start_seconds});
           var endTicks = __secondsToTicks(${args.end_seconds});
@@ -291,7 +291,7 @@ export function getSelectionTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           ${SELECTION_READBACK}
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
 
           // Deselect all
           for (var t = 0; t < seq.videoTracks.numTracks; t++) {
@@ -332,7 +332,7 @@ export function getSelectionTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           ${SELECTION_READBACK}
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
 
           var selected = 0;
           var deselected = 0;
@@ -342,7 +342,7 @@ export function getSelectionTools(bridgeOptions: BridgeOptions) {
               for (var c = 0; c < invertTracks[k][t].clips.numItems; c++) {
                 var before = null;
                 try { before = invertTracks[k][t].clips[c].isSelected(); } catch (invertReadError) {}
-                if (before !== true && before !== false && before !== 0 && before !== 1) return __error("Current selection could not be read; nothing was changed.");
+                if (before !== true && before !== false && before !== 0 && before !== 1) return __refuse("Current selection could not be read; nothing was changed.");
               }
             }
           }
@@ -377,7 +377,7 @@ export function getSelectionTools(bridgeOptions: BridgeOptions) {
         const script = buildToolScript(`
           ${SELECTION_READBACK}
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
 
           // Deselect all
           for (var t = 0; t < seq.videoTracks.numTracks; t++) {

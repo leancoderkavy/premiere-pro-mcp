@@ -72,9 +72,12 @@ describe("UXP MCP tools", () => {
     const bridge = {
       request: vi.fn(),
       getState: vi.fn(() => state),
+      claim: vi.fn(async () => false),
     } as unknown as UxpWebSocketBridge;
     const result = await getUxpTools(bridge).get_uxp_capabilities.handler();
     expect(result).toEqual({ success: true, data: { ...state, capabilitiesSource: "handshake" } });
+    // Discovery may take the loopback port over from another server process, but never calls the host.
+    expect(bridge.claim).toHaveBeenCalledTimes(1);
     expect(bridge.request).not.toHaveBeenCalled();
   });
 
@@ -690,7 +693,7 @@ describe("UXP MCP tools", () => {
       // and caption style guidance (get_caption_style_guidance) add three more tools; paste_clip_attributes, set_clip_duration, and compute_mask_fit_motion each add one core tool.
       // Premiere 26.5 WorkAreaUtils adds manage_work_area_uxp.
       // Clone-based unnest adds unnest_sequence_uxp.
-        expect(tools.tools).toHaveLength(543);
+        expect(tools.tools).toHaveLength(549);
     } finally {
       await client.close();
       await server.close();

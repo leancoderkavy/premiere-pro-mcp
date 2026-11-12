@@ -34,6 +34,8 @@ import {
   SAFE_ZONE_PLATFORMS,
   SAFE_ZONE_ROUTES,
 } from "../ai/caption-authoring.js";
+import { CAPTION_SAFE_AREAS } from "../ai/caption-fit.js";
+import { CAPTION_STANDARD_IDS, CAPTION_STANDARDS, describeCaptionStandards, type CaptionStandard, type CaptionStandardId } from "../ai/caption-standards.js";
 import { WORD_TIMELINE_PARAMETER } from "../ai/word-timeline.js";
 import {
   MAX_CUE_TEXT_CHARACTERS,
@@ -113,6 +115,27 @@ const CUSTOM_STYLE_PARAMETER = {
   },
 } as const;
 
+/** Short plain rules for one standard, from the standards table so the numbers cannot drift. */
+function captionStandardRules(std: CaptionStandard): string[] {
+  const speed: string[] = [];
+  if (std.max_cps !== undefined) speed.push(`${std.max_cps} characters a second`);
+  if (std.max_wpm !== undefined) speed.push(`${std.max_wpm} words a minute`);
+  if (std.min_s_per_word !== undefined) speed.push(`at least ${std.min_s_per_word} s on screen per word`);
+  const rules = [
+    `Reading speed: at most ${speed.join(" and ")} (spaces and punctuation count).`,
+    `Line length: at most ${std.max_cpl} characters a line, ${std.max_lines} lines at most.`,
+    "Break lines at grammar boundaries: not after an article, preposition, conjunction or auxiliary verb, and keep a name or a number with its unit together.",
+    std.bottom_heavy ? "In a two-line caption make the lower line the longer." : "Keep the two lines of a caption near the same length.",
+    `On screen at least ${Math.round(std.min_duration_s * 100) / 100} s and at most ${std.max_duration_s} s.`,
+    `Leave ${std.min_gap_frames} frames between captions; close a gap shorter than ${std.close_gap_under_s} s to ${std.min_gap_frames} frames so nothing flickers.`,
+    `Avoid straddling a shot change: put an in-time on the cut or at least ${std.cut_zone_s} s before it, and end ${std.min_gap_frames} frames before a cut.`,
+    "Speakers: a new speaker gets a colour (BBC order white, yellow, cyan, green), or a hyphen at the start of each line, or a NAME: label.",
+    "SDH: sound events in [lower-case brackets] as their own captions; sung lyrics in italics between music notes (♪).",
+  ];
+  if (std.id === "social_9x16") rules.push(`Keep text inside the 9:16 safe box that is clear on TikTok, Reels and Shorts (platform reels_9_16, x 120-888 and y 288-1248 at 1080x1920); check_caption_safe_zone and check_captions can test it.`);
+  return rules;
+}
+
 function absolutePath(value: unknown, label: string): string {
   if (typeof value !== "string" || !value.trim() || value.length > MAX_PATH_LENGTH) throw new Error(`${label} must be a non-empty string of at most ${MAX_PATH_LENGTH} characters`);
   const trimmed = value.trim();
@@ -157,9 +180,9 @@ export const MAX_CAPTION_INPUT_BYTES = 2 * 1024 * 1024;
 /**
  * Resolves an existing caption file contained inside the approved workspace.
  * Containment is checked on the realpath of the file itself, so a symlink that
- * points outside the workspace is refused.
+ * points outside the workspace is refused. `maxBytes` defaults to MAX_CAPTION_INPUT_BYTES.
  */
-export function resolveContainedInputPath(workspace: unknown, input: unknown): string {
+export function resolveContainedInputPath(workspace: unknown, input: unknown, maxBytes: number = MAX_CAPTION_INPUT_BYTES): string {
   const workspacePath = absolutePath(workspace, "approved_workspace_path");
   const inputPath = absolutePath(input, "input_path");
   let root: string;
@@ -179,7 +202,7 @@ export function resolveContainedInputPath(workspace: unknown, input: unknown): s
   if (!relative || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) throw new Error("input_path must be contained within approved_workspace_path");
   const stats = statSync(resolved);
   if (!stats.isFile()) throw new Error("input_path must be a regular file");
-  if (stats.size > MAX_CAPTION_INPUT_BYTES) throw new Error(`input_path is ${stats.size} bytes, above the ${MAX_CAPTION_INPUT_BYTES}-byte caption file limit`);
+  if (stats.size > maxBytes) throw new Error(`input_path is ${stats.size} bytes, above the ${maxBytes}-byte caption file limit`);
   return resolved;
 }
 
@@ -273,7 +296,7 @@ export function getCaptionAuthoringTools() {
     },
     check_caption_safe_zone: {
       description:
-        "Check caption, title, logo, and graphic rectangles against approximate platform UI overlay zones (TikTok, Reels, Shorts, feed, YouTube, LinkedIn, X) and suggest the nearest clear position. Local-only geometry on caller-supplied normalized rects; it never reads or changes Premiere.",
+        "Check caption, title, logo, and graphic rectangles against approximate platform UI overlay zones (reels_9_16 shared box, TikTok, Reels, Shorts, feed, YouTube, LinkedIn, X) and suggest the nearest clear position. Local-only geometry on caller-supplied normalized rects; it never reads or changes Premiere.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
@@ -334,7 +357,7 @@ export function getCaptionAuthoringTools() {
     },
     get_caption_style_guidance: {
       description:
-        "Read-only caption style guidance: a preset and/or custom_style turned into Premiere 2024+ Properties-panel Track Style steps, plus keyword_highlight per-word steps, manual Upgrade Caption to Graphic steps, and render-verification routes. NEVER modifies captions: Premiere has no caption style, per-word, or upgrade API.",
+        "Read-only caption style guidance: a preset and/or custom_style as Premiere Properties-panel Track Style steps, plus keyword_highlight steps, manual Upgrade Caption to Graphic steps, render-verification routes, and a standard's rules (standard). NEVER modifies captions: Premiere has no caption style, per-word, or upgrade API.",
       parameters: {
         type: "object" as const,
         additionalProperties: false,
@@ -342,6 +365,7 @@ export function getCaptionAuthoringTools() {
         properties: {
           preset: { type: "string", enum: [...CAPTION_STYLE_PRESETS], description: "Style preset to describe (default clean when custom_style is omitted)." },
           custom_style: CUSTOM_STYLE_PARAMETER,
+          standard: { type: "string", enum: [...CAPTION_STANDARD_IDS], description: "Optional caption standard (netflix_adult, netflix_kids, bbc, dcmp, social_9x16): returns its limits and a short rule list. standards_table always lists all five. Use plan_captions to build captions to it and check_captions to lint." },
           keyword_highlight: {
             type: "object",
             additionalProperties: false,
@@ -366,6 +390,12 @@ export function getCaptionAuthoringTools() {
           if (args.preset !== undefined && (typeof args.preset !== "string" || !(CAPTION_STYLE_PRESETS as readonly string[]).includes(args.preset))) {
             throw new Error(`preset must be one of: ${CAPTION_STYLE_PRESETS.join(", ")}`);
           }
+          if (args.standard !== undefined && (typeof args.standard !== "string" || !(CAPTION_STANDARD_IDS as readonly string[]).includes(args.standard))) {
+            throw new Error(`standard must be one of: ${CAPTION_STANDARD_IDS.join(", ")}`);
+          }
+          const standardsTable = describeCaptionStandards();
+          const standardId = args.standard as CaptionStandardId | undefined;
+          const standardEntry = standardId ? { ...standardsTable.find((entry) => entry.id === standardId)!, rules: captionStandardRules(CAPTION_STANDARDS[standardId]) } : undefined;
           const custom = args.custom_style === undefined ? undefined : validateCustomCaptionStyle(args.custom_style);
           const highlight = args.keyword_highlight === undefined ? undefined : validateKeywordHighlight(args.keyword_highlight);
           const preset = (args.preset ?? (custom ? undefined : "clean")) as CaptionStylePreset | undefined;
@@ -382,6 +412,8 @@ export function getCaptionAuthoringTools() {
                 "Step 1: Generate caption SRT/VTT with build_caption_artifact (timing/text only)",
                 "Step 2: Import the caption file into Premiere project",
                 "Step 3: Call create_caption_track with action:import and the imported item_id",
+                "To a published standard instead: get a transcript (transcribe_audio, or get_clip_transcript_uxp), run plan_captions (netflix_adult, bbc, social_9x16 ...) and check_captions, then create_caption_track with action import_plan and plan_path (the Premiere-native track)",
+                "For burned-in styled captions: add_caption_graphics with the same plan_path",
                 "Step 4: Inspect the track with read_sequence_captions or inspect_caption_tracks_uxp",
                 "Step 5: Style one caption in Premiere's Properties panel and save it as a Track Style (premiere_ui_steps); it applies to the whole caption track",
                 ...(highlight ? ["Step 6: Colour the keywords by hand in the Program Monitor (keyword_highlight_steps)"] : []),
@@ -408,7 +440,9 @@ export function getCaptionAuthoringTools() {
               applied: false,
               mutation_refused: "This tool provides guidance only. MCP for Adobe Premiere Pro does not expose a CaptionTrack style mutation API because Premiere does not expose one through documented ExtendScript, QE DOM, or UXP surfaces. Apply caption styles manually in Premiere's Properties panel (or Essential Graphics) and save them as a Track Style. Per-word colour and Upgrade Caption to Graphic are also manual.",
               safe_zones: presetStyle?.safe_zone_recommendation ?? captionSafeZoneRecommendation(),
-              routes: [...new Set<string>([...CAPTION_AUTHORING_ROUTES, ...SAFE_ZONE_ROUTES, ...CAPTION_STYLE_VERIFY_ROUTES])].filter((route) => !CAPTION_STILL_FRAME_ROUTES.includes(route)),
+              ...(standardEntry ? { standard: standardEntry } : {}),
+              standards_table: standardsTable,
+              routes: [...new Set<string>(["plan_captions", "check_captions", "add_caption_graphics", "transcribe_audio", ...CAPTION_AUTHORING_ROUTES, ...SAFE_ZONE_ROUTES, ...CAPTION_STYLE_VERIFY_ROUTES])].filter((route) => !CAPTION_STILL_FRAME_ROUTES.includes(route)),
             },
           };
         } catch (error) {

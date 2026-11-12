@@ -455,6 +455,24 @@ describe("advanced stable Premiere UXP workflows", () => {
     expect(value.bin.children).toHaveLength(1);
   });
 
+  it("descends through cast-only nested bins without a Project selection (#973)", async () => {
+    const value = advancedHost();
+    const binView = { ...value.bin, getItems: value.bin.getItems };
+    value.bin.getItems = undefined;
+    value.ppro.FolderItem.cast.mockImplementation((item: MutableItem) => {
+      if (item === value.bin) return binView;
+      if (!item.isFolder) throw new Error("not folder");
+      return item;
+    });
+    value.ppro.ProjectUtils.getSelection.mockResolvedValue({ getItems: vi.fn(async () => []) });
+    value.ppro.ProjectUtils.getSelectionFromViewId.mockResolvedValue({ getItems: vi.fn(async () => []) });
+    await expect(value.registry.dispatch("projectTree.inspect", { maxDepth: 3 })).resolves.toMatchObject({
+      items: expect.arrayContaining([{ id: "clip-1", name: "Interview.mov", parentId: "bin-1", depth: 2, isBin: false, type: 1, colorLabelIndex: 0, idUnavailable: false }]),
+    });
+    await expect(value.registry.dispatch("bins.rename", { projectItemId: "clip-1", name: "Nested renamed.mov", operationId: "nested-rename" })).resolves.toMatchObject({ renamed: true, outcome: "verified" });
+    expect(value.clip.name).toBe("Nested renamed.mov");
+  });
+
   it("walks the native Project root in deterministic bounded order without reading beyond the requested tree", async () => {
     const value = advancedHost();
     await expect(value.registry.dispatch("projectTree.inspect", { maxItems: 2, maxDepth: 2 })).resolves.toMatchObject({

@@ -20,6 +20,7 @@ import { getTimelineTools } from "./tools/timeline.js";
 import { getRippleRemoveRangesTools } from "./tools/ripple-remove-ranges.js";
 import { getEffectsTools } from "./tools/effects.js";
 import { getTransitionsTools } from "./tools/transitions.js";
+import { getAudioTransitionTools } from "./tools/audio-transitions.js";
 import { getAudioTools } from "./tools/audio.js";
 import { getSourceToTimelineTools } from "./tools/source-to-timeline.js";
 import { getTextTools } from "./tools/text.js";
@@ -67,6 +68,9 @@ import { getMaskFitTools } from "./tools/mask-fit.js";
 import { getRhythmPlanTools } from "./tools/rhythm-plans.js";
 import { getShortsIntelligenceTools } from "./tools/shorts-intelligence.js";
 import { getCaptionAuthoringTools } from "./tools/caption-authoring.js";
+import { getCaptionPlanningTools } from "./tools/caption-planning.js";
+import { getCaptionTranscriptionTools } from "./tools/caption-transcription.js";
+import { getCaptionGraphicsTools } from "./tools/caption-graphics.js";
 import { getReactionShortsTools } from "./tools/reaction-shorts.js";
 import { getTranscriptWordEditTools } from "./tools/transcript-word-edits.js";
 import { getPlatformDeliveryTools } from "./tools/platform-delivery.js";
@@ -347,6 +351,7 @@ function collectStaticTools(
     ...getRippleRemoveRangesTools(bridgeOptions, { capabilities }),
     ...getEffectsTools(bridgeOptions),
     ...getTransitionsTools(bridgeOptions),
+    ...getAudioTransitionTools(bridgeOptions),
     ...getAudioTools(bridgeOptions),
     ...getSourceToTimelineTools(bridgeOptions),
     ...getTextTools(bridgeOptions),
@@ -390,6 +395,9 @@ function collectStaticTools(
     ...getRhythmPlanTools(),
     ...getShortsIntelligenceTools(),
     ...getCaptionAuthoringTools(),
+    ...getCaptionPlanningTools(),
+    ...getCaptionTranscriptionTools(bridgeOptions),
+    ...getCaptionGraphicsTools(bridgeOptions),
     ...getReactionShortsTools(),
     ...getTranscriptWordEditTools(),
     ...getPlatformDeliveryTools(),

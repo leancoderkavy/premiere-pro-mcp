@@ -79,6 +79,10 @@ import { getMaskFitTools } from "../../src/tools/mask-fit.js";
 import { getRhythmPlanTools } from "../../src/tools/rhythm-plans.js";
 import { getShortsIntelligenceTools } from "../../src/tools/shorts-intelligence.js";
 import { getCaptionAuthoringTools } from "../../src/tools/caption-authoring.js";
+import { getCaptionPlanningTools } from "../../src/tools/caption-planning.js";
+import { getCaptionTranscriptionTools } from "../../src/tools/caption-transcription.js";
+import { getAudioTransitionTools } from "../../src/tools/audio-transitions.js";
+import { getCaptionGraphicsTools } from "../../src/tools/caption-graphics.js";
 import { getReactionShortsTools } from "../../src/tools/reaction-shorts.js";
 import { getTranscriptWordEditTools } from "../../src/tools/transcript-word-edits.js";
 import type { Telemetry, TelemetryProperties } from "../../src/telemetry.js";
@@ -149,6 +153,10 @@ const ALL_MODULES: Array<{
   { name: "platform-delivery", getter: getPlatformDeliveryTools, minTools: 2 },
   { name: "transcript-word-edits", getter: getTranscriptWordEditTools, minTools: 4 },
   { name: "caption-authoring", getter: getCaptionAuthoringTools, minTools: 2 },
+  { name: "caption-planning", getter: getCaptionPlanningTools, minTools: 2 },
+  { name: "caption-transcription", getter: getCaptionTranscriptionTools, minTools: 1 },
+  { name: "audio-transitions", getter: getAudioTransitionTools, minTools: 2 },
+  { name: "caption-graphics", getter: getCaptionGraphicsTools, minTools: 1 },
   { name: "reaction-shorts", getter: getReactionShortsTools, minTools: 3 },
   { name: "shorts-intelligence", getter: getShortsIntelligenceTools, minTools: 2 },
   { name: "rhythm-plans", getter: getRhythmPlanTools, minTools: 2 },
@@ -241,16 +249,16 @@ describe("Tool Module Structure", () => {
 });
 
 describe("Total Tool Count", () => {
-  it("all modules together have 434 tools", () => {
+  it("all modules together have 440 tools", () => {
     let total = 0;
     for (const mod of ALL_MODULES) {
       total += Object.keys(mod.getter(bridgeOptions)).length;
     }
-    expect(total).toBe(434);
+    expect(total).toBe(440);
   });
 
-  it("there are 60 directly enumerated modules", () => {
-    expect(ALL_MODULES.length).toBe(60);
+  it("there are 64 directly enumerated modules", () => {
+    expect(ALL_MODULES.length).toBe(64);
   });
 });
 

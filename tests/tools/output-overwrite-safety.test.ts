@@ -4,9 +4,11 @@ import { parse } from "acorn";
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
 vi.mock("../../src/bridge/file-bridge.js", async importOriginal => ({ ...(await importOriginal<typeof import("../../src/bridge/file-bridge.js")>()), sendCommand: vi.fn() }));
 import { sendCommand } from "../../src/bridge/file-bridge.js";
+import { runWithUndoTracking } from "../../src/bridge/undo-tracking.js";
 import { getProjectTools } from "../../src/tools/project.js";
 import { getAdvancedTools } from "../../src/tools/advanced.js";
 import { getUtilityTools } from "../../src/tools/utility.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 const options = { tempDir: "/tmp/output-overwrite-test" };
 const cases = [
   ["save_project_as", getProjectTools(options).save_project_as, { path: "/outputs/ẹ̀ṣọ́ 'quoted'.prproj" }],
@@ -28,9 +30,11 @@ function fakeHost() {
   return writes;
 }
 describe("explicit replacement of host-written outputs", () => {
-  it.each(cases)("%s refuses an existing output before the host write", async (_name, tool, args) => {
+  it.each(cases)("%s refuses an existing output before the host write", async (name, tool, args) => {
     const writes = fakeHost();
-    await expect(tool.handler(args as never)).resolves.toMatchObject({ success: false, error: expect.stringContaining("Output already exists") });
+    const result = await runWithUndoTracking(true, () => tool.handler(args as never)) as { success: boolean; error?: string; data?: Record<string, unknown> };
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("Output already exists"), data: { mutationOutcome: "not_applied", timelineChanged: false } });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, name).outcome).toBe("not_applied");
     expect(writes).not.toHaveBeenCalled();
   });
   it.each(cases)("%s dispatches replacement only after overwrite true", async (_name, tool, args) => {
@@ -40,7 +44,9 @@ describe("explicit replacement of host-written outputs", () => {
   });
   it("checks the implied .png destination before a freeze-frame export", async () => {
     const writes = fakeHost();
-    await expect(cases[2][1].handler({ output_path: "/outputs/still" })).resolves.toMatchObject({ success: false, error: expect.stringContaining("Output already exists") });
+    const result = await runWithUndoTracking(true, () => cases[2][1].handler({ output_path: "/outputs/still" })) as { success: boolean; error?: string; data?: Record<string, unknown> };
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining("Output already exists"), data: { mutationOutcome: "not_applied", timelineChanged: false } });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "freeze_frame").outcome).toBe("not_applied");
     expect(writes).not.toHaveBeenCalled();
   });
 });

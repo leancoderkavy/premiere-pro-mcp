@@ -10,7 +10,7 @@ const config = (names: readonly string[]) => ({ capabilities: new Set(names as C
 
 describe("catalog authority before handler dispatch", () => {
   it("covers every registered tool and action, including native facades", () => {
-    expect(Object.keys(catalog)).toHaveLength(545);
+    expect(Object.keys(catalog)).toHaveLength(551);
     expect(new Set(cases.map(row => row.tool))).toEqual(new Set(Object.keys(catalog)));
     for (const [name, tool] of Object.entries(catalog)) {
       const actions = (tool.parameters as { properties?: { action?: { enum?: string[] } } }).properties?.action?.enum ?? [];

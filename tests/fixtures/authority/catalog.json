@@ -22,6 +22,20 @@
     ]
   },
   {
+    "tool": "add_audio_transition",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "add_audio_transition_to_clip",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
     "tool": "add_custom_metadata_field",
     "args": {},
     "required": [
@@ -5409,6 +5423,90 @@
     },
     "required": [
       "edit",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "add_caption_graphics",
+    "args": {},
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "check_captions",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "check_captions",
+    "args": {
+      "file_path": "/approved/a.srt"
+    },
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "create_caption_track",
+    "args": {
+      "action": "import_plan"
+    },
+    "required": [
+      "edit",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "plan_captions",
+    "args": {},
+    "required": [
+      "inspect"
+    ]
+  },
+  {
+    "tool": "plan_captions",
+    "args": {
+      "plan_output_path": "/approved/plan.json"
+    },
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "read_sequence_captions",
+    "args": {
+      "export": {
+        "format": "srt"
+      }
+    },
+    "required": [
+      "inspect",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "transcribe_audio",
+    "args": {},
+    "required": [
+      "inspect",
+      "export",
+      "filesystem"
+    ]
+  },
+  {
+    "tool": "transcribe_audio",
+    "args": {
+      "media_path": "/approved/a.wav"
+    },
+    "required": [
+      "inspect",
       "export",
       "filesystem"
     ]

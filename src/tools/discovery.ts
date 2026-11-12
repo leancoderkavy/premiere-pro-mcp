@@ -118,7 +118,7 @@ export function getDiscoveryTools(bridgeOptions: BridgeOptions) {
     },
 
     get_active_sequence: {
-      description: "Get bounded, paged information about the currently active sequence (50 clips by default). Audio and video clips include source In/Out seconds. Follow pagination.nextOffset for more. Bounded source-alignment diagnostics include separate picture/sound offsets and media-pair group inconsistencies, with limited group context outside this page; they do not verify playback sync.",
+      description: "Get bounded, paged information about the currently active sequence (50 clips by default). Audio and video tracks include transitionCount plus up to 50 transition ranges; inspect transitionsTruncated before structural edits, which can refuse to strand a transition. Use get_full_sequence_info for settings and broader sequence inspection. Audio and video clips include source In/Out seconds. Follow pagination.nextOffset for more. Bounded source-alignment diagnostics include separate picture/sound offsets and media-pair group inconsistencies, with limited group context outside this page; they do not verify playback sync.",
       parameters: { type: "object" as const, properties: sequenceReadProperties },
       handler: async (args: SequenceReadArgs = {}) => {
         const bounds = sequenceReadScript(args, true);
@@ -148,8 +148,24 @@ export function getDiscoveryTools(bridgeOptions: BridgeOptions) {
               index: t,
               name: track.name,
               numClips: track.clips.numItems,
-              clips: clips
+              clips: clips,
+              transitions: null,
+              transitionCount: null,
+              transitionsTruncated: null
             });
+            var videoInfo = videoTracks[videoTracks.length - 1];
+            try {
+              var videoTransitionCount = track.transitions && track.transitions.numItems;
+              if (typeof videoTransitionCount !== "number" || !isFinite(videoTransitionCount) || videoTransitionCount < 0 || Math.floor(videoTransitionCount) !== videoTransitionCount) throw new Error("unreadable transitions");
+              videoInfo.transitionCount = videoTransitionCount;
+              videoInfo.transitions = [];
+              for (var tr = 0; tr < videoTransitionCount && tr < 50; tr++) {
+                var videoTransition = track.transitions[tr];
+                if (!videoTransition || !videoTransition.start || !videoTransition.end || !isFinite(Number(videoTransition.start.ticks)) || !isFinite(Number(videoTransition.end.ticks))) throw new Error("unreadable transition");
+                videoInfo.transitions.push({ index: tr, nodeId: videoTransition.nodeId ? String(videoTransition.nodeId) : null, startSeconds: __ticksToSeconds(videoTransition.start.ticks), endSeconds: __ticksToSeconds(videoTransition.end.ticks), type: videoTransition.type });
+              }
+              videoInfo.transitionsTruncated = videoInfo.transitionCount > videoInfo.transitions.length;
+            } catch (videoTransitionError) { videoInfo.transitions = null; videoInfo.transitionCount = null; videoInfo.transitionsTruncated = null; }
           }
           
           var audioTracks = [];
@@ -173,8 +189,24 @@ export function getDiscoveryTools(bridgeOptions: BridgeOptions) {
               index: t,
               name: track.name,
               numClips: track.clips.numItems,
-              clips: clips
+              clips: clips,
+              transitions: null,
+              transitionCount: null,
+              transitionsTruncated: null
             });
+            var audioInfo = audioTracks[audioTracks.length - 1];
+            try {
+              var audioTransitionCount = track.transitions && track.transitions.numItems;
+              if (typeof audioTransitionCount !== "number" || !isFinite(audioTransitionCount) || audioTransitionCount < 0 || Math.floor(audioTransitionCount) !== audioTransitionCount) throw new Error("unreadable transitions");
+              audioInfo.transitionCount = audioTransitionCount;
+              audioInfo.transitions = [];
+              for (var tr = 0; tr < audioTransitionCount && tr < 50; tr++) {
+                var audioTransition = track.transitions[tr];
+                if (!audioTransition || !audioTransition.start || !audioTransition.end || !isFinite(Number(audioTransition.start.ticks)) || !isFinite(Number(audioTransition.end.ticks))) throw new Error("unreadable transition");
+                audioInfo.transitions.push({ index: tr, nodeId: audioTransition.nodeId ? String(audioTransition.nodeId) : null, startSeconds: __ticksToSeconds(audioTransition.start.ticks), endSeconds: __ticksToSeconds(audioTransition.end.ticks), type: audioTransition.type });
+              }
+              audioInfo.transitionsTruncated = audioInfo.transitionCount > audioInfo.transitions.length;
+            } catch (audioTransitionError) { audioInfo.transitions = null; audioInfo.transitionCount = null; audioInfo.transitionsTruncated = null; }
           }
           
           if (__readError) return __error(__readError);

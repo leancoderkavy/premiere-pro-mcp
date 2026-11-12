@@ -150,7 +150,7 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
     name: "captions",
     title: "Caption review",
     description:
-      "Caption-track creation, supported caption readback, sequence structure, and review-frame evidence.",
+      "Caption planning to a published standard, transcription, caption-track creation, burned-in MOGRT captions, caption QA, supported caption readback, sequence structure, and review-frame evidence.",
     tools: [
       "create_caption_track",
       "multiple_undo",
@@ -164,6 +164,14 @@ export const WORKFLOW_TOOL_PACKS: readonly WorkflowToolPack[] = [
       "build_caption_artifact",
       "check_caption_safe_zone",
       "retime_caption_file",
+      "plan_captions",
+      "check_captions",
+      "add_caption_graphics",
+      "transcribe_audio",
+      "get_caption_style_guidance",
+      "get_sequence_settings",
+      "detect_scene_edits",
+      "import_mogrt",
       "plan_reaction_captions",
       "plan_short_subscribe_cta",
       "plan_short_export_folder",
