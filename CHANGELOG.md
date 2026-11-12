@@ -6,14 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.31.0] - 2026-11-11
+
 ### Fixed
+
+- Nested-bin UXP walks retain the `FolderItem.cast` view for tree inspection, item lookup, and dialogue parent resolution (#973). Regression fixtures distinguish raw project items from folder views.
+- UXP port handoff refuses while a host command is pending and blocks new dispatch during release, preserving the active command.
+- Audio-transition commands escape clip IDs with the shared ExtendScript helper and report pre-write refusals as `not_applied`.
+- `clear_item_in_out` uses bounded independent XMP duration evidence when private metadata is unreadable, separates source-mark changes from timeline snapshots, and `get_active_sequence` reports bounded transition ranges (#965).
+- Save As, project export, and freeze-frame pre-write refusals preserve `not_applied` receipts instead of creating false recovery locks.
 
 - Selection tools report a missing active sequence, and `invert_selection` reports an unreadable current selection, as `not_applied`. Those dispatched no-ops used to omit an outcome, so the receipt was unknown and set a recovery lock that blocked every later edit until it was acknowledged.
 - Structural timeline edits (`move_clip`, `remove_from_timeline`, `trim_clip`, `set_clip_duration`, `split_clip`, `duplicate_clip`) report pre-write refusals such as a missing clip, missing sequence, or unreadable frame grid as `not_applied`. Those dispatched no-ops used to omit an outcome, so the receipt was unknown and set a recovery lock that blocked every later edit until it was acknowledged.
 - Adjacent-edit preflight (`set_clip_duration`, `roll_edit`, `slide_edit`) keeps `not_applied` when the host refuses a stale clip ID or Node-side duration evidence is missing. The wrapper used to drop the inspection receipt, so a dispatched no-op locked later edits the same way.
 - Keyframe mutators (`add_keyframe`, `remove_keyframe`, `remove_keyframe_range`, `set_keyframe_interpolation`, `set_effect_property`) report pre-write refusals such as a missing clip, missing effect, time past the clip end, or no key at the requested time as `not_applied`. Those dispatched no-ops used to omit an outcome, so the receipt was unknown and set a recovery lock that blocked every later edit until it was acknowledged.
-- UXP: when Claude Desktop runs more than one copy of the server, the copy that receives UXP work now takes the loopback port over from the copy holding it (authenticated `POST /uxp/handoff`) and waits for the panel's automatic reconnect, instead of reporting `uxpConnected: false` while the panel shows "Connected" (#958).
+- UXP: when Claude Desktop runs more than one copy of the server, the copy that receives UXP work now takes the loopback port over from the copy holding it (authenticated `POST /uxp/handoff`) and waits for the panel's automatic reconnect, instead of reporting `uxpConnected: false` while the panel shows "Connected" (#958, #964).
+
 ### Added
+
+- Experimental CEP/QE `add_audio_transition` and `add_audio_transition_to_clip` support crossfades and clip-edge fades with placement/duration readback. Playback remains separate verification.
 
 - `plan_captions` plans captions to a published standard (`netflix_adult`, `netflix_kids`, `bbc`, `dcmp`, `social_9x16`) from a word timeline, SRT, WebVTT, ElevenLabs Scribe JSON or Premiere transcript JSON. With `fix` (default) it extends, merges and splits captions to meet the standard's durations, reading speed, line length and line count, keeps 2-frame gaps and closes gaps under 0.5 s, breaks lines at grammar boundaries and keeps captions off shot changes (`cut_times`). It also cleans transcripts (fillers, stutters such as "the, the", glossary, case, punctuation, ASR junk), chunks for social (`max_words`, `single_word`), marks speakers (BBC colour order, hyphen or label) and SDH sound events and lyrics. Every change and remaining violation is listed. Times round to the sequence frame rate (`frame_rate` or `sequence_timebase_ticks`). It can save a versioned plan file and export SRT, WebVTT (cue settings) or TTML (IMSC 1.1 text profile), reading the file back to check the cue count. Local only.
 - `check_captions` lints an SRT/VTT file, caption text, a saved plan or read-back cues against a standard: reading speed (cps, wpm), characters per line, lines, minimum and maximum duration, overlaps, frame gaps, weak line ends, shot changes and an estimated safe-area check. Without `frame_rate` it infers the rate from the cue times and says so.

@@ -67,7 +67,7 @@
       value.segments.forEach(function (s, i) { only(s, ["id", "source_project_item_id", "transcript_revision", "source_start_seconds", "source_end_seconds", "speaker_label", "master_audio_start_seconds", "master_audio_end_seconds"]); text(s.id, "id", 128); text(s.source_project_item_id, "source_project_item_id", 512); const a = secs(s.source_start_seconds), b = secs(s.source_end_seconds); if (b <= a) fail("UXP_INVALID_ARGUMENT", "Segment " + i + " has no duration"); if (value.mode === "podcast") { const c = secs(s.master_audio_start_seconds), d = secs(s.master_audio_end_seconds); if (d <= c || Math.abs((d-c)-(b-a)) > .001) fail("UXP_INVALID_ARGUMENT", "Podcast audio mismatch at segment " + i); } });
       return value;
     }
-    async function find(project, wanted) { const queue = [await project.getRootItem()]; let count = 0; while (queue.length) { const item = queue.shift(); if (++count > 4096) fail("UXP_PROJECT_TOO_LARGE", "Project search exceeded 4096 items"); if (await id(item) === wanted) return item; if (item && item.getItems) queue.push.apply(queue, Array.from(await item.getItems() || [])); } fail("UXP_PROJECT_ITEM_NOT_FOUND", "Project item not found: " + wanted); }
+    async function find(project, wanted) { const queue = [await project.getRootItem()]; let count = 0; while (queue.length) { const item = queue.shift(); if (++count > 4096) fail("UXP_PROJECT_TOO_LARGE", "Project search exceeded 4096 items"); if (await id(item) === wanted) return item; const folder = folderOf(item); if (folder && folder.getItems) queue.push.apply(queue, Array.from(await folder.getItems() || [])); } fail("UXP_PROJECT_ITEM_NOT_FOUND", "Project item not found: " + wanted); }
     async function sequences(project) { const out = []; for (const item of Array.from(await project.getSequences() || [])) out.push(await snap(item)); return out; }
     async function addedSequence(project, before) { const known = new Set(before.map(function (x) { return x.id; })); for (const item of Array.from(await project.getSequences() || [])) if (!known.has(await id(item))) return item; return null; }
     function commit(project, label, actions) {
@@ -77,6 +77,7 @@
       if (!ok) fail("UXP_TRANSACTION_FAILED", "Premiere did not commit " + label);
     }
     function asClip(item, name) { try { const cast = ppro.ClipProjectItem.cast(item); if (cast) return cast; } catch (_) {} fail("UXP_INVALID_PROJECT_ITEM", name + " is not a clip"); }
+    function folderOf(item) { if (ppro.FolderItem && ppro.FolderItem.cast) try { const cast = ppro.FolderItem.cast(item); if (cast) return cast; } catch (_) {} return item && item.getItems ? item : null; }
     function asFolder(item, name) { if (ppro.FolderItem && ppro.FolderItem.cast) try { const cast = ppro.FolderItem.cast(item); if (cast) return cast; } catch (_) {} if (item && item.getItems) return item; fail("UXP_INVALID_PROJECT_ITEM", name + " is not a folder"); }
     async function parentBin(project, item, itemId) {
       const clip = asClip(item, itemId);
@@ -99,7 +100,8 @@
         for (let i = 0; i < children.length; i += 1) {
           const child = children[i];
           if ((await id(child)) === wanted) return asFolder(folder, "source parent");
-          if (child && child.getItems) queue.push(child);
+          const childFolder = folderOf(child);
+          if (childFolder && childFolder.getItems) queue.push(childFolder);
         }
       }
       fail("UXP_TARGET_UNSUPPORTED", "Could not resolve source parent; Premiere did not expose getParentBin for " + itemId);

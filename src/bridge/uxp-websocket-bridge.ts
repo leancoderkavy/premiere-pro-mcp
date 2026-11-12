@@ -151,6 +151,12 @@ export class UxpWebSocketBridge extends EventEmitter {
     if (this.httpServer) return;
     const httpServer = createServer((req, res) => {
       if (this.isAuthorizedHandoff(req)) {
+        if (this.pending.size > 0 || this.handoffInProgress) {
+          res.writeHead(409, { Connection: "close" });
+          res.end("busy");
+          return;
+        }
+        this.handoffInProgress = true;
         // Another server process for the same user needs the panel. Release the
         // port; the panel reconnects on its own retry and lands on the claimant.
         res.writeHead(200, { "Content-Type": "text/plain", Connection: "close" });
@@ -195,6 +201,7 @@ export class UxpWebSocketBridge extends EventEmitter {
     });
     this.httpServer = httpServer;
     this.wsServer = wsServer;
+    this.handoffInProgress = false;
     this.emit("listening", this.address());
   }
 
@@ -296,6 +303,7 @@ export class UxpWebSocketBridge extends EventEmitter {
   }
 
   private claimInFlight: Promise<void> | null = null;
+  private handoffInProgress = false;
 
   getState(): UxpConnectionState {
     if (this.socket?.readyState === WebSocket.OPEN && this.hello && this.connectedAt) {
@@ -342,6 +350,7 @@ export class UxpWebSocketBridge extends EventEmitter {
   }
 
   private async requestOwned(command: string, args: Record<string, unknown>, requestOptions: UxpRequestOptions): Promise<unknown> {
+    if (this.handoffInProgress) throw new UxpBridgeError("UXP_HANDOFF_IN_PROGRESS", "UXP bridge is handing the panel to another process; no command was sent");
     if (expectedProjectPath() !== undefined || expectedHostTarget() !== undefined) {
       throw new UxpBridgeError("UXP_PROJECT_GUARD_UNSUPPORTED", "expected_project_path is a CEP-only guard; use the UXP workflow expected_snapshot identity guard instead");
     }

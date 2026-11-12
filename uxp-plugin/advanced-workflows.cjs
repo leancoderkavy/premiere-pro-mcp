@@ -209,10 +209,13 @@
       return ids;
     }
 
-    function isFolder(item) {
-      if (!ppro.FolderItem || typeof ppro.FolderItem.cast !== "function") return false;
-      try { return !!ppro.FolderItem.cast(item); } catch (_) { return false; }
+    // Native nested bins expose getItems only on the FolderItem view.
+    function folderOf(item) {
+      if (!ppro.FolderItem || typeof ppro.FolderItem.cast !== "function") return null;
+      try { return ppro.FolderItem.cast(item) || null; } catch (_) { return null; }
     }
+
+    function isFolder(item) { return !!folderOf(item); }
 
     function asFolder(item, label) {
       if (!ppro.FolderItem || typeof ppro.FolderItem.cast !== "function") throw commandError("UXP_COMMAND_UNAVAILABLE", "Folder APIs are unavailable");
@@ -259,7 +262,8 @@
           visited += 1;
           if (visited > MAX_PROJECT_ITEMS) throw commandError("UXP_PROJECT_TOO_LARGE", "Parent-bin lookup exceeded " + MAX_PROJECT_ITEMS + " entries");
           if (await projectItemId(child) === wantedId) return asFolder(folder, label);
-          if (isFolder(child)) queue.push(child);
+          const childFolder = folderOf(child);
+          if (childFolder) queue.push(childFolder);
         }
       }
       throw commandError("UXP_TARGET_UNSUPPORTED", "Could not resolve " + label + "; Premiere did not expose getParentBin for this clip");
@@ -299,7 +303,8 @@
           visited += 1;
           if (visited > MAX_PROJECT_ITEMS) throw commandError("UXP_PROJECT_TOO_LARGE", "Project-item lookup exceeded " + MAX_PROJECT_ITEMS + " entries; select the target in its Project view");
           if (await projectItemId(item) === id) return item;
-          if (isFolder(item)) queue.push(item);
+          const childFolder = folderOf(item);
+          if (childFolder) queue.push(childFolder);
         }
       }
       throw commandError("UXP_TARGET_NOT_FOUND", "projectItemId was not found");
@@ -509,7 +514,8 @@
           items.push(snapshot);
           if (snapshot.idUnavailable) skippedWithoutId += 1;
           if (snapshot.isBin) {
-            if (snapshot.depth < maxDepth && typeof child.getItems === "function") pending.push({ folder: child, id: snapshot.id || current.id, depth: snapshot.depth });
+            const childFolder = snapshot.depth < maxDepth ? folderOf(child) : null;
+            if (childFolder && typeof childFolder.getItems === "function") pending.push({ folder: childFolder, id: snapshot.id || current.id, depth: snapshot.depth });
             else if (snapshot.depth >= maxDepth) depthLimitApplied = true;
           }
         }

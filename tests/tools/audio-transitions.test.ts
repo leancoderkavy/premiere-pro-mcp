@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { runInNewContext } from "node:vm";
+import { runWithUndoTracking } from "../../src/bridge/undo-tracking.js";
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
 import type { BridgeOptions } from "../../src/bridge/file-bridge.js";
 
@@ -133,6 +134,13 @@ describe("native QE audio transitions", () => {
     const result = await tools.add_audio_transition.handler({ track_index: 0, cut_point_seconds: 2 });
     expect(result).toMatchObject({ success: false, data: { outcome: "committed_unverified", verified: false } });
     expect(state.writes).toBe(1);
+  });
+
+  it("escapes hostile clip IDs and returns not_applied before a host write", async () => {
+    const state = mockHost();
+    const result = await runWithUndoTracking(true, () => tools.add_audio_transition_to_clip.handler({ node_id: 'missing"\\\n\u2028id', position: "end" }));
+    expect(result).toMatchObject({ success: false, data: { mutationOutcome: "not_applied" } });
+    expect(state.writes).toBe(0);
   });
 
   it("validates unsafe input before invoking the bridge", async () => {

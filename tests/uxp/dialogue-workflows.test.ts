@@ -9,7 +9,7 @@ describe("UXP dialogue command module", () => {
     expect(definitions["dialogue.deriveSequence"]).toMatchObject({ destructive: true, undoable: false, idempotent: true, minHostVersion: "26.3.0" });
     expect(definitions["dialogue.deriveSequence"].probe()).toBe(false);
   });
-  it.each(["method", "guid_string", "guid_object", "empty_methods", "invalid_methods", "throwing_getid", "throwing_methods", "cast_items"])("creates linked subclips with %s project identity and structural-only proof", async (identity) => {
+  it.each(["method", "guid_string", "guid_object", "empty_methods", "invalid_methods", "throwing_getid", "throwing_methods", "cast_items", "cast_only_bin"])("creates linked subclips with %s project identity and structural-only proof", async (identity) => {
     const children: any[] = [];
     const parent = { name: "Media", getId: async () => "bin", getItems: async () => children };
     const source = { name: "Source", getId: async () => "clip", getParentBin: async () => parent, isMulticamClip: async () => false,
@@ -25,6 +25,13 @@ describe("UXP dialogue command module", () => {
       createSequenceFromMedia: async (name: string) => { const sequence = { name, guid: { toString: () => "sequence" } }; createdSequences.push(sequence); return sequence; } };
     const ppro = { Project: { getActiveProject: async () => project }, ClipProjectItem: { cast: (item: any) => item.createSubClipAction ? item : null }, FolderItem: { cast: (item: any) => item.getItems ? item : null },
       TickTime: { createWithSeconds: (seconds: number) => ({ seconds }) }, SequenceEditor: { getEditor: () => ({ createInsertProjectItemAction: () => ({ apply() {} }) }) } };
+    if (identity === "cast_only_bin") {
+      const rawBin = { getId: async () => "bin" };
+      root.getItems = async () => [rawBin] as any;
+      ppro.FolderItem.cast = (item: any) => item === rawBin ? parent : item.getItems ? item : null;
+      delete (source as any).getParentBin;
+      children.push(source);
+    }
     if (identity === "cast_items") {
       const identities = new WeakMap<object, () => Promise<string>>();
       identities.set(source, source.getId);

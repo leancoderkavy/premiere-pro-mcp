@@ -22,6 +22,20 @@
     ]
   },
   {
+    "tool": "add_audio_transition",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
+    "tool": "add_audio_transition_to_clip",
+    "args": {},
+    "required": [
+      "edit"
+    ]
+  },
+  {
     "tool": "add_custom_metadata_field",
     "args": {},
     "required": [

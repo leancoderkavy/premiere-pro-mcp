@@ -68,8 +68,8 @@ function audioTransitionScript(
   const duration = args.duration_seconds ?? 1;
   const target = args.node_id !== undefined
     ? [
-        "var info = __findClip(" + JSON.stringify(args.node_id) + ");",
-        "if (!info || info.trackType !== 'audio') return __error('Target must be an audio timeline clip; nothing was changed.');",
+        "var info = __findClip(" + '"' + escapeForExtendScript(args.node_id) + '"' + ");",
+        "if (!info || info.trackType !== 'audio') return __refuse('Target must be an audio timeline clip; nothing was changed.');",
         "var trackIndex = info.trackIndex;",
         "var targetClip = info.clip;",
         "var atStart = " + (args.position === "start" ? "true" : "false") + ";",
@@ -85,19 +85,19 @@ function audioTransitionScript(
     "app.enableQE();",
     "var seq = app.project && app.project.activeSequence;",
     "var qeSeq = qe.project.getActiveSequence();",
-    "if (!seq || !qeSeq) return __error('No active sequence; no audio transition was attempted.');",
+    "if (!seq || !qeSeq) return __refuse('No active sequence; no audio transition was attempted.');",
     ...target,
     "var track = seq.audioTracks[trackIndex];",
     "var qeTrack = qeSeq.getAudioTrackAt(trackIndex);",
-    "if (!track || !qeTrack) return __error('Audio track not found; nothing was changed.');",
+    "if (!track || !qeTrack) return __refuse('Audio track not found; nothing was changed.');",
     "var frameTicks = Number(seq.timebase);",
-    "if (!isFinite(frameTicks) || frameTicks <= 0 || frameTicks > TICKS_PER_SECOND) return __error('Invalid sequence frame grid; nothing was changed.');",
+    "if (!isFinite(frameTicks) || frameTicks <= 0 || frameTicks > TICKS_PER_SECOND) return __refuse('Invalid sequence frame grid; nothing was changed.');",
   ];
 
   if (args.node_id === undefined) {
     lines.push(
       "var requestedCutTicks = __secondsToTicks(" + args.cut_point_seconds + ");",
-      "if (!isFinite(requestedCutTicks)) return __error('Invalid cut time.');",
+      "if (!isFinite(requestedCutTicks)) return __refuse('Invalid cut time.');",
       "var tolerance = frameTicks / 2 + 1, found = 0;",
       "for (var ci = 0; ci < track.clips.numItems; ci++) {",
       "  var incoming = track.clips[ci];",
@@ -108,22 +108,22 @@ function audioTransitionScript(
       "    if (Math.abs(Number(outgoing.end.ticks) - Number(incoming.start.ticks)) <= tolerance) { targetClip = incoming; found++; }",
       "  }",
       "}",
-      "if (found !== 1 || !targetClip) return __error('The cut must identify exactly one pair of adjacent audio clips on the selected track; nothing changed.');",
+      "if (found !== 1 || !targetClip) return __refuse('The cut must identify exactly one pair of adjacent audio clips on the selected track; nothing changed.');",
     );
   }
 
   lines.push(
     "var edgeTicks = Number(atStart ? targetClip.start.ticks : targetClip.end.ticks);",
     "var before;",
-    "try { before = __transitionSnapshot(track); } catch (beforeError) { return __error('Cannot inspect audio transitions before editing; nothing changed. ' + String(beforeError)); }",
+    "try { before = __transitionSnapshot(track); } catch (beforeError) { return __refuse('Cannot inspect audio transitions before editing; nothing changed. ' + String(beforeError)); }",
     "for (var ex = 0; ex < before.length; ex++) {",
-    "  if (Number(before[ex].startTicks) - frameTicks / 2 - 1 <= edgeTicks && Number(before[ex].endTicks) + frameTicks / 2 + 1 >= edgeTicks) return __error('A transition already covers the requested audio clip edge; nothing changed.');",
+    "  if (Number(before[ex].startTicks) - frameTicks / 2 - 1 <= edgeTicks && Number(before[ex].endTicks) + frameTicks / 2 + 1 >= edgeTicks) return __refuse('A transition already covers the requested audio clip edge; nothing changed.');",
     "}",
     "var transitionName = '" + escapeForExtendScript(name) + "';",
     "var transition = __audioTransitionResolve(transitionName);",
-    "if (!transition) return __error('Audio transition is unavailable in the QE host: ' + transitionName + '. Check list_available_audio_transitions or try a supported name. Nothing changed.');",
+    "if (!transition) return __refuse('Audio transition is unavailable in the QE host: ' + transitionName + '. Check list_available_audio_transitions or try a supported name. Nothing changed.');",
     "var qeClip = __findQeClipByDomClip(qeTrack, targetClip);",
-    "if (!qeClip || typeof qeClip.addTransition !== 'function') return __error('Target audio QE clip cannot add transitions; nothing changed.');",
+    "if (!qeClip || typeof qeClip.addTransition !== 'function') return __refuse('Target audio QE clip cannot add transitions; nothing changed.');",
     "var durationFrames = Math.max(1, Math.round(__secondsToTicks(" + duration + ") / frameTicks));",
     "var writeError = null;",
     "try { qeClip.addTransition(transition, atStart, __audioTransitionTimecode(durationFrames, frameTicks), '0', 0.5, false, true); }",

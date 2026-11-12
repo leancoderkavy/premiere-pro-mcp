@@ -32,7 +32,7 @@ function makeBridge(port: number, token = TOKEN): UxpWebSocketBridge {
 }
 
 /** Minimal stand-in for the UXP panel: connects, says hello, answers state.get, reconnects on close. */
-function fakePanel(port: number, reconnectMs = 50) {
+function fakePanel(port: number, reconnectMs = 50, onRequest?: (reply: () => void) => void) {
   let stopped = false;
   let socket: WebSocket | null = null;
   const connect = () => {
@@ -44,7 +44,9 @@ function fakePanel(port: number, reconnectMs = 50) {
     })));
     socket.on("message", (raw) => {
       const frame = JSON.parse(raw.toString());
-      socket?.send(JSON.stringify({ protocolVersion: 2, type: "result", requestId: frame.requestId, payload: { ok: true, result: { answeredBy: "panel" } } }));
+      const current = socket;
+      const reply = () => current?.send(JSON.stringify({ protocolVersion: 2, type: "result", requestId: frame.requestId, payload: { ok: true, result: { answeredBy: "panel" } } }));
+      if (onRequest) onRequest(reply); else reply();
     });
     socket.on("error", () => undefined);
     socket.on("close", () => { if (!stopped) setTimeout(connect, reconnectMs); });
@@ -108,6 +110,21 @@ describe("UXP loopback port handoff between server processes", () => {
     expect(await postHandoff(port, { "x-premiere-uxp-token": "wrong-token-wrong-token" })).toBe(404);
     expect(await postHandoff(port, { "x-premiere-uxp-token": TOKEN, host: "evil.example:7777" })).toBe(404);
     expect(owner.getState().status).toBe("listening");
+  });
+
+  it("keeps the panel attached until an in-flight host command finishes", async () => {
+    const port = await freePort();
+    const owner = makeBridge(port); await owner.start();
+    let reply: (() => void) | undefined;
+    fakePanel(port, 50, (respond) => { reply = respond; });
+    await until(() => owner.getState().connected);
+    const pending = owner.request("state.get");
+    await until(() => !!reply);
+    expect(await postHandoff(port, { "x-premiere-uxp-token": TOKEN })).toBe(409);
+    expect(owner.getState().connected).toBe(true);
+    reply!();
+    await expect(pending).resolves.toEqual({ answeredBy: "panel" });
+    expect(await postHandoff(port, { "x-premiere-uxp-token": TOKEN })).toBe(200);
   });
 
   it("does not take the port from a server configured with a different token", async () => {
