@@ -103,6 +103,8 @@ export function getUxpTools(bridge: UxpWebSocketBridge) {
       handler: async () => {
         // Report the panel's live capabilities, not the handshake taken when it connected.
         let capabilitiesSource = "handshake";
+        // Another server process may hold the panel; take it over before reporting.
+        if (!bridge.getState().connected) await bridge.claim();
         if (bridge.getState().connected) {
           try {
             if (await bridge.refreshCapabilities()) capabilitiesSource = "live";

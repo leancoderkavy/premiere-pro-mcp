@@ -4,7 +4,7 @@ import { assertInvocationNotCancelled, currentInvocation, markHostDispatch, meas
 import { getTempDir, withBridgeWorkflow, type BridgeOptions } from "./file-bridge.js";
 import { inspectHostRecovery, markHostRecovery } from "./host-lease.js";
 import { EventEmitter } from "node:events";
-import { createServer, type Server } from "node:http";
+import { createServer, request as httpRequest, type Server } from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
 import { assertNoSymlinkedPaths, SymlinkPathError } from "../security/path-guard.js";
 
@@ -21,8 +21,17 @@ export interface UxpBridgeOptions {
   path?: string;
   requestTimeoutMs?: number;
   handshakeTimeoutMs?: number;
+  /**
+   * How long a server that needs UXP waits for the panel after taking the
+   * loopback port over from another server process (default: 6000 ms; the
+   * panel retries its connection every 2 s).
+   */
+  claimTimeoutMs?: number;
   tempDir?: string;
 }
+
+/** Header carrying the shared UXP token on a port handoff request. */
+const HANDOFF_TOKEN_HEADER = "x-premiere-uxp-token";
 
 export interface UxpCapability {
   supported: boolean;
@@ -131,6 +140,7 @@ export class UxpWebSocketBridge extends EventEmitter {
       path: options.path ?? "/uxp",
       requestTimeoutMs: options.requestTimeoutMs ?? 30_000,
       handshakeTimeoutMs: options.handshakeTimeoutMs ?? 5_000,
+      claimTimeoutMs: options.claimTimeoutMs ?? 6_000,
     };
     if (!this.options.path.startsWith("/")) {
       throw new Error("UXP bridge path must begin with '/'");
@@ -139,7 +149,16 @@ export class UxpWebSocketBridge extends EventEmitter {
 
   async start(): Promise<void> {
     if (this.httpServer) return;
-    const httpServer = createServer((_req, res) => {
+    const httpServer = createServer((req, res) => {
+      if (this.isAuthorizedHandoff(req)) {
+        // Another server process for the same user needs the panel. Release the
+        // port; the panel reconnects on its own retry and lands on the claimant.
+        res.writeHead(200, { "Content-Type": "text/plain", Connection: "close" });
+        res.end("released", () => {
+          void this.stop().then(() => this.emit("handedOff"));
+        });
+        return;
+      }
       res.writeHead(404, { "Content-Type": "text/plain" });
       res.end("Not found");
     });
@@ -188,6 +207,96 @@ export class UxpWebSocketBridge extends EventEmitter {
     };
   }
 
+  private handoffPath(): string {
+    return `${this.options.path.replace(/\/$/, "")}/handoff`;
+  }
+
+  private isAuthorizedHandoff(req: import("node:http").IncomingMessage): boolean {
+    if (req.method !== "POST") return false;
+    let url: URL;
+    try {
+      url = new URL(req.url ?? "/", `http://${LOOPBACK_HOST}`);
+    } catch {
+      return false;
+    }
+    if (url.pathname !== this.handoffPath()) return false;
+    // A DNS-rebinding page cannot present a loopback Host header, and a browser
+    // cannot attach the custom token header without a preflight we never answer.
+    const host = (req.headers.host ?? "").replace(/:\d+$/, "");
+    if (host !== LOOPBACK_HOST && host !== "localhost") return false;
+    const header = req.headers[HANDOFF_TOKEN_HEADER];
+    return typeof header === "string" && secureTokenEqual(header, this.options.token);
+  }
+
+  /** Ask the server process that holds the loopback port to release it. */
+  private requestHandoff(): Promise<boolean> {
+    return new Promise((resolve) => {
+      const req = httpRequest({
+        host: LOOPBACK_HOST,
+        port: this.options.port,
+        path: this.handoffPath(),
+        method: "POST",
+        headers: { [HANDOFF_TOKEN_HEADER]: this.options.token, "Content-Length": 0 },
+        timeout: 2_000,
+      }, (res) => {
+        res.resume();
+        res.on("end", () => resolve(res.statusCode === 200));
+      });
+      req.on("timeout", () => req.destroy());
+      req.on("error", () => resolve(false));
+      req.end();
+    });
+  }
+
+  private waitForConnection(timeoutMs: number): Promise<boolean> {
+    if (this.getState().connected) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      const onConnected = () => { clearTimeout(timer); resolve(true); };
+      const timer = setTimeout(() => { this.off("connected", onConnected); resolve(false); }, timeoutMs);
+      timer.unref?.();
+      this.once("connected", onConnected);
+    });
+  }
+
+  /**
+   * Make this process the one the panel talks to. Claude Desktop can run more
+   * than one copy of this server; only one can bind the loopback port, and the
+   * panel connects to whichever does. A copy that receives UXP work while
+   * another copy holds the port asks it (with the shared token) to hand the
+   * port over, binds it, and waits for the panel's automatic reconnect.
+   * Returns true when the panel is connected to this process.
+   */
+  async claim(timeoutMs = this.options.claimTimeoutMs): Promise<boolean> {
+    if (this.getState().connected) return true;
+    if (!this.claimInFlight) {
+      this.claimInFlight = (async () => {
+        if (!this.httpServer) {
+          try {
+            await this.start();
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException)?.code !== "EADDRINUSE") return;
+            if (!(await this.requestHandoff())) return;
+            // The owner releases the port right after answering; retry the bind briefly.
+            for (let attempt = 0; attempt < 20 && !this.httpServer; attempt++) {
+              await new Promise((r) => setTimeout(r, 100));
+              try {
+                await this.start();
+              } catch (retryError) {
+                if ((retryError as NodeJS.ErrnoException)?.code !== "EADDRINUSE") return;
+              }
+            }
+            if (!this.httpServer) return;
+          }
+        }
+      })().finally(() => { this.claimInFlight = null; });
+    }
+    await this.claimInFlight;
+    if (!this.httpServer) return false;
+    return this.waitForConnection(timeoutMs);
+  }
+
+  private claimInFlight: Promise<void> | null = null;
+
   getState(): UxpConnectionState {
     if (this.socket?.readyState === WebSocket.OPEN && this.hello && this.connectedAt) {
       return {
@@ -227,6 +336,7 @@ export class UxpWebSocketBridge extends EventEmitter {
     args: Record<string, unknown> = {},
     requestOptions: UxpRequestOptions = {},
   ): Promise<unknown> {
+    if (!this.getState().connected) await this.claim();
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN || !this.hello) throw new UxpBridgeError("UXP_NOT_CONNECTED", "Premiere UXP bridge is not connected");
     return withBridgeWorkflow(this.hostBridgeOptions, () => measureStage("host_wait", () => this.requestOwned(command, args, requestOptions)));
   }
