@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Selection tools report a missing active sequence, and `invert_selection` reports an unreadable current selection, as `not_applied`. Those dispatched no-ops used to omit an outcome, so the receipt was unknown and set a recovery lock that blocked every later edit until it was acknowledged.
+
 ## [1.30.0] - 2026-11-07
 
 ### Added
