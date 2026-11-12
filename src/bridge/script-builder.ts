@@ -3588,6 +3588,10 @@ function __error(msg, extraData) {
     for (var key in extraData) if (extraData.hasOwnProperty(key)) data[key] = extraData[key];
   }
   data = __captureRestorationReceipt(__markerWriteReceipt(data));
+  // A false timeline receipt after a write needs an explicit, local snapshot
+  // proof. Do not let unrelated callers suppress the conservative undo result.
+  var timelineSnapshotVerified = data && data.timelineChanged === false && data.timelineSnapshotVerified === true;
+  if (data && data.timelineSnapshotVerified !== undefined) delete data.timelineSnapshotVerified;
   if (__markerWriteAttempted && data) {
     // A throwing DOM call may have changed the marker; an attempted write
     // alone cannot establish that it committed. Preserve observed changes.
@@ -3604,8 +3608,10 @@ function __error(msg, extraData) {
       if (!data) data = {};
       data.undoSteps = recorded;
       data.undoStackIndex = undoNow;
-      data.timelineChanged = true;
-      message += " Premiere recorded " + recorded + " undo entr" + (recorded === 1 ? "y" : "ies") + " during this command, so the project may have changed.";
+      // An undo entry proves a project write happened, not that the timeline
+      // changed. Preserve false only for a tool's successful sequence snapshot.
+      if (!timelineSnapshotVerified) data.timelineChanged = true;
+      message += " Premiere recorded " + recorded + " undo entr" + (recorded === 1 ? "y" : "ies") + " during this command" + (timelineSnapshotVerified ? ", but the active-sequence snapshot was unchanged." : ", so the project may have changed.");
     }
   }
   return data ? __jsonStringify({ success: false, error: message, data: data }) : __jsonStringify({ success: false, error: message });

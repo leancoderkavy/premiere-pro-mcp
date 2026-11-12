@@ -40,6 +40,17 @@ describe("__refuse", () => {
     expect(result.error).toContain("recorded 1 undo entry");
   });
 
+  it("preserves an unchanged timeline only with an explicit snapshot receipt", () => {
+    const undo = { value: 4 };
+    const run = engine(undo);
+    const generic = run(runWithUndoTracking(true, () => buildScript(`qe.project.undoStackIndex = function () { return 5; }; return __error("Generic", { timelineChanged: false });`)));
+    expect(generic.data.timelineChanged).toBe(true);
+    const snapshot = run(runWithUndoTracking(true, () => buildScript(`qe.project.undoStackIndex = function () { return 6; }; return __error("Snapshot", { timelineChanged: false, timelineSnapshotVerified: true });`)));
+    expect(snapshot.data).toMatchObject({ timelineChanged: false, undoSteps: 1 });
+    expect(snapshot.data.timelineSnapshotVerified).toBeUndefined();
+    expect(snapshot.error).toContain("active-sequence snapshot was unchanged");
+  });
+
   it("falls back to __error when the undo index is unreadable", () => {
     const run = engine({ value: 4 });
     const result = run(runWithUndoTracking(true, () => buildScript(`qe.project.undoStackIndex = function () { throw new Error("QE unavailable"); }; return __refuse("Unreadable undo");`)));

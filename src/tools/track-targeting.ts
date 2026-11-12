@@ -639,14 +639,85 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           if (!item) return __refuse("Item not found");
 
           function __markSeconds(time) { return time && typeof time.seconds === "number" && isFinite(time.seconds) ? time.seconds : NaN; }
+          // Project-item marks can create an undo entry without changing a
+          // sequence. Keep this bounded snapshot separate from mark readback.
+          function __timelineSnapshot() {
+            try {
+              var sequence = app.project.activeSequence;
+              if (!sequence || !sequence.videoTracks || !sequence.audioTracks) return null;
+              if (sequence.sequenceID === undefined || sequence.sequenceID === null) return null;
+              function part(value) {
+                var text = String(value);
+                return text.length <= 4096 ? text.length + ":" + text : null;
+              }
+              var sequenceId = part(sequence.sequenceID);
+              if (sequenceId === null) return null;
+              var parts = [sequenceId], seen = 0;
+              function count(collection) {
+                var value = collection && collection.numItems;
+                return typeof value === "number" && isFinite(value) && value >= 0 && Math.floor(value) === value && value <= 10000 ? value : null;
+              }
+              function ticks(time) {
+                if (!time || time.ticks === undefined || time.ticks === null || String(time.ticks) === "" || !isFinite(Number(time.ticks))) return null;
+                return part(time.ticks);
+              }
+              function addTracks(tracks, type) {
+                if (!tracks || typeof tracks.numTracks !== "number" || !isFinite(tracks.numTracks) || Math.floor(tracks.numTracks) !== tracks.numTracks || tracks.numTracks < 0 || tracks.numTracks > 200) throw new Error("unreadable tracks");
+                for (var ti = 0; ti < tracks.numTracks; ti++) {
+                  var track = tracks[ti];
+                  var clipCount = track && count(track.clips), transitionCount = track && count(track.transitions);
+                  if (!track || clipCount === null || transitionCount === null) throw new Error("unreadable track");
+                  parts.push(type + ":" + ti + ":" + clipCount + ":" + transitionCount);
+                  for (var ci = 0; ci < clipCount; ci++) {
+                    if (++seen > 10000) throw new Error("snapshot limit");
+                    var timelineClip = track.clips[ci];
+                    var clipStart = timelineClip && ticks(timelineClip.start), clipEnd = timelineClip && ticks(timelineClip.end), clipIn = timelineClip && ticks(timelineClip.inPoint), clipOut = timelineClip && ticks(timelineClip.outPoint);
+                    if (!timelineClip || timelineClip.nodeId === undefined || timelineClip.nodeId === null || clipStart === null || clipEnd === null || clipIn === null || clipOut === null) throw new Error("unreadable clip");
+                    var clipId = part(timelineClip.nodeId);
+                    if (clipId === null) throw new Error("unreadable clip");
+                    parts.push("c:" + clipId + ":" + clipStart + ":" + clipEnd + ":" + clipIn + ":" + clipOut);
+                  }
+                  for (var ri = 0; ri < transitionCount; ri++) {
+                    if (++seen > 10000) throw new Error("snapshot limit");
+                    var transition = track.transitions[ri];
+                    var transitionStart = transition && ticks(transition.start), transitionEnd = transition && ticks(transition.end);
+                    if (!transition || transitionStart === null || transitionEnd === null) throw new Error("unreadable transition");
+                    var transitionId = part(transition.nodeId === undefined || transition.nodeId === null ? "" : transition.nodeId);
+                    var transitionType = part(transition.type === undefined || transition.type === null ? "" : transition.type);
+                    if (transitionId === null || transitionType === null) throw new Error("unreadable transition");
+                    parts.push("r:" + transitionId + ":" + transitionType + ":" + transitionStart + ":" + transitionEnd);
+                  }
+                }
+              }
+              addTracks(sequence.videoTracks, "v"); addTracks(sequence.audioTracks, "a");
+              return parts.join("|");
+            } catch (snapshotError) { return null; }
+          }
           var mediaDuration = NaN;
           var stillImage = false;
           var durationTolerance = 0.001;
+          var durationEvidence = null;
+          var xmpFrameTolerance = 0.001;
+          var xmpFrameRateEvidence = null;
           try {
             var packet = item.getProjectMetadata();
             var typeMatch = typeof packet === "string" ? /<premierePrivateProjectMetaData:Column.Intrinsic.MediaType[^>]*>([\\s\\S]*?)<\\/premierePrivateProjectMetaData:Column.Intrinsic.MediaType>/.exec(packet) : null;
             stillImage = !!typeMatch && typeMatch[1].replace(/<[^>]*>/g, "").replace(/^\\s+|\\s+$/g, "") === "Still Image";
             var durationMatch = typeof packet === "string" ? /<premierePrivateProjectMetaData:Column.Intrinsic.MediaDuration[^>]*>([^<]+)<\\/premierePrivateProjectMetaData:Column.Intrinsic.MediaDuration>/.exec(packet) : null;
+            var timebaseMatch = typeof packet === "string" ? /<premierePrivateProjectMetaData:Column.Intrinsic.MediaTimebase[^>]*>([0-9]+(?:\\.[0-9]+)?)\\s+(Hz|fps)<\\/premierePrivateProjectMetaData:Column.Intrinsic.MediaTimebase>/.exec(packet) : null;
+            // MediaTimebase remains useful frame-rate evidence even when its
+            // companion MediaDuration is absent or malformed. XMP scale is a
+            // time unit, not evidence of the source's frame duration.
+            if (timebaseMatch && timebaseMatch[2] === "fps") {
+              var xmpLabelRate = Number(timebaseMatch[1]);
+              var xmpNominal = Math.round(xmpLabelRate);
+              if (isFinite(xmpLabelRate) && xmpNominal > 0 && xmpNominal <= 240) {
+                var xmpFractional = Math.abs(xmpLabelRate - xmpNominal) > 0.001;
+                var xmpExactRate = xmpFractional ? xmpNominal * 1000 / 1001 : xmpNominal;
+                xmpFrameTolerance = 1 / xmpExactRate;
+                xmpFrameRateEvidence = "projectMetadataMediaTimebase";
+              }
+            }
             // MediaDuration is timecode at the nominal rate: 00:02:55:04 at "23.98 fps"
             // is 4204 frames of 1001/24000 s, and 29.97 media can use drop-frame
             // timecode (00;05;26;11). Audio uses samples at the Hz rate.
@@ -654,13 +725,13 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
             var dropFrame = timecode.indexOf(";") >= 0;
             var parts = timecode ? timecode.split(/[:;]/) : [];
             if (parts.length === 4 && /^\\d{2}$/.test(parts[0]) && /^\\d{2}$/.test(parts[1]) && /^\\d{2}$/.test(parts[2]) && /^\\d+$/.test(parts[3]) && Number(parts[1]) < 60 && Number(parts[2]) < 60) {
-              var timebaseMatch = /<premierePrivateProjectMetaData:Column.Intrinsic.MediaTimebase[^>]*>([0-9]+(?:\\.[0-9]+)?)\\s+(Hz|fps)<\\/premierePrivateProjectMetaData:Column.Intrinsic.MediaTimebase>/.exec(packet);
               var wholeSeconds = Number(parts[0]) * 3600 + Number(parts[1]) * 60 + Number(parts[2]);
               if (timebaseMatch && parts[3].length >= 4 && timebaseMatch[2] === "Hz" && !dropFrame) {
                 var sampleRate = Number(timebaseMatch[1]);
                 if (isFinite(sampleRate) && sampleRate > 0 && Number(parts[3]) < sampleRate) {
                   durationTolerance = 1 / sampleRate;
                   mediaDuration = wholeSeconds + Number(parts[3]) / sampleRate;
+                  durationEvidence = "projectMetadata";
                 }
               } else if (timebaseMatch && parts[3].length === 2 && timebaseMatch[2] === "fps") {
                 var labelRate = Number(timebaseMatch[1]);
@@ -676,12 +747,60 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
                   if (!dropFrame || (fractional && nominal % 30 === 0)) {
                     durationTolerance = 1 / exactRate;
                     mediaDuration = frames / exactRate;
+                    durationEvidence = "projectMetadata";
                   }
                 }
               }
             }
           } catch (durationReadError) {}
+          // ProjectItem.getXMPMetadata() is a separate documented metadata
+          // surface. Its Dynamic Media duration is an independent full-source
+          // range, not the mutable source Out mark. Read value and scale only
+          // from duration itself or its direct xmpDM children; never borrow a
+          // field from a nested RDF resource. XMP scale is never a tolerance.
+          if (!isFinite(mediaDuration)) try {
+            var xmp = String(item.getXMPMetadata() || "");
+            if (xmp.length <= 1000000) {
+              var xmpDuration = /<xmpDM:duration\\b([^>]*)>([\\s\\S]*?)<\\/xmpDM:duration\\s*>/i.exec(xmp);
+              var xmpDurationAttributes = xmpDuration ? xmpDuration[1] : (/<xmpDM:duration\\b([^>]*)\\/\\s*>/i.exec(xmp) || ["", ""])[1];
+              var xmpDurationBody = xmpDuration ? xmpDuration[2] : "";
+              function __xmpDurationField(name) {
+                var attribute = new RegExp("\\\\bxmpDM:" + name + "\\\\s*=\\\\s*['\\\"]\\\\s*([^'\\\"]+?)\\\\s*['\\\"]", "i").exec(xmpDurationAttributes);
+                if (attribute) return attribute[1];
+                var tag = /<\\/?([A-Za-z_][\\w.-]*(?::[A-Za-z_][\\w.-]*)?)(?:\\s[^>]*)?>/g;
+                var depth = 0, token, tokenText, tokenName, tail, directValue;
+                while ((token = tag.exec(xmpDurationBody))) {
+                  tokenText = token[0]; tokenName = String(token[1]).toLowerCase();
+                  if (/^<\\//.test(tokenText)) { if (depth > 0) depth--; continue; }
+                  if (depth === 0 && tokenName === ("xmpdm:" + name).toLowerCase() && !/\\/\\s*>$/.test(tokenText)) {
+                    tail = xmpDurationBody.slice(tag.lastIndex);
+                    directValue = new RegExp("^\\\\s*([^<]+?)\\\\s*<\\\\/xmpDM:" + name + "\\\\s*>", "i").exec(tail);
+                    if (directValue) return directValue[1];
+                  }
+                  if (!/\\/\\s*>$/.test(tokenText)) depth++;
+                }
+                return null;
+              }
+              var scale = __xmpDurationField("scale");
+              var value = __xmpDurationField("value");
+              var rational = scale ? /^\\s*([0-9]+)\\s*\\/\\s*([0-9]+)\\s*$/.exec(scale) : null;
+              var integer = value ? /^\\s*([0-9]+)\\s*$/.exec(value) : null;
+              if (rational && integer) {
+                var scaleNumerator = Number(rational[1]), scaleDenominator = Number(rational[2]), durationUnits = Number(integer[1]);
+                if (isFinite(scaleNumerator) && isFinite(scaleDenominator) && isFinite(durationUnits) && scaleNumerator > 0 && scaleDenominator > 0 && durationUnits > 0 && scaleNumerator <= 1000000 && scaleDenominator <= 1000000000 && durationUnits <= 1000000000000) {
+                  var xmpDurationSeconds = durationUnits * scaleNumerator / scaleDenominator;
+                  if (isFinite(xmpDurationSeconds) && xmpDurationSeconds > 0) {
+                    mediaDuration = xmpDurationSeconds;
+                    durationTolerance = xmpFrameTolerance;
+                    durationEvidence = "xmpDynamicMedia";
+                  }
+                }
+              }
+            }
+          } catch (xmpDurationReadError) {}
+          var inBefore = __markSeconds(item.getInPoint(4));
           var outBefore = __markSeconds(item.getOutPoint(4));
+          var timelineBefore = __timelineSnapshot();
           var inAfter = NaN, outAfter = NaN;
           try {
             ${clearIn ? `item.clearInPoint();` : ""}
@@ -691,15 +810,18 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           } catch (markError) {
             return __error("Mark clearing was attempted but the result could not be read. Inspect the marks before retrying.", { outcome: "committed_unverified", verified: false, marksChanged: null });
           }
+          var timelineAfter = __timelineSnapshot();
+          var timelineChanged = timelineBefore !== null && timelineAfter !== null ? timelineBefore !== timelineAfter : null;
+          var marksChanged = (isFinite(inBefore) && isFinite(inAfter) && inBefore !== inAfter) || (isFinite(outBefore) && isFinite(outAfter) && outBefore !== outAfter);
           var unverifiedFields = [];
           var messages = [];
           ${clearIn ? `if (!(Math.abs(inAfter) < 0.0005)) unverifiedFields.push("inPoint");
           messages.push(!isFinite(inAfter) ? "In could not be independently verified" : Math.abs(inAfter) < 0.0005 ? "In cleared to 0 s" : "Premiere kept the In point at " + inAfter + " s");` : ""}
           ${clearOut ? `var outVerified = isFinite(outAfter) && isFinite(mediaDuration) && Math.abs(outAfter - mediaDuration) <= durationTolerance;
           if (!outVerified) unverifiedFields.push("outPoint");
-          messages.push(outVerified ? "Out cleared to " + outAfter + " s" : (stillImage ? (isFinite(mediaDuration) ? "Premiere kept the still-image Out at " + outAfter + " s instead of its full duration " + mediaDuration + " s" : "Still-image Out cannot be independently verified: this item exposes no readable still duration") : "Out could not be independently verified against MediaDuration and MediaTimebase"));` : ""}
-          if (unverifiedFields.length) return __error(messages.join("; ") + "; inspect the marks before retrying.", { item: item.name, inSeconds: inAfter, outSeconds: outAfter, outcome: "committed_unverified", verified: false, marksChanged: null, unverifiedFields: unverifiedFields, stillImage: stillImage });
-          return __result({ item: item.name, clearedIn: ${clearIn}, clearedOut: ${clearOut}, inSeconds: inAfter, outSeconds: outAfter, stillImage: stillImage, verified: true });
+          messages.push(outVerified ? "Out cleared to " + outAfter + " s" : (stillImage ? (isFinite(mediaDuration) ? "Premiere kept the still-image Out at " + outAfter + " s instead of its full duration " + mediaDuration + " s" : "Still-image Out cannot be independently verified: this item exposes no readable still duration") : "Out could not be independently verified against MediaDuration, MediaTimebase, or XMP duration"));` : ""}
+          if (unverifiedFields.length) return __error(messages.join("; ") + (marksChanged ? "; marks changed; inspect them before any further write." : "; inspect the marks before retrying."), { item: item.name, inSeconds: inAfter, outSeconds: outAfter, outcome: "committed_unverified", verified: false, marksChanged: marksChanged, timelineChanged: timelineChanged, timelineSnapshotVerified: timelineChanged === false, unverifiedFields: unverifiedFields, stillImage: stillImage, outVerificationEvidence: durationEvidence, outVerificationFrameRateEvidence: xmpFrameRateEvidence });
+          return __result({ item: item.name, clearedIn: ${clearIn}, clearedOut: ${clearOut}, inSeconds: inAfter, outSeconds: outAfter, stillImage: stillImage, verified: true, marksChanged: marksChanged, timelineChanged: timelineChanged, outVerificationEvidence: durationEvidence, outVerificationFrameRateEvidence: xmpFrameRateEvidence });
         `);
         return sendCommand(script, bridgeOptions);
       },
