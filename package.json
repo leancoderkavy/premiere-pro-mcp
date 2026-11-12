@@ -2,7 +2,7 @@
   "name": "premiere-pro-mcp",
   "mcpName": "io.github.leancoderkavy/premiere-pro",
   "version": "1.30.0",
-  "description": "MCP server for Adobe Premiere Pro with 451 core AI video editing tools, a guarded After Effects MOGRT studio, and a capability-aware UXP bridge for supported Premiere workflows.",
+  "description": "MCP server for Adobe Premiere Pro with 453 core AI video editing tools, a guarded After Effects MOGRT studio, and a capability-aware UXP bridge for supported Premiere workflows.",
   "main": "dist/index.js",
   "types": "./dist/index.d.ts",
   "type": "module",
@@ -261,3 +261,4 @@
     "minimatch": "^11.0.3"
   }
 }
+
