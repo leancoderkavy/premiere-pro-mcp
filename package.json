@@ -227,14 +227,14 @@
     "node": ">=20.19.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/node": "^2.1.0",
-    "@modelcontextprotocol/server": "^2.0.0",
-    "@posthog/core": "1.63.1",
-    "@posthog/types": "1.420.0",
-    "jose": "^6.2.15",
-    "posthog-node": "5.61.2",
-    "ws": "^8.22.1",
-    "zod": "^4.4.3"
+    "@modelcontextprotocol/node": "^2.1.2",
+    "@modelcontextprotocol/server": "^2.4.0",
+    "@posthog/core": "1.67.1",
+    "@posthog/types": "1.424.0",
+    "jose": "^6.2.17",
+    "posthog-node": "5.69.0",
+    "ws": "^8.22.2",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@adobe/cc-ext-uxp-types": "7.3.1",
@@ -244,7 +244,7 @@
     "@modelcontextprotocol/client": "^2.2.0",
     "@types/node": "^26.6.6",
     "@types/ws": "^8.18.1",
-    "@typescript-eslint/parser": "^8.71.0",
+    "@typescript-eslint/parser": "^8.72.2",
     "@vitest/coverage-v8": "^4.1.12",
     "eslint": "^9.39.3",
     "typescript": "^5.9.3",
