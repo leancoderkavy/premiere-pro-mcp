@@ -19,6 +19,8 @@ const requiredFiles = [
   "package/cep-plugin/CSXS/manifest.xml",
   "package/cep-plugin/bridge-directory-security.cjs",
   "package/cep-plugin/panel-commands.cjs",
+  "package/cep-plugin/agent-host.cjs",
+  "package/cep-plugin/chat-ui.js",
   "package/after-effects-cep-plugin/CSXS/manifest.xml",
   "package/after-effects-cep-plugin/bridge-directory-security.cjs",
   "package/uxp-plugin/manifest.json",
