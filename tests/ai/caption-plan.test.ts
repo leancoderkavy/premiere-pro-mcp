@@ -1096,8 +1096,42 @@ describe("plan window, settings and wide words", () => {
     const p = buildCaptions(segs(), { frame_rate: 25, from_s: 5 });
     expect(p.captions.map((c) => c.text)).toEqual(["three four"]);
     expect(buildCaptions(segs(), { frame_rate: 25, to_s: 5 }).captions[0].text).toBe("one two");
-    expect(() => buildCaptions(segs(), { from_s: 50 })).toThrow(/between 50 s and Infinity s/);
+    expect(() => buildCaptions(segs(), { from_s: 50 })).toThrow(/overlaps 50 s to Infinity s/);
     expect(() => buildCaptions([], {})).toThrow(/no segments/);
+  });
+  it("clips words that straddle from_s/to_s instead of dropping the whole segment", () => {
+    // Trimmed-clip / media_shortcut path: transcribe_audio passes from_s=inPoint, to_s=outPoint.
+    // A Whisper sentence that started before the in-point must still caption the heard words,
+    // and words after the out-point must not land on later shots.
+    const p = buildCaptions(
+      [{
+        text: "hello mid world later extra",
+        start: 2,
+        end: 8,
+        words: [
+          { text: "hello", start: 2.0, end: 2.4 },
+          { text: "mid", start: 2.3, end: 2.8 },
+          { text: "world", start: 2.6, end: 3.2 },
+          { text: "later", start: 4.8, end: 5.4 },
+          { text: "extra", start: 6.0, end: 6.5 },
+        ],
+      }],
+      { frame_rate: 25, from_s: 2.5, to_s: 5, offset: 7.5 },
+    );
+    const spoken = p.captions.map((c) => c.text).join(" ");
+    expect(spoken).toMatch(/mid/);
+    expect(spoken).toMatch(/world/);
+    expect(spoken).not.toMatch(/hello/);
+    expect(spoken).not.toMatch(/extra/);
+    const wordStarts = p.captions.flatMap((c) => c.words.map((w) => w.start));
+    expect(Math.min(...wordStarts)).toBeGreaterThanOrEqual(10);
+    expect(Math.max(...wordStarts)).toBeLessThan(12.5);
+  });
+  it("refuses a from_s/to_s window that clips every overlapping word to nothing", () => {
+    expect(() => buildCaptions(
+      [{ text: "x", start: 0, end: 10, words: [{ text: "hi", start: 0, end: 10 }] }],
+      { frame_rate: 25, from_s: 5, to_s: 5 },
+    )).toThrow(/no words/);
   });
   it("reports resolved settings", () => {
     const p = buildCaptions(segs(), { frame_rate: 24, standard: "netflix_adult", max_words: 4, cut_times: [1, 1, 3] });

@@ -98,9 +98,9 @@ export interface CaptionPlanOptions {
   pause_break?: number;
   /** Seconds added to every transcript time. */
   offset?: number;
-  /** Only transcript segments that start at or after this (before offset). */
+  /** Only transcript words that overlap this time and later (before offset). Straddling words are clipped. */
   from_s?: number;
-  /** Only transcript segments that start before this (before offset). */
+  /** Only transcript words that overlap times before this (before offset). Straddling words are clipped. */
   to_s?: number;
   min_gap_frames?: number;
   close_gaps_under?: number;
