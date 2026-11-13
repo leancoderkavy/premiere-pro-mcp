@@ -60,6 +60,8 @@ describe("CEP in-panel agent", () => {
     expect(host).toContain('"--sandbox", "read-only"');
     expect(host).toContain('"--tools", "search_tool,use_tool"');
     expect(host).toContain("PREMIERE_TEMP_DIR");
+    expect(host).toContain("PREMIERE_MCP_TITLE_DIR");
+    expect(host).toContain("PREMIERE_CONTEXT_DIR");
     expect(host).not.toContain("unsafe-script");
   });
 

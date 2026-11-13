@@ -344,3 +344,5 @@ footer { padding-top: 4px; }
 @media (prefers-reduced-motion: reduce) { #latestBtn:not([hidden]) { animation: none; } }
 /* Floats over the bottom of the conversation instead of taking a row: 26px tall, pulled up 34px, 8px back = no space used. */
 #latestBtn { position: relative; z-index: 5; height: 26px; margin: -34px 0 8px; }
+/* A failed step marks the group title instead of forcing the group open. */
+.worklog.has-errors .worklog-head { color: var(--err); }

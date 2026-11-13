@@ -212,7 +212,8 @@ function addToolResult(id, ok, text) {
   t.classList.remove("running"); t.classList.add(ok ? "ok" : "err");
   t.querySelector(".tool-detail").insertAdjacentHTML("beforeend", `\n\n<span class="label-faint">${ok ? "result" : "error"}</span>\n${esc(text)}`);
   const log = t.closest(".worklog");
-  if (!ok) { t.classList.add("expanded"); log.errors++; log.classList.add("open"); }
+  // Failures show in the group title; the group stays however the user left it.
+  if (!ok) { t.classList.add("expanded"); log.errors++; log.classList.add("has-errors"); }
   updateLogTitle(log);
 }
 

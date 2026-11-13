@@ -472,6 +472,24 @@
       existing("/opt/homebrew/bin/node");
   }
 
+  /**
+   * The server keeps its title cache and project context in private folders that pass
+   * the same ownership/ancestry check as the bridge. When the user chose their own bridge
+   * folder (often because the default location fails that check), keep those folders
+   * next to it: its parent has already passed the check. Explicit settings still win.
+   */
+  function privateWorkDirs(bridgeDir) {
+    var extra = {};
+    if (!bridgeDir) return extra;
+    var bridge = path.resolve(bridgeDir);
+    var fallback = path.resolve(path.join(os.tmpdir(), "premiere-mcp-bridge"));
+    if (bridge.toLowerCase() === fallback.toLowerCase()) return extra;
+    var base = path.dirname(bridge);
+    if (!env.PREMIERE_MCP_TITLE_DIR) extra.PREMIERE_MCP_TITLE_DIR = path.join(base, "titles");
+    if (!env.PREMIERE_CONTEXT_DIR) extra.PREMIERE_CONTEXT_DIR = path.join(base, "context");
+    return extra;
+  }
+
   /** How the CLIs start the premiere-pro-mcp stdio server. */
   function mcpLaunch() {
     var node = nodeExe();
@@ -496,6 +514,7 @@
     }
     var serverEnv = { PREMIERE_TEMP_DIR: typeof tempDir === "string" ? tempDir : "" };
     if (settings.toolPack && settings.toolPack !== "full") serverEnv.PREMIERE_MCP_TOOL_PACKS = settings.toolPack;
+    Object.assign(serverEnv, privateWorkDirs(serverEnv.PREMIERE_TEMP_DIR));
     launch.env = serverEnv;
     return launch;
   }
