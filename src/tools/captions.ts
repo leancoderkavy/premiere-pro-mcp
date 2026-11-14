@@ -9,6 +9,7 @@ import { resolveContainedOutputPath } from "./caption-authoring.js";
 import {
   buildImportCaptionFileScript,
   CAPTION_CUT_SOURCE_PROPERTY,
+  captionNotApplied,
   normalizeCutSource,
   readCaptionSequence,
   safeFileStem,
@@ -250,22 +251,32 @@ async function importCaptionPlan(args: Record<string, unknown>, bridgeOptions: B
   }
 
   // 1. The sequence: frame rate (the plan is built at it) and, optionally, edit points.
-  const sequence = await readCaptionSequence(bridgeOptions, { include_edit_points: cutSource === "edit_points" });
+  let sequence;
+  try {
+    sequence = await readCaptionSequence(bridgeOptions, { include_edit_points: cutSource === "edit_points" });
+  } catch (error) {
+    return captionNotApplied(error instanceof Error ? error.message : String(error));
+  }
 
   // 2. The plan, at the sequence's frame rate.
   // The caption track starts at start_seconds, so the plan may run until the sequence end minus that.
   const planEnd = sequence.duration_seconds === null ? undefined : sequence.duration_seconds - startSeconds;
   if (planEnd !== undefined && !(planEnd > 0)) {
-    return { success: false, error: `start_seconds ${startSeconds} is at or after the end of the sequence (${sequence.duration_seconds} s), so no caption could be shown. Nothing was written or imported.` };
+    return captionNotApplied(`start_seconds ${startSeconds} is at or after the end of the sequence (${sequence.duration_seconds} s), so no caption could be shown. Nothing was written or imported.`);
   }
-  const resolved = resolveCaptionPlan(args, {
-    frame_rate: sequence.fps,
-    ...(planEnd !== undefined ? { end_s: planEnd } : {}),
-    ...(cutSource === "edit_points" && sequence.edit_points ? { cut_times: sequence.edit_points } : {}),
-  });
+  let resolved;
+  try {
+    resolved = resolveCaptionPlan(args, {
+      frame_rate: sequence.fps,
+      ...(planEnd !== undefined ? { end_s: planEnd } : {}),
+      ...(cutSource === "edit_points" && sequence.edit_points ? { cut_times: sequence.edit_points } : {}),
+    });
+  } catch (error) {
+    return captionNotApplied(error instanceof Error ? error.message : String(error));
+  }
   const plan = resolved.plan;
   if (plan.captions.length === 0) {
-    return { success: false, error: "The plan has no captions, so nothing was written or imported.", data: { plan: summarizeCaptionPlan(plan) } };
+    return captionNotApplied("The plan has no captions, so nothing was written or imported.", { plan: summarizeCaptionPlan(plan) });
   }
   const warnings = [...plan.warnings];
   if (sequence.edit_points_truncated) warnings.push("The sequence has more edit points than the host collected; later cuts were not used for snapping.");
@@ -288,11 +299,10 @@ async function importCaptionPlan(args: Record<string, unknown>, bridgeOptions: B
   }
   const readBack = parseSubtitles(readFileSync(target, "utf8"), "srt");
   if (readBack.cues.length !== plan.captions.length) {
-    return {
-      success: false,
-      error: `The SRT was written to ${target} but reads back ${readBack.cues.length} cues instead of ${plan.captions.length}; nothing was imported.`,
-      data: { srt_path: target, cue_count: plan.captions.length, cue_count_readback: readBack.cues.length, plan: summarizeCaptionPlan(plan) },
-    };
+    return captionNotApplied(
+      `The SRT was written to ${target} but reads back ${readBack.cues.length} cues instead of ${plan.captions.length}; nothing was imported.`,
+      { srt_path: target, cue_count: plan.captions.length, cue_count_readback: readBack.cues.length, plan: summarizeCaptionPlan(plan) },
+    );
   }
   const srt = { path: target, cue_count: plan.captions.length, cue_count_readback: readBack.cues.length, warnings: written.warnings };
 

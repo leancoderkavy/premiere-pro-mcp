@@ -28,6 +28,7 @@ import type { QaBox } from "../ai/caption-qa.js";
 import { CAPTION_PLAN_INPUT_PROPERTIES, CAPTION_TRANSCRIPT_INPUT_PROPERTIES, resolveCaptionPlan } from "./caption-inputs.js";
 import {
   CAPTION_CUT_SOURCE_PROPERTY,
+  captionNotApplied,
   normalizeCutSource,
   readCaptionSequence,
   summarizeCaptionPlan,
@@ -450,9 +451,9 @@ export function buildGraphicsTrackInspectScript(trackIndex: number, namePrefix: 
   return buildToolScript(`
     ${NAME_MATCH_FUNCTION}
     var seq = app.project.activeSequence;
-    if (!seq) return __error("No active sequence");
+    if (!seq) return __refuse("No active sequence");
     var track = seq.videoTracks[${trackIndex}];
-    if (!track) return __error("Video track ${trackIndex} does not exist");
+    if (!track) return __refuse("Video track ${trackIndex} does not exist");
     var prefix = "${esc(namePrefix)} ";
     var stale = [];
     var staleCount = 0;
@@ -488,9 +489,9 @@ export function buildGraphicsRemoveScript(trackIndex: number, namePrefix: string
   return buildToolScript(`
     ${NAME_MATCH_FUNCTION}
     var seq = app.project.activeSequence;
-    if (!seq) return __error("No active sequence");
+    if (!seq) return __refuse("No active sequence");
     var track = seq.videoTracks[${trackIndex}];
-    if (!track) return __error("Video track ${trackIndex} does not exist");
+    if (!track) return __refuse("Video track ${trackIndex} does not exist");
     if (__isTrackLocked(track)) return __refuse("Video track ${trackIndex} is locked; nothing was removed.");
     var prefix = "${esc(namePrefix)} ";
     var removed = 0;
@@ -915,26 +916,41 @@ async function runAddCaptionGraphics(args: Record<string, unknown>, bridgeOption
   if (templateProblem) return { success: false, error: templateProblem, data: { outcome: "not_applied", timelineChanged: false } };
 
   // 1. The sequence.
-  const sequence: CaptionSequenceInfo = await readCaptionSequence(bridgeOptions, {
-    include_edit_points: cutSource === "edit_points",
-    exclude_video_track: options.track_index,
-  });
+  let sequence: CaptionSequenceInfo;
+  try {
+    sequence = await readCaptionSequence(bridgeOptions, {
+      include_edit_points: cutSource === "edit_points",
+      exclude_video_track: options.track_index,
+    });
+  } catch (error) {
+    return captionNotApplied(error instanceof Error ? error.message : String(error));
+  }
   if (options.track_index >= sequence.video_track_count) {
-    return { success: false, error: `Video track ${options.track_index} does not exist (the sequence has ${sequence.video_track_count}). Nothing was changed; call add_track first, then retry.` };
+    return captionNotApplied(`Video track ${options.track_index} does not exist (the sequence has ${sequence.video_track_count}). Nothing was changed; call add_track first, then retry.`);
   }
   const frame: FrameInfo = { width: sequence.frame_width, height: sequence.frame_height, exact_fps: sequence.exact_fps, frame_ticks: sequence.timebase_ticks };
 
   // 2. The plan, at the sequence's frame rate.
-  const resolved = resolveCaptionPlan(args, {
-    frame_rate: sequence.fps,
-    ...(sequence.duration_seconds !== null && sequence.duration_seconds > 0 ? { end_s: sequence.duration_seconds } : {}),
-    ...(cutSource === "edit_points" && sequence.edit_points ? { cut_times: sequence.edit_points } : {}),
-  });
+  let resolved;
+  try {
+    resolved = resolveCaptionPlan(args, {
+      frame_rate: sequence.fps,
+      ...(sequence.duration_seconds !== null && sequence.duration_seconds > 0 ? { end_s: sequence.duration_seconds } : {}),
+      ...(cutSource === "edit_points" && sequence.edit_points ? { cut_times: sequence.edit_points } : {}),
+    });
+  } catch (error) {
+    return captionNotApplied(error instanceof Error ? error.message : String(error));
+  }
   const plan = resolved.plan;
-  if (plan.captions.length === 0) return { success: false, error: "The plan has no captions, so nothing was placed.", data: { plan: summarizeCaptionPlan(plan) } };
+  if (plan.captions.length === 0) return captionNotApplied("The plan has no captions, so nothing was placed.", { plan: summarizeCaptionPlan(plan) });
   const warnings = [...plan.warnings];
   const shortSide = Math.min(frame.width, frame.height);
-  const provisional = buildGraphicsClips(plan, frame, options, options.font_size_px ?? 0.06 * shortSide);
+  let provisional;
+  try {
+    provisional = buildGraphicsClips(plan, frame, options, options.font_size_px ?? 0.06 * shortSide);
+  } catch (error) {
+    return captionNotApplied(error instanceof Error ? error.message : String(error));
+  }
   const rangeStart = provisional.clips[0].start;
   const rangeEnd = provisional.clips[provisional.clips.length - 1].end;
   if (plan.captions.some((c) => c.color) && !options.color_field) {
@@ -944,21 +960,20 @@ async function runAddCaptionGraphics(args: Record<string, unknown>, bridgeOption
 
   // 3. Look at the track: this tool's earlier clips and anything else in the way.
   const inspect = await hostCall(buildGraphicsTrackInspectScript(options.track_index, options.name_prefix, rangeStart, rangeEnd + OVERLAP_GUARD_SECONDS), bridgeOptions);
-  if (!inspect.ok) return { success: false, error: `Could not inspect video track ${options.track_index}: ${inspect.error ?? "unknown error"}. Nothing was changed.` };
-  if (inspect.data.locked === true) return { success: false, error: `Video track ${options.track_index} is locked; unlock it first. Nothing was changed.` };
+  if (!inspect.ok) return captionNotApplied(`Could not inspect video track ${options.track_index}: ${inspect.error ?? "unknown error"}. Nothing was changed.`);
+  if (inspect.data.locked === true) return captionNotApplied(`Video track ${options.track_index} is locked; unlock it first. Nothing was changed.`);
   const overlapCount = Number(inspect.data.overlapCount ?? 0);
   if (overlapCount > 0) {
-    return {
-      success: false,
-      error: `${overlapCount} other clip(s) on video track ${options.track_index} overlap the captions' time range (plus ${OVERLAP_GUARD_SECONDS} s for the template's default length); nothing was changed. Use another, empty track (add_track) and pass its track_index.`,
-      data: { overlapping_clips: inspect.data.overlapping, range_seconds: [rangeStart, rangeEnd] },
-    };
+    return captionNotApplied(
+      `${overlapCount} other clip(s) on video track ${options.track_index} overlap the captions' time range (plus ${OVERLAP_GUARD_SECONDS} s for the template's default length); nothing was changed. Use another, empty track (add_track) and pass its track_index.`,
+      { overlapping_clips: inspect.data.overlapping, range_seconds: [rangeStart, rangeEnd] },
+    );
   }
   const staleCount = Number(inspect.data.staleCount ?? 0);
   let removedCount = 0;
   if (staleCount > 0) {
     if (!options.replace_existing) {
-      return { success: false, error: `${staleCount} clip(s) named '${options.name_prefix} NNN' already exist on video track ${options.track_index}; pass replace_existing true to replace them or a different name_prefix. Nothing was changed.`, data: { existing: inspect.data.stale } };
+      return captionNotApplied(`${staleCount} clip(s) named '${options.name_prefix} NNN' already exist on video track ${options.track_index}; pass replace_existing true to replace them or a different name_prefix. Nothing was changed.`, { existing: inspect.data.stale });
     }
     const removal = await hostCall(buildGraphicsRemoveScript(options.track_index, options.name_prefix), bridgeOptions);
     if (!removal.ok) return { success: false, error: `Removing the earlier caption clips failed: ${removal.error ?? "unknown error"}. Inspect the track before retrying.`, data: { outcome: "unknown", removal: removal.data } };

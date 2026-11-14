@@ -63,14 +63,14 @@ export function buildSequenceAudioScript(sequenceId: string | null): string {
   const pick = sequenceId === null ? "var seq = __getCurrentActiveSequence();" : `var seq = __findSequence("${escapeForExtendScript(sequenceId)}");`;
   return buildToolScript(`
     ${pick}
-    if (!seq) return __error("Sequence not found; nothing was uploaded.");
+    if (!seq) return __refuse("Sequence not found; nothing was uploaded.");
     var activeSeq = __getCurrentActiveSequence();
     var isActive = false;
     try { isActive = !!activeSeq && String(activeSeq.sequenceID) === String(seq.sequenceID); } catch (eActive) {}
     var reasons = [];
     var audible = [];
     var trackCount = 0;
-    try { trackCount = seq.audioTracks.numTracks; } catch (eTracks) { return __error("Could not read the sequence audio tracks: " + eTracks); }
+    try { trackCount = seq.audioTracks.numTracks; } catch (eTracks) { return __refuse("Could not read the sequence audio tracks: " + eTracks); }
     for (var t = 0; t < trackCount; t++) {
       var track = seq.audioTracks[t];
       var muted = false;
@@ -390,9 +390,9 @@ export function getCaptionTranscriptionTools(bridgeOptions: BridgeOptions, deps:
             if (isVideoFile(file)) acquired.warnings = ["media_path is a video file: the picture is uploaded to ElevenLabs together with the sound. Use an audio file to upload audio only."];
           } else {
             const inspected = await sendCommand(buildSequenceAudioScript(useActive ? null : (args.sequence_id as string)), bridgeOptions);
-            if (!inspected.success) return fail(`${inspected.error ?? "Could not read the sequence audio"}; nothing was sent.`);
+            if (!inspected.success) return fail(`${inspected.error ?? "Could not read the sequence audio"}; nothing was sent.`, { mutationOutcome: "not_applied", timelineChanged: false });
             const audio = inspected.data as SequenceAudio;
-            if (audio.audibleClipCount === 0) return fail("The sequence has no enabled clip on an unmuted audio track, so there is nothing to transcribe. Nothing was sent.", { sequence: audio.sequence });
+            if (audio.audibleClipCount === 0) return fail("The sequence has no enabled clip on an unmuted audio track, so there is nothing to transcribe. Nothing was sent.", { sequence: audio.sequence, mutationOutcome: "not_applied", timelineChanged: false });
             const skipped: string[] = [];
             if (args.media_shortcut === false) skipped.push("media_shortcut was false");
             skipped.push(...audio.reasons);
@@ -422,7 +422,7 @@ export function getCaptionTranscriptionTools(bridgeOptions: BridgeOptions, deps:
               acquired = direct;
             } else {
               if (!audio.sequence.isActive) {
-                return fail("The sequence's audio has to be exported, and only the active sequence can be exported. Call set_active_sequence for this sequence first. Nothing was sent.", { sequence: sequenceInfo, media_shortcut_skipped: skipped });
+                return fail("The sequence's audio has to be exported, and only the active sequence can be exported. Call set_active_sequence for this sequence first. Nothing was sent.", { sequence: sequenceInfo, media_shortcut_skipped: skipped, mutationOutcome: "not_applied", timelineChanged: false });
               }
               const stem = freeStem(workspace, `${safeFileStem(audio.sequence.name, "sequence")} transcription audio`);
               // No extension: the export adds the one the preset writes (.mp4 for the default H.264 preset).
