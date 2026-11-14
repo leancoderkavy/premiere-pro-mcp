@@ -6,105 +6,200 @@
   <title>MCP for Adobe Premiere Pro</title>
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-  <main class="panel-shell">
-    <header class="panel-header">
-      <div class="brand-mark" aria-hidden="true"><span>M</span></div>
-      <div class="brand-copy">
-        <h1>MCP for Adobe Premiere Pro</h1>
-        <p>Local Premiere connection</p>
-      </div>
-      <div class="auto-start"><span></span>Auto-start</div>
-    </header>
+<body data-bridge="waiting">
+<div class="sr-only"><h1>MCP for Adobe Premiere Pro</h1></div>
 
-    <section class="status-panel" role="status" aria-live="polite" aria-atomic="true">
-      <div class="status-indicator" aria-hidden="true">
-        <div class="status-ring"><div class="status-dot waiting" id="statusDot"></div></div>
-      </div>
-      <div class="status-copy">
-        <span class="section-label">Bridge status</span>
-        <strong id="statusText">Starting connector…</strong>
-        <span id="statusDetail">Checking Premiere Pro</span>
-      </div>
-      <div class="command-stat">
-        <strong id="cmdCount">0</strong>
-        <span>commands</span>
-      </div>
-    </section>
+<header>
+  <div class="tabs">
+    <button class="tab active" data-tab="chat">Chat</button>
+    <button class="tab" data-tab="settings">Settings</button>
+  </div>
+  <div class="grow"></div>
+  <button class="bridge-pill" id="bridgePill" type="button" title="Premiere connection"><span class="bridge-dot" aria-hidden="true"></span><span class="bridge-pill-label">Premiere</span></button>
+  <div class="chat-navigation" role="group" aria-label="Conversations">
+    <button class="nav-icon" id="historyToggle" title="History (Ctrl+K)" aria-label="Open chat history" aria-controls="historyView" aria-expanded="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16M5.5 8h1M5.5 11h1"/></svg>
+    </button>
+    <button class="nav-icon" id="newBtn" title="New chat (Ctrl+N)" aria-label="New chat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+  </div>
+</header>
 
-    <section class="connection-center" aria-labelledby="connectionCenterTitle">
-      <div class="section-heading">
-        <div>
-          <span class="section-label">Connection Center</span>
-          <h2 id="connectionCenterTitle">Ready-to-edit check</h2>
+<main id="mainContent">
+<!-- ===================== chat ===================== -->
+<div class="view" id="chatView">
+  <div id="empty">
+    <h2>What should we edit?</h2>
+    <p>Describe a cut, a sequence or a change. The agent works in your open Premiere project.</p>
+    <div class="project" id="emptyProject"></div>
+    <div id="signinCard" hidden>
+      <p id="signinText"></p>
+      <button class="small-btn primary" id="signinBtn"></button>
+    </div>
+  </div>
+
+  <div id="timeline" hidden></div>
+  <button id="latestBtn" hidden>↓ Latest messages</button>
+
+  <footer>
+    <div class="composer">
+      <div id="mentionMenu" hidden>
+        <input class="field" id="mentionSearch" aria-label="Find a chat to mention" placeholder="Find a chat to reference…" autocomplete="off">
+        <div id="mentionList"></div>
+      </div>
+      <div class="reference-list" id="references" hidden></div>
+      <textarea id="input" rows="1" aria-label="Message" placeholder="Ask the agent to edit something…"></textarea>
+      <div class="composer-bar">
+        <div class="picker" id="modelPicker">
+          <button class="picker-btn" id="modelBtn" title="Account and model">
+            <span id="modelLabel">Loading…</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="menu" id="modelMenu"></div>
         </div>
-        <button class="save-link" type="button" onclick="refreshConnectionCenter()" aria-controls="connectionChecks">Refresh</button>
-      </div>
-      <p class="connection-intro">This CEP connector does not use a UXP token. Claude Desktop's Premiere UXP Token field is only for <strong>Window → UXP Plugins</strong>. Leave it blank for CEP, or generate any 16+ character secret and enter the same value in Claude Desktop and the UXP panel Bridge token field.</p>
-      <ul class="connection-checks" id="connectionChecks">
-        <li id="checkConnector" data-state="waiting"><span class="check-dot" aria-hidden="true"></span><span><strong>Connector</strong><small>Starting…</small></span></li>
-        <li id="checkProject" data-state="waiting"><span class="check-dot" aria-hidden="true"></span><span><strong>Project</strong><small>Checking…</small></span></li>
-        <li id="checkSequence" data-state="waiting"><span class="check-dot" aria-hidden="true"></span><span><strong>Active sequence</strong><small>Checking…</small></span></li>
-      </ul>
-    </section>
-
-    <section class="config-section">
-      <div class="section-heading">
-        <div>
-          <span class="section-label">Configuration</span>
-          <h2>Bridge directory</h2>
+        <div class="picker" id="thinkPicker">
+          <button class="picker-btn" id="thinkBtn" title="Thinking level">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2Z"/></svg>
+            <span id="thinkLabel"></span>
+          </button>
+          <div class="menu narrow" id="thinkMenu"></div>
         </div>
-        <button class="save-link" id="btnSave" onclick="saveTempDir()" type="button" title="Save bridge directory">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 3.5h9.4L16.5 6v10.5h-13v-13Z"/><path d="M6.5 3.5v5h7v-5M6.5 16.5v-5h7v5"/></svg>
-          Save
-        </button>
+        <div class="grow"></div>
+        <button class="send" id="sendBtn" disabled title="Send (Enter)"></button>
       </div>
-      <label class="sr-only" for="tempDir">Temporary bridge directory</label>
-      <div class="path-field">
-        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 5.5h5l1.5 2h8.5v8h-15v-10Z"/></svg>
-        <input type="text" id="tempDir" value="" spellcheck="false" autocomplete="off" aria-describedby="tempDirHelp">
-      </div>
-      <p class="field-help" id="tempDirHelp">Commands and responses are exchanged through this local folder.</p>
-    </section>
+    </div>
+  </footer>
+</div>
 
-    <div class="action-row">
-      <button id="btnStart" class="button button-primary" onclick="startBridge()" type="button" aria-controls="log">
-        <svg viewBox="0 0 20 20" aria-hidden="true"><path class="fill-icon" d="m7 5 8 5-8 5V5Z"/></svg>
-        Start Bridge
-      </button>
-      <button id="btnStop" class="button button-stop" onclick="stopBridge()" type="button" aria-controls="log" disabled>
-        <svg viewBox="0 0 20 20" aria-hidden="true"><rect class="fill-icon" x="6" y="6" width="8" height="8" rx="1"/></svg>
-        Stop
-      </button>
+<!-- ===================== settings ===================== -->
+<div class="view" id="settingsView" hidden>
+  <div class="section">
+    <h4>Accounts</h4>
+    <div class="card" id="accountsCard"></div>
+  </div>
+
+  <div class="section">
+    <h4>Models</h4>
+    <div class="card" id="modelsCard"></div>
+  </div>
+
+  <!-- Bridge internals: main.js drives these elements. The bridge runs by itself, so they stay hidden. -->
+  <div id="bridgeInternals" hidden>
+    <!-- Premiere connection: the CEP file bridge the MCP server talks to. Element ids are used by main.js. -->
+    <div class="section" id="bridgeSection">
+      <h4>Premiere connection</h4>
+      <div class="card bridge-card">
+        <div class="status-panel" role="status" aria-live="polite" aria-atomic="true">
+          <div class="status-dot waiting" id="statusDot" aria-hidden="true"></div>
+          <div class="status-copy">
+            <strong id="statusText">Starting connector…</strong>
+            <span id="statusDetail">Checking Premiere Pro</span>
+          </div>
+          <div class="command-stat" title="Commands handled this session"><strong id="cmdCount">0</strong><span>cmds</span></div>
+        </div>
+  
+        <ul class="connection-checks" id="connectionChecks" aria-label="Ready-to-edit check">
+          <li id="checkConnector" data-state="waiting"><span class="check-dot" aria-hidden="true"></span><span><strong>Connector</strong><small>Starting…</small></span></li>
+          <li id="checkProject" data-state="waiting"><span class="check-dot" aria-hidden="true"></span><span><strong>Project</strong><small>Checking…</small></span></li>
+          <li id="checkSequence" data-state="waiting"><span class="check-dot" aria-hidden="true"></span><span><strong>Sequence</strong><small>Checking…</small></span></li>
+        </ul>
+  
+        <div class="action-row">
+          <button id="btnStart" class="small-btn primary" onclick="startBridge()" type="button" aria-controls="log">Start Bridge</button>
+          <button id="btnStop" class="small-btn" onclick="stopBridge()" type="button" aria-controls="log" disabled>Stop</button>
+          <span class="grow"></span>
+          <button class="link-btn" type="button" onclick="refreshConnectionCenter()" aria-controls="connectionChecks">Recheck</button>
+        </div>
+      </div>
+    </div>
+  
+    <div class="section">
+      <h4>MCP server</h4>
+      <div class="card form-card">
+        <label class="field-label" for="mcpServerInput">Server entry <span class="label-faint">· blank = automatic</span></label>
+        <div class="inline-field">
+          <input class="field" id="mcpServerInput" spellcheck="false" autocomplete="off" placeholder="Auto: global install, else npx premiere-pro-mcp" aria-describedby="mcpServerHelp">
+          <button class="small-btn" id="mcpServerSave" type="button">Save</button>
+        </div>
+        <p class="hint" id="mcpServerHelp"></p>
+  
+        <label class="field-label" for="toolPackSelect">Tool set</label>
+        <select class="field" id="toolPackSelect"></select>
+        <p class="hint">Smaller sets keep the agent focused. The full catalog has every Premiere tool.</p>
+  
+        <div class="section-heading">
+          <label class="field-label" for="tempDir">Bridge directory</label>
+          <button class="link-btn" id="btnSave" onclick="saveTempDir()" type="button" title="Save bridge directory">Save</button>
+        </div>
+        <input class="field mono" type="text" id="tempDir" value="" spellcheck="false" autocomplete="off" aria-describedby="tempDirHelp">
+        <p class="hint" id="tempDirHelp">Commands and responses are exchanged through this local folder.</p>
+      </div>
+    </div>
+  
+    <div class="section">
+      <details class="card" id="activityCard">
+        <summary><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>Activity <span class="label-faint">· bridge log</span></summary>
+        <div id="log" role="log" aria-live="polite" aria-relevant="additions" tabindex="0" aria-label="Bridge activity log"></div>
+      </details>
+    </div>
+  
+    <div class="section">
+      <div class="card update-section" aria-live="polite">
+        <div class="update-copy">
+          <span class="sr-only">MCP updates</span>
+          <strong id="updateTitle">Version 1.31.0</strong>
+          <span id="updateDetail">Checking the global MCP server and connector release…</span>
+        </div>
+        <button id="btnUpdate" class="small-btn" onclick="handleUpdateClick()" type="button" aria-describedby="updateDetail" disabled>Check again</button>
+      </div>
+      <p class="hint">CEP needs no UXP token. Claude Desktop's Premiere UXP Token field is only for <strong>Window → UXP Plugins</strong>.</p>
+    </div>
+  
     </div>
 
-    <section class="update-section" aria-live="polite">
-      <div class="update-copy">
-        <span class="section-label">MCP updates</span>
-        <strong id="updateTitle">Version 1.31.0</strong>
-        <span id="updateDetail">Checking the global MCP server and connector release…</span>
-      </div>
-      <button id="btnUpdate" class="button button-update" onclick="handleUpdateClick()" type="button" aria-describedby="updateDetail" disabled>
-        Check again
-      </button>
-    </section>
+  <!-- API keys are not used by this panel; the element stays for the shared settings renderer. -->
+  <details class="card" id="keysCard" hidden><summary>API keys</summary><div id="keysBody"></div></details>
+</div>
+</main>
 
-    <section class="activity-section">
-      <div class="section-heading activity-heading">
-        <div>
-          <span class="section-label">Live monitor</span>
-          <h2>Activity</h2>
-        </div>
-        <span class="activity-state"><span></span>Listening</span>
+<!-- ===================== history drawer ===================== -->
+<button id="historyBackdrop" tabindex="-1" aria-hidden="true"></button>
+<aside id="historyView" aria-labelledby="historyHeading" aria-hidden="true" inert>
+  <div class="history-head">
+    <h3 id="historyHeading">Chat history</h3>
+    <button class="icon-x" id="historyClose" title="Close history" aria-label="Close chat history">×</button>
+  </div>
+  <div class="history-body">
+    <div class="section">
+      <input class="field" id="historySearch" aria-label="Search chats" placeholder="Search titles and messages…" autocomplete="off">
+      <div id="historyActions">
+        <span class="hint" id="historyCount"></span><span class="grow"></span>
+        <button class="link-btn" id="undoDeleteBtn" hidden>Undo delete</button>
       </div>
-      <div id="log" role="log" aria-live="polite" aria-relevant="additions" tabindex="0" aria-label="Bridge activity log"></div>
-    </section>
-  </main>
+    </div>
+    <div class="section" id="historyList"></div>
+  </div>
+</aside>
 
-  <script src="CSInterface.js"></script>
-  <script src="updater.cjs"></script>
-  <script src="bridge-directory-security.cjs"></script>
-  <script src="panel-commands.cjs"></script>
-  <script src="main.js"></script>
+<div id="toast" role="status" aria-live="polite" hidden></div>
+<button type="button" id="quoteSelectionBtn" aria-label="Quote selected text" hidden>Quote</button>
+<dialog id="actionDialog" aria-labelledby="dialogTitle">
+  <form id="actionForm">
+    <h3 id="dialogTitle"></h3>
+    <label id="dialogLabel" for="dialogInput">Chat name</label>
+    <input class="field" id="dialogInput" maxlength="120" autocomplete="off">
+    <p class="hint" id="dialogHelp"></p>
+    <div class="dialog-buttons"><button type="button" class="small-btn" id="dialogCancel">Cancel</button><button type="submit" class="small-btn primary" id="dialogApply">Save</button></div>
+  </form>
+</dialog>
+
+<script src="CSInterface.js"></script>
+<script src="updater.cjs"></script>
+<script src="bridge-directory-security.cjs"></script>
+<script src="panel-commands.cjs"></script>
+<script src="main.js"></script>
+<script src="agent-host.cjs"></script>
+<script src="chat-ui.js"></script>
 </body>
 </html>
