@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Two long-lived Claude Desktop instances (Chat and Code/Cowork) no longer fight over UXP loopback port 7777. The instance that loses `listen()` joins the owner as an authenticated relay client instead of retrying the bind every 3 s, so `*_uxp` tools work in both sessions (#992, KAV-388).
+- The UXP first-run check now points at Window > UXP Plugins and mentions the shared loopback port, instead of the CEP Extensions panel.
+
 ## [1.31.0] - 2026-11-11
 
 ### Fixed

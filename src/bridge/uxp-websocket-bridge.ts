@@ -51,13 +51,14 @@ export interface UxpHello {
 }
 
 export type UxpConnectionState =
-  | { status: "stopped" | "listening"; connected: false }
+  | { status: "stopped" | "listening"; connected: false; route?: "local" | "relay" }
   | {
       status: "connected";
       connected: true;
       protocolVersion: number;
       capabilities: UxpHello;
       connectedAt: string;
+      route?: "local" | "relay";
     };
 
 interface PendingRequest {
@@ -150,6 +151,15 @@ export class UxpWebSocketBridge extends EventEmitter {
   async start(): Promise<void> {
     if (this.httpServer) return;
     const httpServer = createServer((req, res) => {
+      if (this.isAuthorizedLoopback(req, this.statusPath()) && (req.method === "GET" || req.method === "POST")) {
+        res.writeHead(200, { "Content-Type": "application/json", Connection: "close" });
+        res.end(JSON.stringify(this.localPeerState()));
+        return;
+      }
+      if (this.isAuthorizedLoopback(req, this.relayPath()) && req.method === "POST") {
+        void this.handleRelayRequest(req, res);
+        return;
+      }
       if (this.isAuthorizedHandoff(req)) {
         if (this.pending.size > 0 || this.handoffInProgress) {
           res.writeHead(409, { Connection: "close" });
@@ -193,16 +203,38 @@ export class UxpWebSocketBridge extends EventEmitter {
     wsServer.on("connection", (client) => this.acceptConnection(client));
 
     await new Promise<void>((resolve, reject) => {
-      httpServer.once("error", reject);
+      const onError = (error: Error) => {
+        httpServer.close();
+        reject(error);
+      };
+      httpServer.once("error", onError);
       httpServer.listen(this.options.port, LOOPBACK_HOST, () => {
-        httpServer.off("error", reject);
+        httpServer.off("error", onError);
         resolve();
       });
     });
     this.httpServer = httpServer;
     this.wsServer = wsServer;
     this.handoffInProgress = false;
+    this.relayMode = false;
+    this.relayState = null;
     this.emit("listening", this.address());
+  }
+
+  /**
+   * Bind the loopback port, or join the process that already holds it as a
+   * relay client. Two long-lived Claude Desktop instances (Chat and
+   * Code/Cowork) otherwise fight over port 7777: the loser retried listen()
+   * every 3 s and never reached the panel (issue #992 / KAV-388).
+   */
+  async startOrJoin(): Promise<void> {
+    try {
+      await this.start();
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException)?.code !== "EADDRINUSE") throw error;
+      if (await this.attachRelay()) return;
+      throw error;
+    }
   }
 
   address(): { host: string; port: number; path: string } {
@@ -219,20 +251,39 @@ export class UxpWebSocketBridge extends EventEmitter {
   }
 
   private isAuthorizedHandoff(req: import("node:http").IncomingMessage): boolean {
-    if (req.method !== "POST") return false;
+    return req.method === "POST" && this.isAuthorizedLoopback(req, this.handoffPath());
+  }
+
+  private isAuthorizedLoopback(req: import("node:http").IncomingMessage, pathname: string): boolean {
     let url: URL;
     try {
       url = new URL(req.url ?? "/", `http://${LOOPBACK_HOST}`);
     } catch {
       return false;
     }
-    if (url.pathname !== this.handoffPath()) return false;
+    if (url.pathname !== pathname) return false;
     // A DNS-rebinding page cannot present a loopback Host header, and a browser
     // cannot attach the custom token header without a preflight we never answer.
     const host = (req.headers.host ?? "").replace(/:\d+$/, "");
     if (host !== LOOPBACK_HOST && host !== "localhost") return false;
     const header = req.headers[HANDOFF_TOKEN_HEADER];
     return typeof header === "string" && secureTokenEqual(header, this.options.token);
+  }
+
+  private statusPath(): string {
+    return `${this.options.path.replace(/\/$/, "")}/status`;
+  }
+
+  private relayPath(): string {
+    return `${this.options.path.replace(/\/$/, "")}/relay`;
+  }
+
+  private localPeerState(): UxpConnectionState {
+    const state = this.getState();
+    if (state.route === "relay") {
+      return { status: this.httpServer ? "listening" : "stopped", connected: false, route: "local" };
+    }
+    return { ...state, route: state.route ?? "local" };
   }
 
   /** Ask the server process that holds the loopback port to release it. */
@@ -252,6 +303,133 @@ export class UxpWebSocketBridge extends EventEmitter {
       req.on("timeout", () => req.destroy());
       req.on("error", () => resolve(false));
       req.end();
+    });
+  }
+
+  /**
+   * Become a client of the process that already bound the loopback port.
+   * UXP commands are forwarded over an authenticated loopback HTTP relay
+   * so this process does not steal the panel or retry listen().
+   */
+  async attachRelay(): Promise<boolean> {
+    if (this.httpServer) return false;
+    const state = await this.fetchPeerState();
+    if (!state) return false;
+    this.relayMode = true;
+    this.relayState = state;
+    return true;
+  }
+
+  private fetchPeerState(): Promise<UxpConnectionState | null> {
+    return this.peerRequest({ method: "GET", path: this.statusPath() }).then((res) => {
+      if (!res || res.statusCode !== 200 || !res.body) return null;
+      try {
+        const parsed = JSON.parse(res.body) as UxpConnectionState;
+        if (parsed && (parsed.connected === true || parsed.connected === false)) return parsed;
+      } catch { /* not a cooperating peer */ }
+      return null;
+    });
+  }
+
+  private peerRequest(options: {
+    method: string;
+    path: string;
+    body?: string;
+    timeoutMs?: number;
+  }): Promise<{ statusCode: number; body: string } | null> {
+    return new Promise((resolve) => {
+      const req = httpRequest({
+        host: LOOPBACK_HOST,
+        port: this.options.port,
+        path: options.path,
+        method: options.method,
+        headers: {
+          [HANDOFF_TOKEN_HEADER]: this.options.token,
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(options.body ?? ""),
+        },
+        timeout: options.timeoutMs ?? 2_000,
+      }, (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk) => chunks.push(chunk));
+        res.on("end", () => resolve({
+          statusCode: res.statusCode ?? 0,
+          body: Buffer.concat(chunks).toString("utf8"),
+        }));
+      });
+      req.on("timeout", () => { req.destroy(); resolve(null); });
+      req.on("error", () => resolve(null));
+      req.end(options.body ?? "");
+    });
+  }
+
+  private async handleRelayRequest(
+    req: import("node:http").IncomingMessage,
+    res: import("node:http").ServerResponse,
+  ): Promise<void> {
+    const fail = (status: number, code: string, message: string) => {
+      res.writeHead(status, { "Content-Type": "application/json", Connection: "close" });
+      res.end(JSON.stringify({ ok: false, code, message }));
+    };
+    if (this.relayMode) {
+      fail(503, "UXP_NOT_CONNECTED", "This process is itself a UXP relay client");
+      return;
+    }
+    let raw: string;
+    try {
+      raw = await this.readRequestBody(req);
+    } catch {
+      fail(413, "UXP_COMMAND_TOO_LARGE", "Relay payload was too large");
+      return;
+    }
+    let command: string;
+    let args: Record<string, unknown> = {};
+    let minimumTimeoutMs: number | undefined;
+    try {
+      const body = JSON.parse(raw) as { command?: unknown; args?: unknown; minimumTimeoutMs?: unknown };
+      if (typeof body.command !== "string" || !body.command) throw new Error("missing command");
+      command = body.command;
+      if (body.args !== undefined) {
+        if (!body.args || typeof body.args !== "object" || Array.isArray(body.args)) throw new Error("invalid args");
+        args = body.args as Record<string, unknown>;
+      }
+      if (body.minimumTimeoutMs !== undefined) {
+        if (!Number.isInteger(body.minimumTimeoutMs) || (body.minimumTimeoutMs as number) < 0) {
+          throw new Error("invalid timeout");
+        }
+        minimumTimeoutMs = body.minimumTimeoutMs as number;
+      }
+    } catch {
+      fail(400, "UXP_RELAY_INVALID", "Relay body must be a JSON command");
+      return;
+    }
+    try {
+      const result = await this.requestOwned(command, args, minimumTimeoutMs === undefined ? {} : { minimumTimeoutMs });
+      res.writeHead(200, { "Content-Type": "application/json", Connection: "close" });
+      res.end(JSON.stringify({ ok: true, result }));
+    } catch (error) {
+      const code = error instanceof UxpBridgeError ? error.code : "UXP_COMMAND_FAILED";
+      const message = error instanceof Error ? error.message : String(error);
+      const status = code === "UXP_NOT_CONNECTED" || code === "UXP_HANDOFF_IN_PROGRESS" ? 503 : 400;
+      fail(status, code, message);
+    }
+  }
+
+  private readRequestBody(req: import("node:http").IncomingMessage, limit = MAX_UXP_COMMAND_BYTES + 4_096): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      let size = 0;
+      req.on("data", (chunk: Buffer) => {
+        size += chunk.length;
+        if (size > limit) {
+          req.destroy();
+          reject(new Error("payload too large"));
+          return;
+        }
+        chunks.push(chunk);
+      });
+      req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+      req.on("error", reject);
     });
   }
 
@@ -304,8 +482,15 @@ export class UxpWebSocketBridge extends EventEmitter {
 
   private claimInFlight: Promise<void> | null = null;
   private handoffInProgress = false;
+  private relayMode = false;
+  private relayState: UxpConnectionState | null = null;
 
   getState(): UxpConnectionState {
+    if (this.relayMode && !this.httpServer) {
+      const cached = this.relayState;
+      if (cached?.connected) return { ...cached, route: "relay" };
+      return { status: "stopped", connected: false, route: "relay" };
+    }
     if (this.socket?.readyState === WebSocket.OPEN && this.hello && this.connectedAt) {
       return {
         status: "connected",
@@ -313,11 +498,13 @@ export class UxpWebSocketBridge extends EventEmitter {
         protocolVersion: this.hello.protocolVersion,
         capabilities: this.hello,
         connectedAt: this.connectedAt,
+        route: "local",
       };
     }
     return {
       status: this.httpServer ? "listening" : "stopped",
       connected: false,
+      route: "local",
     };
   }
 
@@ -327,15 +514,21 @@ export class UxpWebSocketBridge extends EventEmitter {
    */
   async refreshCapabilities(): Promise<UxpHello | null> {
     const socket = this.socket;
+    const relaying = this.relayMode && !this.httpServer;
     const live = await this.request("capabilities.get") as Partial<UxpHello> | null;
-    const current = this.hello;
+    const current = relaying
+      ? (this.relayState && this.relayState.connected ? this.relayState.capabilities : this.hello)
+      : this.hello;
     if (
-      !current || socket !== this.socket || !live || live.backend !== "uxp" || live.protocolVersion !== current.protocolVersion ||
+      !current || (!relaying && socket !== this.socket) || !live || live.backend !== "uxp" || live.protocolVersion !== current.protocolVersion ||
       !live.commands || typeof live.commands !== "object" || Array.isArray(live.commands)
     ) {
       return null;
     }
     this.hello = live as UxpHello;
+    if (relaying && this.relayState?.connected) {
+      this.relayState = { ...this.relayState, capabilities: this.hello };
+    }
     return this.hello;
   }
 
@@ -344,9 +537,49 @@ export class UxpWebSocketBridge extends EventEmitter {
     args: Record<string, unknown> = {},
     requestOptions: UxpRequestOptions = {},
   ): Promise<unknown> {
-    if (!this.getState().connected) await this.claim();
+    if (this.relayMode && !this.httpServer) {
+      return withBridgeWorkflow(this.hostBridgeOptions, () => measureStage("host_wait", () => this.requestViaRelay(command, args, requestOptions)));
+    }
+    if (!this.getState().connected) {
+      if (!this.httpServer && await this.attachRelay()) {
+        return withBridgeWorkflow(this.hostBridgeOptions, () => measureStage("host_wait", () => this.requestViaRelay(command, args, requestOptions)));
+      }
+      await this.claim();
+    }
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN || !this.hello) throw new UxpBridgeError("UXP_NOT_CONNECTED", "Premiere UXP bridge is not connected");
     return withBridgeWorkflow(this.hostBridgeOptions, () => measureStage("host_wait", () => this.requestOwned(command, args, requestOptions)));
+  }
+
+  private async requestViaRelay(
+    command: string,
+    args: Record<string, unknown>,
+    requestOptions: UxpRequestOptions,
+  ): Promise<unknown> {
+    const minimumTimeoutMs = requestOptions.minimumTimeoutMs ?? 0;
+    const requestTimeoutMs = Math.max(this.options.requestTimeoutMs, minimumTimeoutMs);
+    const res = await this.peerRequest({
+      method: "POST",
+      path: this.relayPath(),
+      body: JSON.stringify({ command, args, minimumTimeoutMs }),
+      timeoutMs: requestTimeoutMs + 2_000,
+    });
+    if (!res) {
+      this.relayMode = false;
+      this.relayState = null;
+      throw new UxpBridgeError("UXP_NOT_CONNECTED", "The UXP process that holds the loopback port did not answer the relay");
+    }
+    let parsed: { ok?: boolean; result?: unknown; code?: string; message?: string };
+    try {
+      parsed = JSON.parse(res.body) as { ok?: boolean; result?: unknown; code?: string; message?: string };
+    } catch {
+      throw new UxpBridgeError("UXP_NOT_CONNECTED", "The UXP relay returned an invalid response");
+    }
+    if (res.statusCode === 200 && parsed.ok === true) {
+      const state = await this.fetchPeerState();
+      if (state) this.relayState = state;
+      return parsed.result;
+    }
+    throw new UxpBridgeError(parsed.code ?? "UXP_COMMAND_FAILED", parsed.message ?? `UXP command '${command}' failed`);
   }
 
   private async requestOwned(command: string, args: Record<string, unknown>, requestOptions: UxpRequestOptions): Promise<unknown> {
@@ -444,6 +677,8 @@ export class UxpWebSocketBridge extends EventEmitter {
 
   async stop(): Promise<void> {
     this.clearConnection(new UxpBridgeError("UXP_STOPPED", "UXP bridge stopped"));
+    this.relayMode = false;
+    this.relayState = null;
     const wsServer = this.wsServer;
     const httpServer = this.httpServer;
     this.wsServer = null;

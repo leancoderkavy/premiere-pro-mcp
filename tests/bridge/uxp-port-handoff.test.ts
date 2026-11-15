@@ -74,33 +74,46 @@ function postHandoff(port: number, headers: Record<string, string>): Promise<num
 }
 
 describe("UXP loopback port handoff between server processes", () => {
-  it("lets the server that receives UXP work take the panel over from the one holding the port", async () => {
+  it("lets a second instance join as a relay instead of stealing the panel (KAV-388 / #992)", async () => {
     const port = await freePort();
     const owner = makeBridge(port);
     await owner.start();
     fakePanel(port);
     await until(() => owner.getState().connected);
 
-    // The second copy cannot bind: this is the state reported as "stopped" in issue #958.
     const second = makeBridge(port);
     await expect(second.start()).rejects.toMatchObject({ code: "EADDRINUSE" });
     expect(second.getState()).toMatchObject({ status: "stopped", connected: false });
 
+    await second.startOrJoin();
+    expect(second.getState()).toMatchObject({ connected: true, route: "relay" });
     await expect(second.request("state.get")).resolves.toEqual({ answeredBy: "panel" });
-    expect(second.getState().connected).toBe(true);
-    expect(owner.getState()).toMatchObject({ status: "stopped", connected: false });
+    await expect(owner.request("state.get")).resolves.toEqual({ answeredBy: "panel" });
+    expect(owner.getState()).toMatchObject({ status: "connected", connected: true, route: "local" });
   });
 
-  it("hands the panel back when the first server is used again", async () => {
+  it("keeps both sessions usable when they request the panel in turn", async () => {
     const port = await freePort();
     const a = makeBridge(port); await a.start();
     fakePanel(port);
     await until(() => a.getState().connected);
     const b = makeBridge(port);
-    await b.request("state.get");
+    await expect(b.request("state.get")).resolves.toEqual({ answeredBy: "panel" });
+    expect(b.getState()).toMatchObject({ connected: true, route: "relay" });
     await expect(a.request("state.get")).resolves.toEqual({ answeredBy: "panel" });
-    expect(a.getState().connected).toBe(true);
-    expect(b.getState().connected).toBe(false);
+    expect(a.getState()).toMatchObject({ connected: true, route: "local" });
+  });
+
+  it("still lets an explicit claim take the port over from the owner", async () => {
+    const port = await freePort();
+    const owner = makeBridge(port);
+    await owner.start();
+    fakePanel(port);
+    await until(() => owner.getState().connected);
+    const second = makeBridge(port);
+    await expect(second.claim()).resolves.toBe(true);
+    expect(second.getState()).toMatchObject({ connected: true, route: "local" });
+    expect(owner.getState()).toMatchObject({ status: "stopped", connected: false });
   });
 
   it("refuses a handoff without the shared token or from a non-loopback Host", async () => {
@@ -141,5 +154,17 @@ describe("UXP loopback port handoff between server processes", () => {
     const lone = makeBridge(port);
     await expect(lone.claim(150)).resolves.toBe(false);
     expect(lone.getState().status).toBe("listening");
+  });
+
+  it("does not bind again after startOrJoin attaches as a relay client", async () => {
+    const port = await freePort();
+    const owner = makeBridge(port);
+    await owner.start();
+    fakePanel(port);
+    await until(() => owner.getState().connected);
+    const second = makeBridge(port);
+    await second.startOrJoin();
+    expect(second.getState().route).toBe("relay");
+    await expect(second.start()).rejects.toMatchObject({ code: "EADDRINUSE" });
   });
 });
