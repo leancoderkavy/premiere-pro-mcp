@@ -45,6 +45,13 @@ export const MAX_CHUNK_SIZE = 50;
 export const MAX_REPORTED_CLIPS = 200;
 /** Seconds past the plan's last caption that the overlap guard also covers: importMGT places the template's default length before it is trimmed. */
 export const OVERLAP_GUARD_SECONDS = 10;
+/**
+ * When font_size_px is set the font probe is skipped, so importMGT has not yet reported the
+ * template length. Assume this many seconds for the pre-chunk overlap inspect until a place
+ * result supplies defaultSeconds. After Effects MOGRT authoring in this repo caps at 30 s;
+ * 60 s covers common title templates without treating the rest of the sequence as blocked.
+ */
+export const UNKNOWN_TEMPLATE_DEFAULT_SECONDS = 60;
 /** Start times above this lose tick precision as doubles. */
 const MAX_START_SECONDS = 8 * 3600;
 
@@ -1052,18 +1059,34 @@ async function runAddCaptionGraphics(args: Record<string, unknown>, bridgeOption
   for (let ci = 0; ci < chunkList.length; ci++) {
     const chunk = chunkList[ci];
     // importMGT places the template's default length before it is trimmed: nothing foreign may start inside it.
+    // font_size_px skips the probe, so defaultSeconds is unknown until after this chunk would import.
     const chunkLastStart = chunk[chunk.length - 1].start;
-    if (defaultLengthSeconds !== null && chunkLastStart + defaultLengthSeconds > rangeEnd + OVERLAP_GUARD_SECONDS) {
-      const windowEnd = chunkLastStart + defaultLengthSeconds;
+    const assumedDefault = defaultLengthSeconds ?? UNKNOWN_TEMPLATE_DEFAULT_SECONDS;
+    if (chunkLastStart + assumedDefault > rangeEnd + OVERLAP_GUARD_SECONDS) {
+      const windowEnd = chunkLastStart + assumedDefault;
       const look = await hostCall(buildGraphicsTrackInspectScript(options.track_index, options.name_prefix, chunkLastStart, windowEnd), bridgeOptions);
+      const lengthLabel = defaultLengthSeconds === null
+        ? `an unmeasured template default (assuming ${UNKNOWN_TEMPLATE_DEFAULT_SECONDS} s until importMGT reports it)`
+        : `the template's default length (${defaultLengthSeconds} s)`;
+      const nothingPlaced = placed.length === 0 && removedCount === 0 && placedByIndex.size === 0;
       if (!look.ok) {
-        return failRun(`Could not check video track ${options.track_index} before chunk ${ci + 1}: ${look.error ?? "unknown error"}. Stopped after ${placed.length} clip(s).`, {});
+        const message = `Could not check video track ${options.track_index} before chunk ${ci + 1}: ${look.error ?? "unknown error"}. Stopped after ${placed.length} clip(s).`;
+        if (nothingPlaced) {
+          return { success: false as const, error: message, data: { mutationOutcome: "not_applied" as const, timelineChanged: false as const } };
+        }
+        return failRun(message, {});
       }
       if (Number(look.data.overlapCount ?? 0) > 0) {
-        return failRun(
-          `Stopped before chunk ${ci + 1} of ${chunkList.length}: ${Number(look.data.overlapCount)} other clip(s) on video track ${options.track_index} start within the template's default length (${defaultLengthSeconds} s) after caption ${chunk[chunk.length - 1].index + 1}'s start, and importMGT would overwrite them. Move them, use another track, or caption a shorter part (from_s / to_s). Stopped after ${placed.length} clip(s).`,
-          { overlapping_clips: look.data.overlapping, template_default_length_seconds: defaultLengthSeconds },
-        );
+        const extra = {
+          overlapping_clips: look.data.overlapping,
+          template_default_length_seconds: assumedDefault,
+          ...(defaultLengthSeconds === null ? { template_default_length_assumed: true } : {}),
+        };
+        const message = `Stopped before chunk ${ci + 1} of ${chunkList.length}: ${Number(look.data.overlapCount)} other clip(s) on video track ${options.track_index} start within ${lengthLabel} after caption ${chunk[chunk.length - 1].index + 1}'s start, and importMGT would overwrite them. Move them, use another track, or caption a shorter part (from_s / to_s). Stopped after ${placed.length} clip(s).`;
+        if (nothingPlaced) {
+          return { success: false as const, error: message, data: { ...extra, mutationOutcome: "not_applied" as const, timelineChanged: false as const } };
+        }
+        return failRun(message, extra);
       }
     }
     const place = await hostCall(

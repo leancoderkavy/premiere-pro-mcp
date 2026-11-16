@@ -362,7 +362,7 @@ describe("add_caption_graphics against a fake Premiere", () => {
     const result = await run({ transcript_text: THREE });
     expect(result.success).toBe(true);
     expect(result.data).toMatchObject({ outcome: "verified", verified: true, clip_count: 3, verified_count: 3, removed_existing: 0, track_index: 1 });
-    expect(calls).toEqual(["read", "inspect", "place", "readback"]);
+    expect(calls).toEqual(["read", "inspect", "inspect", "place", "readback"]);
     expect(result.data.chunks).toEqual([expect.objectContaining({ chunk: 1, clips: 3, placed_ok: 3, verified: 3, mismatch: 0 })]);
     const clips = host.tracks[1].clips as any[];
     expect(clips.map((c) => c.name)).toEqual(["Caption 001", "Caption 002", "Caption 003"]);
@@ -424,7 +424,7 @@ describe("add_caption_graphics against a fake Premiere", () => {
     const result = await run({ transcript_text: THREE });
     expect(result.success).toBe(true);
     expect(result.data.removed_existing).toBe(2);
-    expect(calls).toEqual(["read", "inspect", "remove", "inspect", "place", "readback"]);
+    expect(calls).toEqual(["read", "inspect", "remove", "inspect", "inspect", "place", "readback"]);
     const names = (host.tracks[1].clips as any[]).map((c) => c.name);
     expect(names).toEqual(expect.arrayContaining(["Caption 99", "Captions 001", "Far away", "Caption 001", "Caption 002", "Caption 003"]));
     const ids = (host.tracks[1].clips as any[]).map((c) => c.nodeId);
@@ -599,12 +599,28 @@ describe("add_caption_graphics against a fake Premiere", () => {
     const { host, calls } = install({ mogrtSeconds: 30, existing: [{ track: 1, name: "B-roll", start: 25, end: 28 }] });
     const result = await run({ transcript_text: THREE, chunk_size: 1 });
     expect(result.success).toBe(false);
-    expect(result.error).toContain("Stopped before chunk 2");
-    expect(result.error).toContain("default length (30 s)");
-    expect(result.data).toMatchObject({ outcome: "partial", placed_count: 1, template_default_length_seconds: 30 });
+    expect(result.error).toContain("Stopped before chunk 1");
+    expect(result.error).toContain("assuming 60 s");
+    expect(result.data).toMatchObject({
+      mutationOutcome: "not_applied",
+      timelineChanged: false,
+      template_default_length_seconds: 60,
+      template_default_length_assumed: true,
+    });
     expect(result.data.overlapping_clips.map((c: any) => c.name)).toEqual(["B-roll"]);
-    expect(host.log.imports).toBe(1);
-    expect(calls.filter((c) => c === "place")).toHaveLength(1);
+    expect(host.log.imports).toBe(0);
+    expect(calls.filter((c) => c === "place")).toHaveLength(0);
+  });
+
+  it("refuses the whole first chunk when font_size_px skipped the probe and B-roll sits past the 10 s guard", async () => {
+    const { host } = install({ mogrtSeconds: 30, existing: [{ track: 1, name: "B-roll", start: 25, end: 28 }] });
+    const result = await run({ transcript_text: THREE });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Stopped before chunk 1");
+    expect(result.error).toContain("assuming 60 s");
+    expect(result.data).toMatchObject({ mutationOutcome: "not_applied", timelineChanged: false, template_default_length_assumed: true });
+    expect(host.log.imports).toBe(0);
+    expect(host.tracks[1].clips.map((c: { name: string }) => c.name)).toEqual(["B-roll"]);
   });
 
   it("reports a failed pre-chunk track check, and lets the run through when nothing foreign is near", async () => {
@@ -612,7 +628,8 @@ describe("add_caption_graphics against a fake Premiere", () => {
     install({ mogrtSeconds: 30 }, (_s, kind) => (kind === "inspect" && ++inspects === 2 ? { success: false, error: "bridge lost" } : undefined));
     const stopped = await run({ transcript_text: THREE, chunk_size: 1 });
     expect(stopped.success).toBe(false);
-    expect(stopped.error).toContain("Could not check video track 1 before chunk 2");
+    expect(stopped.error).toContain("Could not check video track 1 before chunk 1");
+    expect(stopped.data).toMatchObject({ mutationOutcome: "not_applied", timelineChanged: false });
     install({ mogrtSeconds: 30 });
     const clear = await run({ transcript_text: THREE, chunk_size: 1 });
     expect(clear.success).toBe(true);
@@ -626,6 +643,16 @@ describe("add_caption_graphics against a fake Premiere", () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain("Stopped before chunk 1");
     expect(host.log.imports).toBe(1);
+  });
+
+  it("reports a failed pre-chunk check as partial after the font probe has already placed clip 1", async () => {
+    let inspects = 0;
+    const { font_size_px: _drop, ...noSize } = base;
+    install({ mogrtSeconds: 30 }, (_s, kind) => (kind === "inspect" && ++inspects === 2 ? { success: false, error: "bridge lost" } : undefined));
+    const result = await tool.handler({ ...noSize, transcript_text: THREE, chunk_size: 1 }) as any;
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Could not check video track 1 before chunk 1");
+    expect(result.data.outcome).toBe("partial");
   });
 
   it("marks a clip committed_unverified when the font size cannot be read back after shrinking", async () => {
