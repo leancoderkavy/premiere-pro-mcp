@@ -17,8 +17,8 @@ const tools = getAudioTransitionTools(options);
 const TICKS = 254016000000;
 const frameTicks = TICKS / 25;
 
-function mockHost(settings: { existing?: boolean; transitionExists?: boolean; throwAfterWrite?: boolean; audioOnly?: boolean; legacyCatalog?: boolean } = {}) {
-  const state = { writes: 0, names: [] as string[], starts: [] as boolean[], timecodes: [] as string[] };
+function mockHost(settings: { existing?: boolean; transitionExists?: boolean; throwAfterWrite?: boolean; audioOnly?: boolean; legacyCatalog?: boolean; ignoreWrite?: boolean } = {}) {
+  const state = { writes: 0, names: [] as string[], starts: [] as boolean[], timecodes: [] as string[], undoIndex: 4 };
   const transition = { name: "Constant Power" };
   const transitions: Array<{ start: { ticks: string }; end: { ticks: string }; nodeId: string }> = [];
   if (settings.existing) {
@@ -37,6 +37,8 @@ function mockHost(settings: { existing?: boolean; transitionExists?: boolean; th
         state.names.push(named.name);
         state.starts.push(atStart);
         state.timecodes.push(durationCode);
+        state.undoIndex += 1;
+        if (settings.ignoreWrite) return;
         const cut = atStart ? Number(clip.start.ticks) : Number(clip.end.ticks);
         const half = TICKS / 2;
         transitions.push({ start: { ticks: String(cut - half) }, end: { ticks: String(cut + half) }, nodeId: "written-transition" });
@@ -57,6 +59,7 @@ function mockHost(settings: { existing?: boolean; transitionExists?: boolean; th
     },
     qe: {
       project: {
+        undoStackIndex: () => state.undoIndex,
         getActiveSequence: () => ({ getAudioTrackAt: (index: number) => (index === 0 ? qeTrack : null) }),
         getAudioTransitionByName: (name: string) => settings.transitionExists === false ? null : (name === "Constant Power" ? transition : null),
         getAudioTransitionList: () => settings.legacyCatalog ? ({ numItems: 1, 0: transition }) : ["Constant Power"],
@@ -133,6 +136,15 @@ describe("native QE audio transitions", () => {
     const state = mockHost({ throwAfterWrite: true });
     const result = await tools.add_audio_transition.handler({ track_index: 0, cut_point_seconds: 2 });
     expect(result).toMatchObject({ success: false, data: { outcome: "committed_unverified", verified: false } });
+    expect(state.writes).toBe(1);
+  });
+
+  it("distinguishes a QE no-op from a timeline change even when undo moves", async () => {
+    const state = mockHost({ ignoreWrite: true });
+    const result = await runWithUndoTracking(true, () => tools.add_audio_transition.handler({ track_index: 0, cut_point_seconds: 2 }));
+    expect(result).toMatchObject({ success: false, data: { outcome: "not_applied", timelineChanged: false, transitionsAdded: 0 } });
+    expect(result.error).toMatch(/without adding an audio transition/);
+    expect(result.error).not.toMatch(/project may have changed/);
     expect(state.writes).toBe(1);
   });
 
