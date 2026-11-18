@@ -11,12 +11,16 @@ vi.mock("../../src/bridge/file-bridge.js", () => ({
 }));
 
 import { sendCommand } from "../../src/bridge/file-bridge.js";
+import { runWithUndoTracking } from "../../src/bridge/undo-tracking.js";
 import { getTrackTargetingTools } from "../../src/tools/track-targeting.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const tools = getTrackTargetingTools({ tempDir: "/tmp/track-targeting", timeoutMs: 5000 } as BridgeOptions);
 type Result = { success: boolean; error?: string; data?: Record<string, any> };
 const run = (tool: { handler: (args: never) => Promise<unknown> }, args: Record<string, unknown>) => tool.handler(args as never) as Promise<Result>;
+const mutatingRun = (tool: { handler: (args: never) => Promise<unknown> }, args: Record<string, unknown>) =>
+  runWithUndoTracking(true, () => run(tool, args));
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -149,6 +153,19 @@ describe("clip parameter writes read the stored value back", () => {
     expect(duplicateWidth.getValue()).toBe(120);
   });
 
+  it("set_clip_volume refuses a clip with no Volume as not_applied", async () => {
+    const clip = clipWith("v1");
+    clip.components = collection([clip.components[0], clip.components[1]]);
+    host([clip]);
+    const result = await mutatingRun(tools.set_clip_volume, { node_id: "v1", volume_db: -6 });
+    expect(result).toMatchObject({
+      success: false,
+      error: "Could not set volume - is this an audio clip?",
+      data: { mutationOutcome: "not_applied", timelineChanged: false },
+    });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "set_clip_volume").outcome).toBe("not_applied");
+  });
+
   it("set_clip_volume retains the clamping receipt and reads applied levels back", async () => {
     const clip = clipWith("c1");
     host([clip]);
@@ -165,7 +182,13 @@ describe("clip parameter writes read the stored value back", () => {
       success: false,
       data: { applied: 1, mismatched: [{ clipIndex: 1 }], timelineChanged: true },
     });
-    await expect(run(tools.set_clips_volume, { track_index: 0, volume_db: -3, clip_indices: [5] })).resolves.toMatchObject({ success: false, error: expect.stringContaining("Clip index 5 is out of range") });
+    const outOfRange = await mutatingRun(tools.set_clips_volume, { track_index: 0, volume_db: -3, clip_indices: [5] });
+    expect(outOfRange).toMatchObject({
+      success: false,
+      error: expect.stringContaining("Clip index 5 is out of range"),
+      data: { mutationOutcome: "not_applied", timelineChanged: false },
+    });
+    expect(mutationReceipt(false, outOfRange.data, { dispatched: true }, "set_clips_volume").outcome).toBe("not_applied");
     await expect(run(tools.set_clips_volume, { track_index: 0, volume_db: -3, clip_indices: [0.5] })).resolves.toMatchObject({ success: false, error: "clip_indices must be non-negative integers." });
   });
 
