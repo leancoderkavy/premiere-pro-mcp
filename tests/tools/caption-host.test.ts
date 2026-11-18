@@ -95,6 +95,8 @@ describe("readCaptionSequence", () => {
   it("generates ES3", () => {
     es3(buildCaptionSequenceReadScript());
     es3(buildCaptionSequenceReadScript({ sequence_id: 'a"b', include_edit_points: true, exclude_video_track: 2.7 }));
+    expect(buildCaptionSequenceReadScript()).toContain("return __refuse(\"No active sequence\")");
+    expect(buildCaptionSequenceReadScript({ sequence_id: "seq-1" })).toContain("return __refuse(");
   });
 });
 
