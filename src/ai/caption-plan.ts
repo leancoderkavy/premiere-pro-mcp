@@ -138,8 +138,8 @@ export const CAPTION_PLAN_OPTION_PROPERTIES = {
   linger: { type: "number", minimum: 0, maximum: 2, description: "Seconds a caption stays after its last word (up to the next caption), default 0.25." },
   pause_break: { type: "number", minimum: 0.1, maximum: 5, description: "A pause between words longer than this starts a new caption, default 0.7." },
   offset: { type: "number", description: "Seconds added to every transcript time, for example the clip's start on the sequence (captions must not start before 0)." },
-  from_s: { type: "number", minimum: 0, description: "Only transcript segments that start at or after this many seconds (before offset). For a long transcript captioned in several calls." },
-  to_s: { type: "number", minimum: 0, description: "Only transcript segments that start before this many seconds (before offset)." },
+  from_s: { type: "number", minimum: 0, description: "Only transcript words that overlap this time and later (before offset). A word or cue that straddles the bound is clipped, not dropped. Use the clip in-point (transcribe_audio audible_source_range) or a long transcript captioned in several calls." },
+  to_s: { type: "number", minimum: 0, description: "Only transcript words that overlap times before this (before offset). A word or cue that straddles the bound is clipped, not dropped. Use the clip out-point so captions do not land on later shots." },
   min_gap_frames: { type: "integer", minimum: 0, maximum: 12, description: "Frames between captions at least. Default 2 with a standard, else 0." },
   close_gaps_under: { type: "number", minimum: 0, maximum: 2, description: "Seconds: a gap shorter than this (and longer than the minimum) closes to min_gap_frames. Default the standard's (0.5 s), else off." },
   cut_times: {
@@ -541,6 +541,19 @@ interface Group {
   notes: Array<{ rule: PlanChange["rule"]; action: PlanChange["action"]; detail: string }>;
 }
 
+/** Keep items that overlap `[from, to)` and clip any that straddle a bound. */
+function clipToRange<T extends { start: number; end: number }>(items: T[], from: number, to: number): T[] {
+  const out: T[] = [];
+  for (const item of items) {
+    if (!(item.end > from && item.start < to)) continue;
+    const start = item.start < from ? from : item.start;
+    const end = item.end > to ? to : item.end;
+    if (!(end > start)) continue;
+    out.push(start === item.start && end === item.end ? item : { ...item, start, end });
+  }
+  return out;
+}
+
 /**
  * Transcript segments to a caption plan. See the module comment; `cut_times`, `cleanup`, social
  * chunking, speakers and SDH are described by CAPTION_PLAN_OPTION_PROPERTIES. Times are rounded to
@@ -551,8 +564,8 @@ export function buildCaptionPlan(allSegments: TranscriptSegment[], options: Capt
   const from = opts.from_s ?? 0;
   const to = opts.to_s ?? Infinity;
   const windowed = opts.from_s !== undefined || opts.to_s !== undefined;
-  const segments = windowed ? allSegments.filter((s) => s.start >= from && s.start < to) : allSegments;
-  if (!segments.length) throw new CaptionTranscriptError(windowed ? `No transcript segment starts between ${from} s and ${to} s` : "The transcript has no segments");
+  const segments = windowed ? allSegments.filter((s) => s.end > from && s.start < to) : allSegments;
+  if (!segments.length) throw new CaptionTranscriptError(windowed ? `No transcript segment overlaps ${from} s to ${to} s` : "The transcript has no segments");
   const std = opts.standard ? CAPTION_STANDARDS[opts.standard] : undefined;
   const fix = std ? opts.fix !== false : false;
   const maxChars = opts.max_chars_per_line ?? std?.max_cpl ?? 32;
@@ -592,6 +605,11 @@ export function buildCaptionPlan(allSegments: TranscriptSegment[], options: Capt
       estimated = true;
       words[0] = { ...words[0], cue_start: true };
     }
+    if (windowed) {
+      const hadCueStart = words.some((w) => w.cue_start);
+      words = clipToRange(words, from, to);
+      if (hadCueStart && words.length && !words[0].cue_start) words[0] = { ...words[0], cue_start: true };
+    }
     if (sdhSound) {
       const taken = takeBracketEvents(words);
       words = taken.words;
@@ -600,6 +618,7 @@ export function buildCaptionPlan(allSegments: TranscriptSegment[], options: Capt
     }
     all.push(...words);
   }
+  if (windowed) events = clipToRange(events, from, to);
 
   let cleanupReport: CleanupReport | undefined;
   if (opts.cleanup) {
