@@ -493,8 +493,8 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
                   var levelProp = comp.properties[p];
                   var requestedLevel = ${normalizedLevel};
                   var beforeLevel;
-                  try { beforeLevel = levelProp.getValue(); } catch (e) { return __error("Cannot read audio level; nothing was changed."); }
-                  if (typeof beforeLevel !== "number" || !isFinite(beforeLevel)) return __error("Cannot read audio level; nothing was changed.");
+                  try { beforeLevel = levelProp.getValue(); } catch (e) { return __refuse("Cannot read audio level; nothing was changed."); }
+                  if (typeof beforeLevel !== "number" || !isFinite(beforeLevel)) return __refuse("Cannot read audio level; nothing was changed.");
                   var writeResult = null;
                   var writeError = "";
                   try { writeResult = levelProp.setValue(requestedLevel, true); } catch (e) { writeError = String(e); }
@@ -512,7 +512,7 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
             }
           }
           
-          return __error("Could not find Volume/Level property on clip");
+          return __refuse("Could not find Volume/Level property on clip");
         `);
         return sendCommand(script, bridgeOptions);
       },
@@ -573,10 +573,10 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
             }
           }
 
-          if (!levelProp) return __error("Could not find audio Level property");
+          if (!levelProp) return __refuse("Could not find audio Level property");
           var base = __clipKeyframeBase(clip);
-          if (!base.ok) return __error(base.error);
-          if (${Math.max(...args.keyframes.map((kf) => kf.time_seconds))} > base.durationSeconds) return __error("Keyframe time exceeds clip duration; nothing was changed.");
+          if (!base.ok) return __refuse(base.error);
+          if (${Math.max(...args.keyframes.map((kf) => kf.time_seconds))} > base.durationSeconds) return __refuse("Keyframe time exceeds clip duration; nothing was changed.");
 
           ${AUDIO_KEYFRAME_READBACK}
           var keys = [${plannedKeys}];
@@ -589,7 +589,7 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
               keys[k].time = new Time();
               keys[k].time.ticks = String(audioTick(inTicks + keys[k].offset));
             }
-          } catch (preflightError) { return __error("Audio keyframe storage or clock could not be read; nothing was changed. " + String(preflightError)); }
+          } catch (preflightError) { return __refuse("Audio keyframe storage or clock could not be read; nothing was changed. " + String(preflightError)); }
           try {
             levelProp.setTimeVarying(true);
             for (var k = 0; k < keys.length; k++) {
@@ -641,7 +641,7 @@ export function getAudioTools(bridgeOptions: BridgeOptions) {
             return state === true || state === 1;
           }
           var before;
-          try { before = readMute(); } catch (e) { return __error("Cannot read track mute state; nothing was changed."); }
+          try { before = readMute(); } catch (e) { return __refuse("Cannot read track mute state; nothing was changed."); }
           var writeError = "";
           try { track.setMute(${args.muted ? 1 : 0}); } catch (e) { writeError = String(e); }
           var after = null;

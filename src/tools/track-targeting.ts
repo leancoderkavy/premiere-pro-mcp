@@ -1302,7 +1302,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
               break;
             }
           }
-          if (!set) return __error("Could not set volume - is this an audio clip?");
+          if (!set) return __refuse("Could not set volume - is this an audio clip?");
           if (writeError) {
             var readableWriteLevel = appliedLevel !== null && isFinite(appliedLevel) && appliedLevel >= 0;
             var unchangedAfterThrow = readableWriteLevel && Math.abs(appliedLevel - beforeLevel) <= Math.max(1e-12, Math.abs(beforeLevel) * 1e-6);
@@ -1414,7 +1414,7 @@ export function getTrackTargetingTools(bridgeOptions: BridgeOptions) {
           var wanted = {};
           if (only) {
             for (var w = 0; w < only.length; w++) {
-              if (only[w] >= track.clips.numItems) return __error("Clip index " + only[w] + " is out of range: the track has " + track.clips.numItems + " clip(s). Nothing was changed.");
+              if (only[w] >= track.clips.numItems) return __refuse("Clip index " + only[w] + " is out of range: the track has " + track.clips.numItems + " clip(s). Nothing was changed.");
               wanted[only[w]] = true;
             }
           }
