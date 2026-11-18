@@ -1,8 +1,10 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { runInNewContext } from "node:vm";
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
+import { runWithUndoTracking } from "../../src/bridge/undo-tracking.js";
 import { getAudioTools } from "../../src/tools/audio.js";
 import { sendCommand } from "../../src/bridge/file-bridge.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 vi.mock("../../src/bridge/file-bridge.js", () => ({ sendCommand: vi.fn() }));
 const send = vi.mocked(sendCommand);
 const tools = getAudioTools({ tempDir: "/tmp/audio-audit", timeoutMs: 5000 });
@@ -36,7 +38,9 @@ it.each(["noop", "unreadable", "throw"])("does not claim mute success on %s", as
 });
 it("refuses unknown pre-state without mutation", async () => {
   const track = muteHost("unknown");
-  expect(await tools.mute_track.handler({ track_index: 0, muted: true })).toMatchObject({ success: false });
+  const result = await runWithUndoTracking(true, () => tools.mute_track.handler({ track_index: 0, muted: true }));
+  expect(result).toMatchObject({ success: false, data: { mutationOutcome: "not_applied", timelineChanged: false } });
+  expect(mutationReceipt(false, result.data, { dispatched: true }, "mute_track").outcome).toBe("not_applied");
   expect(track.setMute).not.toHaveBeenCalled();
 });
 it.each([-1, 0.5, NaN, Infinity])("rejects index %s before dispatch", async (track_index) => {
@@ -89,8 +93,19 @@ it.each([NaN, Infinity, 16, -1e300])("refuses unrepresentable level %s", async (
 });
 it("refuses a null pre-write Level without mutation", async () => {
   const h = levelHost("nullBefore");
-  expect(await tools.adjust_audio_levels.handler({ node_id: h.id, level_db: 0 })).toMatchObject({ success: false });
+  const result = await runWithUndoTracking(true, () => tools.adjust_audio_levels.handler({ node_id: h.id, level_db: -6 }));
+  expect(result).toMatchObject({ success: false, data: { mutationOutcome: "not_applied", timelineChanged: false } });
+  expect(mutationReceipt(false, result.data, { dispatched: true }, "adjust_audio_levels").outcome).toBe("not_applied");
   expect(h.prop.setValue).not.toHaveBeenCalled();
+});
+it("refuses a clip with no Volume/Level as not_applied", async () => {
+  const clip = { name: "Video", nodeId: "v1", components: { numItems: 1, 0: { displayName: "Opacity", matchName: "AE.ADBE Opacity", properties: { numItems: 1, 0: { displayName: "Opacity" } } } } };
+  send.mockImplementation(async (script) => JSON.parse(String(runInNewContext(getHelpersSource() + script, {
+    app: { project: { activeSequence: { videoTracks: { numTracks: 1, 0: { clips: { numItems: 1, 0: clip } } }, audioTracks: { numTracks: 0 } } } },
+  }))));
+  const result = await runWithUndoTracking(true, () => tools.adjust_audio_levels.handler({ node_id: "v1", level_db: -6 }));
+  expect(result).toMatchObject({ success: false, error: "Could not find Volume/Level property on clip", data: { mutationOutcome: "not_applied", timelineChanged: false } });
+  expect(mutationReceipt(false, result.data, { dispatched: true }, "adjust_audio_levels").outcome).toBe("not_applied");
 });
 it("does not coerce boolean readback into verified +15 dB", async () => {
   const h = levelHost("booleanAfter");
