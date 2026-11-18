@@ -17,6 +17,7 @@ const exportHandler = vi.hoisted(() => vi.fn());
 vi.mock("../../src/tools/export.js", () => ({ getExportTools: vi.fn(() => ({ export_sequence: { handler: exportHandler } })) }));
 
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { buildSequenceAudioScript, getCaptionTranscriptionTools, safeFileStem } from "../../src/tools/caption-transcription.js";
 import {
@@ -717,6 +718,8 @@ describe("sequence source: direct media shortcut", () => {
     expect(script).not.toContain(hostile);
     expect(script).not.toMatch(/\b(let|const)\b|=>|`/);
     expect(script).toContain('\\"');
+    expect(script).toContain('return __refuse("Sequence not found; nothing was uploaded.")');
+    expect(buildSequenceAudioScript(null)).toContain("return __refuse(");
   });
 });
 
@@ -1091,6 +1094,8 @@ describe("sequence source: nothing to transcribe or host trouble", () => {
     const r = (await tool({ engines: { elevenlabs: engine } }).handler(seqArgs())) as Result;
     expect(r.success).toBe(false);
     expect(r.error).toContain("nothing to transcribe");
+    expect(r.data).toMatchObject({ mutationOutcome: "not_applied", timelineChanged: false });
+    expect(mutationReceipt(false, r.data, { dispatched: true }, "transcribe_audio").outcome).toBe("not_applied");
     expect(transcribe).not.toHaveBeenCalled();
     expect(exportHandler).not.toHaveBeenCalled();
   });
@@ -1099,13 +1104,23 @@ describe("sequence source: nothing to transcribe or host trouble", () => {
     host({ tracks: [], id: "other-id", name: "Other" });
     const { engine, transcribe } = fakeEngine();
     const run = () => tool({ engines: { elevenlabs: engine } }).handler(seqArgs()) as Promise<Result>;
-    expect((await run()).error).toContain("Sequence not found");
+    const missing = await run();
+    expect(missing.error).toContain("Sequence not found");
+    expect(missing.data).toMatchObject({ mutationOutcome: "not_applied", timelineChanged: false });
+    expect(mutationReceipt(false, missing.data, { dispatched: true }, "transcribe_audio").outcome).toBe("not_applied");
     host({ audioTracksThrow: true });
-    expect((await run()).error).toContain("Could not read the sequence audio tracks");
+    const unreadable = await run();
+    expect(unreadable.error).toContain("Could not read the sequence audio tracks");
+    expect(unreadable.data).toMatchObject({ mutationOutcome: "not_applied", timelineChanged: false });
+    expect(mutationReceipt(false, unreadable.data, { dispatched: true }, "transcribe_audio").outcome).toBe("not_applied");
     vi.mocked(sendCommand).mockResolvedValue({ success: false });
-    expect((await run()).error).toContain("Could not read the sequence audio; nothing was sent");
+    const silent = await run();
+    expect(silent.error).toContain("Could not read the sequence audio; nothing was sent");
+    expect(silent.data).toMatchObject({ mutationOutcome: "not_applied", timelineChanged: false });
     vi.mocked(sendCommand).mockResolvedValue({ success: false, error: "Premiere is not responding" });
-    expect((await run()).error).toBe("Premiere is not responding; nothing was sent.");
+    const offline = await run();
+    expect(offline.error).toBe("Premiere is not responding; nothing was sent.");
+    expect(offline.data).toMatchObject({ mutationOutcome: "not_applied", timelineChanged: false });
     expect(transcribe).not.toHaveBeenCalled();
   });
 
