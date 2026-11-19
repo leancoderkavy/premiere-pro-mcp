@@ -23,10 +23,10 @@ async function freePort(): Promise<number> {
   return port;
 }
 
-function makeBridge(port: number, token = TOKEN): UxpWebSocketBridge {
+function makeBridge(port: number, token = TOKEN, tempDir?: string): UxpWebSocketBridge {
   const bridge = new UxpWebSocketBridge({
     token, port, requestTimeoutMs: 500, claimTimeoutMs: 2_000,
-    tempDir: makePrivateBridgeTempDir("uxp-handoff-"),
+    tempDir: tempDir ?? makePrivateBridgeTempDir("uxp-handoff-"),
   });
   bridges.push(bridge);
   return bridge;
@@ -111,6 +111,42 @@ describe("UXP loopback port handoff between server processes", () => {
     const second = makeBridge(port); await second.startOrJoin();
     await expect(second.request("state.get", {}, { minimumTimeoutMs: 2147483647 }))
       .rejects.toThrow("timeout");
+  });
+
+  it("refreshes unsupported capabilities without reacquiring the caller's shared lease", async () => {
+    const port = await freePort();
+    const tempDir = makePrivateBridgeTempDir("uxp-shared-lease-");
+    const owner = makeBridge(port, TOKEN, tempDir); await owner.start();
+    fakePanel(port);
+    await until(() => owner.getState().connected);
+    const second = makeBridge(port, TOKEN, tempDir); await second.startOrJoin();
+    await expect(second.request("unsupported.command")).rejects.toMatchObject({ code: "UXP_COMMAND_UNSUPPORTED" });
+  });
+
+  it("explicitly claims a local socket after joining as a relay", async () => {
+    const port = await freePort();
+    const owner = makeBridge(port); await owner.start();
+    fakePanel(port);
+    await until(() => owner.getState().connected);
+    const second = makeBridge(port); await second.startOrJoin();
+    expect(second.getState().route).toBe("relay");
+    await expect(second.claim()).resolves.toBe(true);
+    expect(second.getState()).toMatchObject({ connected: true, route: "local" });
+    expect(owner.getState().connected).toBe(false);
+  });
+
+  it("does not trust an unsigned port owner or disclose the shared token", async () => {
+    const port = await freePort();
+    let leaked: unknown;
+    const imposter = createServer((req, res) => {
+      leaked = req.headers["x-premiere-uxp-token"];
+      res.end(JSON.stringify({ connected: false, status: "listening" }));
+    });
+    await new Promise<void>(resolve => imposter.listen(port, "127.0.0.1", resolve));
+    try {
+      expect(await makeBridge(port).attachRelay()).toBe(false);
+      expect(leaked).toBeUndefined();
+    } finally { await new Promise<void>(resolve => imposter.close(() => resolve())); }
   });
 
   it("keeps both sessions usable when they request the panel in turn", async () => {
