@@ -103,7 +103,8 @@ vi.mock("../src/oauth-resource-server.js", () => ({
 }));
 vi.mock("../src/bridge/uxp-websocket-bridge.js", () => ({
   UxpWebSocketBridge: class {
-    start = mocks.uxpStart;
+    startOrJoin = mocks.uxpStart;
+    getState() { return { status: "listening", connected: false, route: "local" }; }
     stop = mocks.uxpStop;
     address() { return { host: "127.0.0.1", port: 7788, path: "/premiere-uxp" }; }
   },
@@ -425,7 +426,7 @@ describe("stdio CLI entry point", () => {
 
     await vi.waitFor(() => expect(mocks.serveStdio).toHaveBeenCalledOnce());
     process.stdin.emit("data", '{"jsonrpc":"2.0","id":1,"method":"initialize"}\n');
-    await vi.waitFor(() => expect(error).toHaveBeenCalledWith(expect.stringContaining("retried until it frees up")));
+    await vi.waitFor(() => expect(error).toHaveBeenCalledWith(expect.stringContaining("retry joining the instance that holds it")));
     expect(mocks.connect).toHaveBeenCalledOnce();
   });
 

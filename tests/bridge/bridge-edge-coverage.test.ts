@@ -293,7 +293,7 @@ describe("UXP WebSocket bridge rejected-message and cleanup paths", () => {
   it("uses configured address data before it has started", () => {
     const bridge = new UxpWebSocketBridge({ token: TOKEN, port: 7911, path: "/panel" });
     expect(bridge.address()).toEqual({ host: "127.0.0.1", port: 7911, path: "/panel" });
-    expect(bridge.getState()).toEqual({ status: "stopped", connected: false });
+    expect(bridge.getState()).toEqual({ status: "stopped", connected: false, route: "local" });
   });
 
   it("uses a timing-safe comparison for equal-length incorrect tokens", async () => {

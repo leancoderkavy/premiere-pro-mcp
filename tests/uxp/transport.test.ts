@@ -71,7 +71,7 @@ describe("UXP WebSocket bridge", () => {
     const [, response] = await once(unauthorized, "unexpected-response");
     expect(response.statusCode).toBe(401);
     response.resume();
-    expect(bridge.getState()).toEqual({ status: "listening", connected: false });
+    expect(bridge.getState()).toEqual({ status: "listening", connected: false, route: "local" });
   });
 
   it("validates the versioned hello before reporting capabilities", async () => {
