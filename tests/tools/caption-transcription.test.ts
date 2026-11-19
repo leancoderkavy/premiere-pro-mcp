@@ -698,6 +698,31 @@ describe("sequence source: direct media shortcut", () => {
     expect(r.data.source).toBe("project_item_media");
   });
 
+  it("uses the shortcut when Channel Volume is at 0 dB and Panner is centered", async () => {
+    host({
+      tracks: [{
+        clips: [goodClip(media, {
+          mutate: (c) => {
+            c.components[1].properties = {
+              numItems: 3,
+              0: { displayName: "Bypass" },
+              1: { displayName: "Left", isTimeVarying: () => false, getValue: () => 0.17782794 },
+              2: { displayName: "Right", isTimeVarying: () => false, getValue: () => 0.17782794 },
+            };
+            c.components[2].properties = { numItems: 1, 0: { displayName: "Balance", isTimeVarying: () => false, getValue: () => 0 } };
+          },
+        })],
+      }],
+    });
+    const { engine, transcribe } = fakeEngine();
+    const r = (await tool({ engines: { elevenlabs: engine } }).handler(seqArgs())) as Result;
+    expect(r.success).toBe(true);
+    expect(r.data.source).toBe("project_item_media");
+    expect(r.data.media_shortcut_skipped).toEqual([]);
+    expect(transcribe).toHaveBeenCalledWith(media, expect.anything(), KEY);
+    expect(exportHandler).not.toHaveBeenCalled();
+  });
+
   it("media_shortcut: false forces the export and says why", async () => {
     host({ tracks: [{ clips: [goodClip(media)] }] });
     const exported = join(workspace, "Main Cut transcription audio.mp3");
@@ -745,6 +770,12 @@ describe("sequence source: shortcut skipped, sequence exported", () => {
     ["level -6 dB", (c) => { c.level.getValue = () => 0.0891; }, "Volume Level is -6 dB, not 0 dB"],
     ["level silent", (c) => { c.level.getValue = () => 0; }, "Volume Level is silent"],
     ["level unreadable", (c) => { c.level.getValue = () => { throw new Error("x"); }; }, "could not read Volume Level"],
+    ["channel volume left silent", (c) => { c.components[1].properties = { numItems: 1, 0: { displayName: "Left", isTimeVarying: () => false, getValue: () => 0 } }; }, "Channel Volume Left is silent"],
+    ["channel volume left -6 dB", (c) => { c.components[1].properties = { numItems: 1, 0: { displayName: "Left", isTimeVarying: () => false, getValue: () => 0.0891 } }; }, "Channel Volume Left is -6 dB, not 0 dB"],
+    ["channel volume keyframed", (c) => { c.components[1].properties = { numItems: 1, 0: { displayName: "Left", isTimeVarying: () => true, getValue: () => 0.17782794 } }; }, "Channel Volume Left has keyframes"],
+    ["channel volume unreadable", (c) => { c.components[1].properties = { numItems: 1, 0: { displayName: "Left", isTimeVarying: () => false, getValue: () => { throw new Error("x"); } } }; }, "could not read Channel Volume Left"],
+    ["panner not centered", (c) => { c.components[2].properties = { numItems: 1, 0: { displayName: "Balance", isTimeVarying: () => false, getValue: () => -100 } }; }, "Panner Balance is -100, not 0"],
+    ["panner keyframed", (c) => { c.components[2].properties = { numItems: 1, 0: { displayName: "Balance", isTimeVarying: () => true, getValue: () => 0 } }; }, "Panner Balance has keyframes"],
     ["times unreadable", (c) => { Object.defineProperty(c, "start", { get() { throw new Error("x"); } }); }, "clip start and source in/out"],
   ];
 
