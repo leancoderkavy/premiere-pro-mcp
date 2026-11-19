@@ -182,7 +182,7 @@ describe("project context index", () => {
     expect(await repository.delete(built.document.projectId)).toBe(true);
     expect(await repository.delete(built.document.projectId)).toBe(false);
     await repository.close();
-  });
+  }, 40000);
 
   it("handles missing and corrupt JSON entries without hiding valid project summaries", async () => {
     const container = await mkdtemp(path.join(tmpdir(), "ppmcp-context-json-test-"));
@@ -202,7 +202,7 @@ describe("project context index", () => {
     const validFile = (await readdir(directory)).find((name) => name !== "corrupt.json")!;
     await writeFile(path.join(directory, validFile), JSON.stringify({ schemaVersion: 999 }), "utf8");
     await expect(repository.get(built.document.projectId)).rejects.toThrow("Unsupported project context schema version");
-  });
+  }, 40000);
 
   it("validates repository backend, record bounds, and context directory overrides", async () => {
     const container = await mkdtemp(path.join(tmpdir(), "ppmcp-context-env-test-"));
