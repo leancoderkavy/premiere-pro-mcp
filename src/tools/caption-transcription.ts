@@ -126,9 +126,47 @@ export function buildSequenceAudioScript(sequenceId: string | null): string {
             if (String(component.properties[pi].displayName) === "Level") { volumeLevel = component.properties[pi]; break; }
           }
         } else if (matchName.indexOf("Internal Channel Volume") === 0 || displayName === "Channel Volume") {
-          continue;
+          for (var pi = 0; pi < component.properties.numItems; pi++) {
+            var chProp = component.properties[pi];
+            var chName = "";
+            try { chName = String(chProp.displayName); } catch (eChName) {}
+            if (chName === "Bypass") continue;
+            var chVarying = false;
+            try { chVarying = !!chProp.isTimeVarying(); } catch (eChVarying) { reasons.push("could not read whether Channel Volume " + chName + " has keyframes"); continue; }
+            if (chVarying) { reasons.push("Channel Volume " + chName + " has keyframes"); continue; }
+            var chValue = NaN;
+            try { chValue = Number(chProp.getValue()); } catch (eChValue) {}
+            if (isNaN(chValue)) {
+              reasons.push("could not read Channel Volume " + chName);
+            } else if (chName === "Balance" || chName === "Pan") {
+              if (Math.abs(chValue) > 0.001) reasons.push("Channel Volume " + chName + " is " + chValue + ", not 0");
+            } else if (Math.abs(chValue - ${UNITY_LEVEL}) > 0.001) {
+              var chDb = 0;
+              if (chValue > 0) chDb = Math.round((20 * (Math.log(chValue) / Math.LN10) + 15) * 100) / 100;
+              if (chValue > 0) {
+                reasons.push("Channel Volume " + chName + " is " + chDb + " dB, not 0 dB");
+              } else {
+                reasons.push("Channel Volume " + chName + " is silent, not 0 dB");
+              }
+            }
+          }
         } else if (matchName.indexOf("Internal Panner") === 0 || displayName === "Panner") {
-          continue;
+          for (var pi = 0; pi < component.properties.numItems; pi++) {
+            var panProp = component.properties[pi];
+            var panName = "";
+            try { panName = String(panProp.displayName); } catch (ePanName) {}
+            if (panName === "Bypass") continue;
+            var panVarying = false;
+            try { panVarying = !!panProp.isTimeVarying(); } catch (ePanVarying) { reasons.push("could not read whether Panner " + panName + " has keyframes"); continue; }
+            if (panVarying) { reasons.push("Panner " + panName + " has keyframes"); continue; }
+            var panValue = NaN;
+            try { panValue = Number(panProp.getValue()); } catch (ePanValue) {}
+            if (isNaN(panValue)) {
+              reasons.push("could not read Panner " + panName);
+            } else if (Math.abs(panValue) > 0.001) {
+              reasons.push("Panner " + panName + " is " + panValue + ", not 0");
+            }
+          }
         } else {
           reasons.push("the clip has an extra audio component: " + (displayName || matchName));
         }
