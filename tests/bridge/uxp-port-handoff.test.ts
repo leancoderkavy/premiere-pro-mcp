@@ -1,3 +1,4 @@
+import { runWithExpectedProject } from "../../src/bridge/project-guard.js";
 import { createServer, request } from "node:http";
 import { WebSocket } from "ws";
 import { afterEach, describe, expect, it } from "vitest";
@@ -90,6 +91,26 @@ describe("UXP loopback port handoff between server processes", () => {
     await expect(second.request("state.get")).resolves.toEqual({ answeredBy: "panel" });
     await expect(owner.request("state.get")).resolves.toEqual({ answeredBy: "panel" });
     expect(owner.getState()).toMatchObject({ status: "connected", connected: true, route: "local" });
+  });
+
+  it("rejects caller project guards before a relay can dispatch", async () => {
+    const port = await freePort();
+    const owner = makeBridge(port); await owner.start();
+    fakePanel(port);
+    await until(() => owner.getState().connected);
+    const second = makeBridge(port); await second.startOrJoin();
+    await expect(runWithExpectedProject("C:/private/project.prproj", () => second.request("state.get")))
+      .rejects.toMatchObject({ code: "UXP_PROJECT_GUARD_UNSUPPORTED" });
+  });
+
+  it("rejects excessive relay timeouts before dispatch", async () => {
+    const port = await freePort();
+    const owner = makeBridge(port); await owner.start();
+    fakePanel(port);
+    await until(() => owner.getState().connected);
+    const second = makeBridge(port); await second.startOrJoin();
+    await expect(second.request("state.get", {}, { minimumTimeoutMs: 2147483647 }))
+      .rejects.toThrow("timeout");
   });
 
   it("keeps both sessions usable when they request the panel in turn", async () => {

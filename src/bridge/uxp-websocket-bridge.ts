@@ -9,6 +9,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import { assertNoSymlinkedPaths, SymlinkPathError } from "../security/path-guard.js";
 
 const LOOPBACK_HOST = "127.0.0.1";
+const MAX_REQUEST_TIMEOUT_MS = 10 * 60 * 1000;
 const SUPPORTED_PROTOCOLS = new Set([1, 2]);
 /** Must match MAX_COMMAND_BYTES in uxp-plugin/protocol.cjs. */
 export const MAX_UXP_COMMAND_BYTES = 64 * 1024;
@@ -394,7 +395,7 @@ export class UxpWebSocketBridge extends EventEmitter {
         args = body.args as Record<string, unknown>;
       }
       if (body.minimumTimeoutMs !== undefined) {
-        if (!Number.isInteger(body.minimumTimeoutMs) || (body.minimumTimeoutMs as number) < 0) {
+        if (!Number.isInteger(body.minimumTimeoutMs) || (body.minimumTimeoutMs as number) < 0 || (body.minimumTimeoutMs as number) > MAX_REQUEST_TIMEOUT_MS) {
           throw new Error("invalid timeout");
         }
         minimumTimeoutMs = body.minimumTimeoutMs as number;
@@ -409,7 +410,7 @@ export class UxpWebSocketBridge extends EventEmitter {
       res.end(JSON.stringify({ ok: true, result }));
     } catch (error) {
       const code = error instanceof UxpBridgeError ? error.code : "UXP_COMMAND_FAILED";
-      const message = error instanceof Error ? error.message : String(error);
+      const message = "UXP relay command failed; inspect local operation recovery before retrying a mutation";
       const status = code === "UXP_NOT_CONNECTED" || code === "UXP_HANDOFF_IN_PROGRESS" ? 503 : 400;
       fail(status, code, message);
     }
@@ -537,6 +538,15 @@ export class UxpWebSocketBridge extends EventEmitter {
     args: Record<string, unknown> = {},
     requestOptions: UxpRequestOptions = {},
   ): Promise<unknown> {
+    assertInvocationNotCancelled();
+    if (expectedProjectPath() !== undefined || expectedHostTarget() !== undefined) {
+      throw new UxpBridgeError("UXP_PROJECT_GUARD_UNSUPPORTED", "expected_project_path is a CEP-only guard; use the UXP workflow expected_snapshot identity guard instead");
+    }
+    const minimumTimeoutMs = requestOptions.minimumTimeoutMs ?? 0;
+    if (!Number.isInteger(minimumTimeoutMs) || minimumTimeoutMs < 0 || minimumTimeoutMs > MAX_REQUEST_TIMEOUT_MS) {
+      throw new Error("UXP minimum request timeout must be an integer between zero and 600000");
+    }
+    assertNoSymlinkedPaths(args);
     if (this.relayMode && !this.httpServer) {
       return withBridgeWorkflow(this.hostBridgeOptions, () => measureStage("host_wait", () => this.requestViaRelay(command, args, requestOptions)));
     }
@@ -556,7 +566,7 @@ export class UxpWebSocketBridge extends EventEmitter {
     requestOptions: UxpRequestOptions,
   ): Promise<unknown> {
     const minimumTimeoutMs = requestOptions.minimumTimeoutMs ?? 0;
-    const requestTimeoutMs = Math.max(this.options.requestTimeoutMs, minimumTimeoutMs);
+    const requestTimeoutMs = Math.min(MAX_REQUEST_TIMEOUT_MS, Math.max(this.options.requestTimeoutMs, minimumTimeoutMs));
     const res = await this.peerRequest({
       method: "POST",
       path: this.relayPath(),
@@ -628,10 +638,10 @@ export class UxpWebSocketBridge extends EventEmitter {
     }
 
     const minimumTimeoutMs = requestOptions.minimumTimeoutMs ?? 0;
-    if (!Number.isInteger(minimumTimeoutMs) || minimumTimeoutMs < 0) {
+    if (!Number.isInteger(minimumTimeoutMs) || minimumTimeoutMs < 0 || minimumTimeoutMs > MAX_REQUEST_TIMEOUT_MS) {
       throw new Error("UXP minimum request timeout must be a non-negative integer");
     }
-    const requestTimeoutMs = Math.max(this.options.requestTimeoutMs, minimumTimeoutMs);
+    const requestTimeoutMs = Math.min(MAX_REQUEST_TIMEOUT_MS, Math.max(this.options.requestTimeoutMs, minimumTimeoutMs));
     const requestId = randomUUID();
     const frame = JSON.stringify({
       protocolVersion: hello.protocolVersion,
