@@ -295,7 +295,10 @@ export function getHealthTools(
         async function probeCep(): Promise<FirstRunReport> {
           try {
             const script = buildToolScript(`
-              var projectOpen = !!(app && app.project && typeof app.project.name !== "undefined");
+              // A named project shell can survive closing the project. Require
+              // its readable collections; do not exclude unsaved projects by path.
+              var project = app && app.project;
+              var projectOpen = !!(project && project.rootItem && project.rootItem.children && project.sequences);
               // Use the same simple check the panel uses rather than __getCurrentActiveSequence(),
               // which validates sequence presence in the project collection. The panel (which shares
               // this host.jsx) and headless extension contexts can diverge on that stricter check
