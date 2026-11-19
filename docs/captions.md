@@ -90,7 +90,8 @@ standard, gaps are at least 2 frames, and shorter gaps than the last column clos
 - **Tell how long the template really is.** `importMGT` places the template's default length before
   the tool trims it. The tool refuses to place a chunk (and reports what it has placed) when a
   clip of another kind starts on the track inside that default length after the chunk's last
-  caption.
+  caption. If `font_size_px` skipped the font probe, the template length is not known yet: the
+  tool assumes 60 s for that inspect so a later B-roll is not overwritten by the first import.
 
 ## Captions and the end of the sequence
 
