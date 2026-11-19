@@ -85,7 +85,10 @@ async function connected() {
   // The production panel polls commands. Keep that fallback here as directory
   // watch notifications are hints rather than a reliable execution queue.
   const panelPoll = setInterval(respondToPublishedCommands, 25);
-  const server = createServer({ tempDir, timeoutMs: 500 }, {
+  // The simulated panel shares this process's event loop with the synchronous
+  // ACL checks, so a 500 ms response window can expire before it gets a turn on
+  // a loaded machine and turn an accepted fixture write into "not_applied".
+  const server = createServer({ tempDir, timeoutMs: 10_000 }, {
     toolPacks: "full", telemetry: { enabled: false, capture() {}, async shutdown() {} },
   });
   const client = new Client({ name: "server-workflow-recovery-test", version: "1.0.0" });
