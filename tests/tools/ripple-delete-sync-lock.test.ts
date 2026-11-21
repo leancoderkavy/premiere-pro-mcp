@@ -11,7 +11,9 @@ vi.mock("../../src/bridge/file-bridge.js", () => ({
 }));
 
 import { sendCommand } from "../../src/bridge/file-bridge.js";
+import { runWithUndoTracking } from "../../src/bridge/undo-tracking.js";
 import { getAdvancedTools } from "../../src/tools/advanced.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const bridgeOptions: BridgeOptions = { tempDir: "/tmp/ripple-sync-lock", timeoutMs: 5000 };
@@ -285,5 +287,27 @@ describe("ripple_delete and the clip's linked partners", () => {
     expect(rangesOf(v1)).toEqual([[0, 6]]);
     expect(rangesOf(v2)).toEqual([[4, 8]]);
     expect(rangesOf(a1)).toEqual([[0, 4], [4, 10]]);
+  });
+});
+
+describe("ripple_delete refuses a stale clip before QE without locking recovery", () => {
+  it("keeps a missing node_id as not_applied so later edits are not locked", async () => {
+    let qeSequenceLookups = 0;
+    mockedSendCommand.mockImplementation(async (script) => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
+      app: {
+        enableQE() {},
+        project: { activeSequence: { videoTracks: { numTracks: 0 }, audioTracks: { numTracks: 0 } } },
+      },
+      qe: { project: { undoStackIndex() { return 0; }, getActiveSequence() { qeSequenceLookups++; return null; } } },
+    }))));
+    const result = await runWithUndoTracking(true, () => getAdvancedTools(bridgeOptions).ripple_delete.handler({ node_id: "stale-clip", dry_run: true } as never));
+    expect(result).toMatchObject({
+      success: false,
+      error: expect.stringContaining("Clip not found"),
+      data: { mutationOutcome: "not_applied", timelineChanged: false, refusedBeforeChange: true },
+    });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "ripple_delete").outcome).toBe("not_applied");
+    expect(qeSequenceLookups).toBe(0);
+    expect(String(mockedSendCommand.mock.calls[0][0])).toContain('return __refuse("Clip not found: stale-clip")');
   });
 });

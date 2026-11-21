@@ -1,8 +1,9 @@
 /**
  * Script body for an explicit, verified ripple delete of one clip (plus its
- * linked partners) in the active sequence. Returns via __result/__error, so run
- * it as a whole tool script or inside its own function. `nodeId` must already be
- * escaped for ExtendScript.
+ * linked partners) in the active sequence. Pre-QE lookup failures use __refuse
+ * so a stale clip ID does not lock later edits. Returns via __result/__refuse/
+ * __error, so run it as a whole tool script or inside its own function. `nodeId`
+ * must already be escaped for ExtendScript.
  */
 export function rippleDeleteScriptBody(options: {
   nodeId: string;
@@ -18,7 +19,7 @@ export function rippleDeleteScriptBody(options: {
   const largeRippleThreshold = options.largeRippleThreshold ?? 400;
   return `
           var result = __findClip("${nodeId}");
-          if (!result) return __error("Clip not found: ${nodeId}");
+          if (!result) return __refuse("Clip not found: ${nodeId}");
           // The clip's own linked partners (its synced audio/video) are part of
           // the edit, exactly as in Premiere's ripple delete of a linked clip.
           var linkedPartnerIds = {};
@@ -26,7 +27,7 @@ export function rippleDeleteScriptBody(options: {
           for (var lpi = 0; lpi < linkedPartners.length; lpi++) linkedPartnerIds[String(linkedPartners[lpi].clip.nodeId)] = true;
 
           var seq = app.project.activeSequence;
-          if (!seq) return __error("No active sequence");
+          if (!seq) return __refuse("No active sequence");
           var frameTicks = seq && seq.timebase ? parseFloat(seq.timebase) : NaN;
           if (!frameTicks || isNaN(frameTicks)) frameTicks = TICKS_PER_SECOND / 24;
           var tol = frameTicks;
@@ -36,7 +37,7 @@ export function rippleDeleteScriptBody(options: {
           var gapStartT = parseFloat(target.start.ticks);
           var gapEndT = parseFloat(target.end.ticks);
           var shiftT = gapEndT - gapStartT;
-          if (!(shiftT > 0)) return __error("The target clip has no positive duration; nothing to ripple.");
+          if (!(shiftT > 0)) return __refuse("The target clip has no positive duration; nothing to ripple.");
 
           // Sync-lock state is only exposed through QE, not the public DOM.
           app.enableQE();
