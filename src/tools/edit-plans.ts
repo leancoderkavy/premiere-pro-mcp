@@ -196,6 +196,20 @@ function buildPreviewScript(plan: EditPlan): string {
   return buildToolScript(`${hostBindingScript(plan)}\nreturn __result({targetsValidated:true, hostBinding:hostBinding, applied:false});`);
 }
 
+/** Keep nested ripple results as objects until the plan reports its own outcome. */
+function wrapRippleBody(body: string): string {
+  return `(function () {
+    function __result(data) { return { success: true, data: data }; }
+    function __error(message, data) { return { success: false, error: String(message), data: data }; }
+    function __refuse(message) {
+      // This receipt covers just the ripple operation. The standalone helper's
+      // bridge marker applies to a whole command and must not propagate here.
+      return __error(message, { mutationOutcome: "not_applied", timelineChanged: false });
+    }
+    ${body}
+  })()`;
+}
+
 /** Read-only estimate, bound to the same inspected host targets as the apply. */
 function buildApplyPreflightScript(plan: EditPlan, binding: EditPlanHostBinding): string {
   const probes: string[] = [];
@@ -211,7 +225,7 @@ function buildApplyPreflightScript(plan: EditPlan, binding: EditPlanHostBinding)
       largeRippleThreshold: operation.large_ripple_threshold ?? 400,
       validatedPartnersExpression: `validatedPartners${index}`,
     });
-    probes.push(`var estimate${index} = (function () { var __result = function (d) { return { success:true, data:d }; }; var __error = function (m,d) { return { success:false, error:String(m), data:d }; }; ${body} })(); if (!estimate${index}.success) return __error("Ripple preflight operation ${index} failed: " + estimate${index}.error, estimate${index}.data); rippleEstimates.push({index:${index}, movers:estimate${index}.data.totalMovers || 0, removals:(estimate${index}.data.alsoRemoves || []).length + 1, estimatedSeconds:estimate${index}.data.estimatedSeconds || 0}); totalMovers += estimate${index}.data.totalMovers || 0;`);
+    probes.push(`var estimate${index} = ${wrapRippleBody(body)}; if (!estimate${index}.success) return __error("Ripple preflight operation ${index} failed: " + estimate${index}.error, estimate${index}.data); rippleEstimates.push({index:${index}, movers:estimate${index}.data.totalMovers || 0, removals:(estimate${index}.data.alsoRemoves || []).length + 1, estimatedSeconds:estimate${index}.data.estimatedSeconds || 0}); totalMovers += estimate${index}.data.totalMovers || 0;`);
   });
   return buildToolScript(`${hostBindingScript(plan, binding)}
     if (__jsonStringify(hostBinding) !== "${escapeForExtendScript(escapeUnsafeLiteralCharacters(JSON.stringify(binding)))}") return __error("Edit-plan host targets changed since preview; preview the edit again. No sequence activation or mutation was attempted.");
@@ -241,7 +255,7 @@ function buildApplyScript(plan: EditPlan, binding: EditPlanHostBinding): string 
       var changed = results.length > 0 || (extraData && extraData.timelineChanged === true) || (steps !== null && steps > 0) || /timeline changed/.test(message);
       // An operation's own "Nothing was changed" is wrong once anything was applied
       // or Premiere recorded undo entries.
-      if (changed || unknown) message = String(message).replace(/\\s*Nothing was changed\\.?/g, "");
+      if (changed || unknown) message = String(message).replace(/\\s*Nothing was changed\\.?|; nothing changed\\.?/gi, "");
       var summary = results.length
         ? " The timeline changed: the " + results.length + " operation(s) before it were applied and were not rolled back."
         : (changed ? (/timeline changed/.test(message) ? "" : " The timeline may have changed during the failed operation and was not rolled back.") : (unknown ? " The mutation outcome is unknown; inspect the timeline before retrying." : (/Nothing was changed/.test(message) ? "" : " Nothing was changed.")));
@@ -251,6 +265,10 @@ function buildApplyScript(plan: EditPlan, binding: EditPlanHostBinding): string 
         for (var field in extraData) if (extraData.hasOwnProperty(field)) data[field] = extraData[field];
       }
       data.timelineChanged = changed ? true : (unknown ? null : false);
+      if (changed && data.mutationOutcome === "not_applied") {
+        data.mutationOutcome = "changed";
+        data.mutationAttempted = true;
+      }
       return __jsonStringify({ success: false,
         error: "Operation " + index + " failed: " + message + summary,
         data: data });
@@ -265,8 +283,7 @@ function buildApplyScript(plan: EditPlan, binding: EditPlanHostBinding): string 
       const nodeId = escapeForExtendScript(operation.node_id);
       if (operation.ripple === true) {
         const body = rippleDeleteScriptBody({ nodeId, scope: "sync_locked", rangeDelete: false, dryRun: false, allowLargeRipple: operation.allow_large_ripple === true, largeRippleThreshold: operation.large_ripple_threshold ?? 400, validatedPartnersExpression: `validatedPartners${index}` });
-        // __result/__error are shadowed so the body hands back a plain object.
-        mutations.push(`var ripple${index} = (function () { var __result = function (d) { return { success: true, data: d }; }; var __error = function (m, d) { return { success: false, error: String(m), data: d }; }; ${body} })(); if (!ripple${index}.success) return __planFail(${index}, ripple${index}.error, ripple${index}.data); results.push({index:${index}, type:"remove_clip", ripple:true, applied:true, verified:true, gapClosedSeconds: ripple${index}.data.gapClosedSeconds, clipsShifted: ripple${index}.data.clipsShifted});`);
+        mutations.push(`var ripple${index} = ${wrapRippleBody(body)}; if (!ripple${index}.success) return __planFail(${index}, ripple${index}.error, ripple${index}.data); results.push({index:${index}, type:"remove_clip", ripple:true, applied:true, verified:true, gapClosedSeconds: ripple${index}.data.gapClosedSeconds, clipsShifted: ripple${index}.data.clipsShifted});`);
       } else {
         mutations.push(`var found${index} = __findClip("${nodeId}"); if (!found${index}) return __planFail(${index}, "clip ${nodeId} is no longer on the timeline"); var removed${index} = __removeClipAndPartners(found${index}, ${operation.include_linked !== false}, validatedPartners${index}); if (!removed${index}.ok) return __planFail(${index}, removed${index}.error, removed${index}.data); results.push({index:${index}, type:"remove_clip", ripple:false, applied:true, verified:true, linkedPartnersRemoved: removed${index}.data.linkedPartnersRemoved});`);
       }

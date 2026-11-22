@@ -170,7 +170,7 @@ export function rippleDeleteScriptBody(options: {
 
           var transitionScopes = [];
           for (var tsi = 0; tsi < parts.length; tsi++) transitionScopes.push({ type: parts[tsi].type, index: parts[tsi].index, start: gapStartT, end: Number.MAX_VALUE });
-          var transitionFailure = __transitionEditGuard(seq, transitionScopes);
+          var transitionFailure = __transitionEditGuard(seq, transitionScopes, __error);
           if (transitionFailure) return transitionFailure;
 
           var planSummary = [];
