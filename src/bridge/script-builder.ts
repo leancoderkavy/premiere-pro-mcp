@@ -3622,8 +3622,8 @@ function __error(msg, extraData) {
 // does not leave a recovery lock. If the undo history moved, a marker write
 // was attempted or a still-frame restore failed, it falls back to __error,
 // as it does for inspect-only commands, whose result shape is unchanged.
-// The file bridge also treats it as unknown when an earlier command of the
-// same tool call was dispatched.
+// The file bridge preserves the not_applied outcome and does not override it
+// to unknown, even when an earlier command of the same tool call was dispatched.
 function __refuse(msg, extraData) {
   if (!__commandMutating) return __error(msg, extraData);
   var data = {};
