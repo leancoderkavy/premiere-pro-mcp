@@ -19,6 +19,8 @@ export interface MogrtTextCheck {
   expected: string;
   actual: string | null;
   status: MogrtTextStatus;
+  /** Why a field was not written or verified (for example a failed live label check). */
+  reason?: string;
 }
 
 /** Extract the visible text from a MOGRT parameter value (JSON string, object, or plain string). */

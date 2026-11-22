@@ -213,3 +213,34 @@ describe("readZipEntries size limits", () => {
     expect(() => readZipEntries(archive, 4096, 5000)).toThrow(/over the 5000-byte limit/);
   });
 });
+
+describe("bakePremiereTitle with untouched fields", () => {
+  const outDir = join(workspace, "titles-untouched");
+  const lowerThird = premiereTemplate(join(workspace, "Untouched Lower Third.mogrt"), ["Second Line is Smaller", "Your Name Here"], ["Your Name Here", "Second Line is Smaller"]);
+
+  it("leaves a null field's layer and localized definition values unchanged and only checks written fields", () => {
+    const result = bakePremiereTitle(lowerThird, [null, "Name"], outDir, () => "cap");
+    expect(result.checks).toEqual([{ index: 1, expected: "Name", actual: "Name" }]);
+    expect(readPremiereTitleText(result.path)).toEqual(["Name", "Second Line is Smaller"]);
+    const definition = JSON.parse(readZipEntry(readFileSync(result.path), "definition.json")!.toString("utf8").replace(/^﻿/, ""));
+    const texts = definition.clientControls.filter((c: { type: number }) => c.type === 6).map((c: { value: { strDB: Array<{ str: string }> } }) => c.value.strDB.map((e) => e.str));
+    expect(texts).toEqual([["Second Line is Smaller", "fr-Second Line is Smaller"], ["Name", "Name"]]);
+  });
+
+  it("reserves a layer for each skipped field so duplicate default text still lands in the right layer", () => {
+    const twins = premiereTemplate(join(workspace, "Twin Defaults.mogrt"), ["Text", "Text"], ["Text", "Text"]);
+    const result = bakePremiereTitle(twins, [null, "Second"], outDir, () => "cap");
+    expect(readPremiereTitleText(result.path)).toEqual(["Text", "Second"]);
+  });
+
+  it("refuses to guess in strict mode when a written field's default text matches several layers", () => {
+    const twins = premiereTemplate(join(workspace, "Twin Strict.mogrt"), ["Text", "Text"], ["Text", "Text"]);
+    expect(() => bakePremiereTitle(twins, [null, "Second"], outDir, () => "cap", { strictLayerMapping: true })).toThrow(/ambiguous/);
+    const distinct = bakePremiereTitle(lowerThird, [null, "Name"], outDir, () => "cap", { strictLayerMapping: true });
+    expect(distinct.checks[0].actual).toBe("Name");
+  });
+
+  it("rejects a request that writes no field", () => {
+    expect(() => bakePremiereTitle(lowerThird, [null, null], outDir)).toThrow(/no text/i);
+  });
+});

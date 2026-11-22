@@ -118,9 +118,13 @@ const STYLE_HELPER = `
 export function titleColor(value: string): number[] {
     return [255, parseInt(value.slice(1, 3), 16), parseInt(value.slice(3, 5), 16), parseInt(value.slice(5, 7), 16)];
 }
-export function buildTitleStyleScript(args: TitleStyleArgs, lines: number): string {
+/** Text-control indices a style request applies to: the first N controls, or an explicit list. */
+function styledIndices(lines: number | readonly number[]): number[] {
+    return typeof lines === "number" ? Array.from({ length: lines }, (_, i) => i) : [...lines];
+}
+export function buildTitleStyleScript(args: TitleStyleArgs, lines: number | readonly number[]): string {
     const commands: string[] = [];
-    for (let index = 0; index < lines; index++)
+    for (const index of styledIndices(lines))
         for (const field of ["font_family", "font_size"] as const) {
             if (args[field] !== undefined)
                 commands.push(`__titleFont(titleStyleProps[${index}], "${field}", ${index}, "${escapeForExtendScript(JSON.stringify(args[field]))}", titleStyleReadback);`);
@@ -129,14 +133,14 @@ export function buildTitleStyleScript(args: TitleStyleArgs, lines: number): stri
         commands.push(`__titleColor(mgtComp, [${titleColor(args.fill_color).join(",")}], titleStyleReadback);`);
     if (args.position !== undefined)
         commands.push(`__titlePosition(clip, [${args.position.x},${args.position.y}], titleStyleReadback);`);
-    return commands.length ? `${STYLE_HELPER}\nvar titleStyleProps = mgtComp ? __mogrtTextProps(mgtComp) : [];\n${commands.join("\n")}\nfor (var sfi = 0; sfi < titleStyleReadback.length; sfi++) { var sr = titleStyleReadback[sfi]; if (sr.index !== null && !sr.error) { try { sr.value = titleStyleProps[sr.index].getValue(); } catch (finalStyleError) { sr.error = String(finalStyleError); } } }\nif (textReadback) for (var sri = 0; sri < textReadback.length; sri++) { try { if (titleStyleProps[sri]) textReadback[sri].value = titleStyleProps[sri].getValue(); } catch (styleTextError) { textReadback[sri].readbackError = String(styleTextError); } }` : "";
+    return commands.length ? `${STYLE_HELPER}\nvar titleStyleProps = (mgtComp && !textPreflightFailed) ? __mogrtTextProps(mgtComp) : [];\n${commands.join("\n")}\nfor (var sfi = 0; sfi < titleStyleReadback.length; sfi++) { var sr = titleStyleReadback[sfi]; if (sr.index !== null && !sr.error) { try { sr.value = titleStyleProps[sr.index].getValue(); } catch (finalStyleError) { sr.error = String(finalStyleError); } } }\nif (textReadback) for (var sri = 0; sri < textReadback.length; sri++) { var styledText = textReadback[sri]; try { if (styledText.value !== undefined && titleStyleProps[styledText.index]) styledText.value = titleStyleProps[styledText.index].getValue(); } catch (styleTextError) { styledText.readbackError = String(styleTextError); } }` : "";
 }
-export function compareTitleStyle(args: TitleStyleArgs, lines: number, raw: unknown) {
+export function compareTitleStyle(args: TitleStyleArgs, lines: number | readonly number[], raw: unknown) {
     const entries = Array.isArray(raw) ? raw as Array<Record<string, unknown>> : [];
     return TITLE_STYLE_FIELDS.flatMap(field => {
         if (args[field] === undefined)
             return [];
-        const indices = field === "font_family" || field === "font_size" ? Array.from({ length: lines }, (_, i) => i) : [null];
+        const indices = field === "font_family" || field === "font_size" ? styledIndices(lines) : [null];
         return indices.map(index => {
             const entry = entries.find(e => e.field === field && e.index === index);
             let actual: unknown = entry?.value ?? null;

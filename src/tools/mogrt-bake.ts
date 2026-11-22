@@ -280,12 +280,28 @@ function localizedDefault(value: unknown): string {
  * default text, falling back to layer order). The copy is content-addressed, so
  * the same template and text reuse one file and capsuleID.
  */
+export interface BakeOptions {
+  /**
+   * Refuse to write a field unless exactly one layer carries its default text.
+   * Without it, fields fall back to layer order when default text is shared or
+   * has been edited, which is only a guess.
+   */
+  strictLayerMapping?: boolean;
+}
+
+/**
+ * `lines[i]` is the text for field i; `null` leaves that field and its layer
+ * exactly as the template has them. A skipped field still reserves its layer,
+ * so fields with identical default text keep their own layers.
+ */
 export function bakePremiereTitle(
   templatePath: string,
-  lines: string[],
+  lines: Array<string | null>,
   outDir: string = defaultTitleDir(),
   newCapsuleId: () => string = randomUUID,
+  options: BakeOptions = {},
 ): BakeResult {
+  if (lines.every((line) => line === null)) throw new Error("There is no text to write; every field was left untouched");
   if (statSync(templatePath).size > MAX_TEMPLATE_BYTES) throw new Error("Template file is too large");
   const entries = readZipEntries(readBoundedRegularFile(templatePath, MAX_TEMPLATE_BYTES));
   const byName = new Map(entries.map((entry) => [entry.name, entry]));
@@ -315,8 +331,14 @@ export function bakePremiereTitle(
   // Assign each field to a layer: same default text first, then layer order.
   const used = new Set<number>();
   const assignment: number[] = [];
-  lines.forEach((_line, field) => {
+  lines.forEach((line, field) => {
     const wanted = localizedDefault(textControls[field]?.value);
+    if (options.strictLayerMapping && line !== null) {
+      const sameText = blobs.filter((candidate) => candidate.blob.text === wanted).length;
+      if (sameText !== 1) {
+        throw new Error(`Text field #${field + 1} is ambiguous: ${sameText} layer(s) carry its default text "${wanted}", so its layer cannot be identified`);
+      }
+    }
     let layer = blobs.findIndex((candidate, index) => !used.has(index) && candidate.blob.text === wanted);
     if (layer < 0) layer = blobs.findIndex((_candidate, index) => !used.has(index) && index >= field);
     if (layer < 0) layer = blobs.findIndex((_candidate, index) => !used.has(index));
@@ -328,7 +350,7 @@ export function bakePremiereTitle(
   // match in some other layer does not count. Rewriting keeps layer order.
   const verify = (): BakeCheck[] => {
     const texts = readPremiereTitleText(outPath);
-    return lines.map((expected, index) => ({ index, expected, actual: texts[assignment[index]] ?? null }));
+    return lines.flatMap((expected, index) => expected === null ? [] : [{ index, expected, actual: texts[assignment[index]] ?? null }]);
   };
   ensurePrivateBridgeDirectory(outDir);
   if (existsSync(outPath)) {
@@ -344,11 +366,12 @@ export function bakePremiereTitle(
   blobs.forEach((entry, layer) => {
     const field = assignment.indexOf(layer);
     rewritten += xml.slice(cursor, entry.start);
-    if (field < 0) {
+    const line = field < 0 ? null : lines[field];
+    if (line === null) {
       rewritten += xml.slice(entry.start, entry.end);
     } else {
       const json = structuredClone(entry.blob.json);
-      json.mTextParam.mStyleSheet.mText = lines[field];
+      json.mTextParam.mStyleSheet.mText = line;
       rewritten += entry.open + encodeSourceText(json) + entry.close;
     }
     cursor = entry.end;
@@ -356,6 +379,7 @@ export function bakePremiereTitle(
   rewritten += xml.slice(cursor);
 
   lines.forEach((line, field) => {
+    if (line === null) return;
     const table = textControls[field]?.value?.strDB;
     if (Array.isArray(table)) for (const localizedValue of table) localizedValue.str = line;
     else if (textControls[field]) textControls[field].value = line;
