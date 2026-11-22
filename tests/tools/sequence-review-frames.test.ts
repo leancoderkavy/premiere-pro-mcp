@@ -74,6 +74,31 @@ describe("export_sequence_review_frames", () => {
     expect(result).toMatchObject({ success: false, error: "unrestored" });
   });
 
+  it("keeps each frame's failure reason when no review frame was written (#994)", async () => {
+    await tools.export_sequence_review_frames.handler({ output_dir: "/tmp/review", frame_count: 3 });
+    const script = mockedSendCommand.mock.calls[0][0];
+    const TICKS = 254016000000;
+    const result = JSON.parse(String(runInNewContext(String(script), {
+      app: { project: { activeSequence: { name: "Seq", end: String(TICKS * 10), sequenceID: "s1" } } },
+      Folder: function Folder(this: { exists: boolean; fsName: string }, path: string) {
+        this.exists = true;
+        this.fsName = path;
+      },
+      __ticksToSeconds: (ticks: string | number) => Number(ticks) / TICKS,
+      __secondsToTicks: (seconds: number) => Math.round(seconds * TICKS),
+      __exportStillFrame: () => ({ ok: false, error: "Frame export produced no file on disk", notes: ["QE wrote no file", "AME: no PNG still preset found on disk"] }),
+      __error: (msg: string, data?: unknown) => JSON.stringify({ success: false, error: msg, data }),
+      __result: (data: unknown) => JSON.stringify({ success: true, data }),
+    })));
+    expect(result).toMatchObject({
+      success: false,
+      error: "Premiere did not write any review frames",
+      data: { exported: 0, requested: 3, complete: false, frames: [] },
+    });
+    expect(result.data.failures).toHaveLength(3);
+    expect(result.data.failures[0].notes).toContain("AME: no PNG still preset found on disk");
+  });
+
   it("marks a review range past the sequence end as not applied before still export", async () => {
     await tools.export_sequence_review_frames.handler({ output_dir: "/tmp/review", frame_count: 4, start_seconds: 15 });
     const script = mockedSendCommand.mock.calls[0][0];

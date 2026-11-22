@@ -1445,7 +1445,7 @@ ${sequenceRangeGuardScript(range)}
             }
           }
 
-          if (!frames.length) return __error("Premiere did not write any review frames");
+          if (!frames.length) return __error("Premiere did not write any review frames", { frames: frames, failures: failures, exported: 0, requested: requested, complete: false });
           return __result({
             sequence: { name: seq.name, durationSeconds: sequenceEndSeconds },
             range: { startSeconds: rangeStart, endSeconds: rangeEnd },
@@ -1574,7 +1574,7 @@ ${sequenceRangeGuardScript(range)}
             }
           }
 
-          if (!frames.length) return __error("Premiere did not write any marker review frames");
+          if (!frames.length) return __error("Premiere did not write any marker review frames", { frames: frames, failures: failures, exported: 0, requested: requested, complete: false });
           return __result({
             sequence: { name: seq.name, durationSeconds: sequenceEndSeconds },
             range: { startSeconds: rangeStart, endSeconds: rangeEnd },
@@ -1643,7 +1643,7 @@ ${sequenceRangeGuardScript(range)}
             if (result.ok) frames.push({ index: i, clipName: clip.name, nodeId: clip.nodeId, timeSeconds: atSeconds, outputPath: result.path, method: result.method });
             else failures.push({ index: i, clipName: clip.name, timeSeconds: atSeconds, error: result.error, notes: result.notes });
           }
-          if (!frames.length) return __error("Premiere did not write any clip review frames");
+          if (!frames.length) return __error("Premiere did not write any clip review frames", { frames: frames, failures: failures, exported: 0, requested: count, complete: false });
           return __result({
             trackIndex: ${trackIndex}, requested: count, exported: frames.length,
             complete: frames.length === count, frames: frames, failures: failures,
