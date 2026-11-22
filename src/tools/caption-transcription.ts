@@ -71,12 +71,11 @@ export function buildSequenceAudioScript(sequenceId: string | null): string {
     // A Channel Volume or Panner component only counts as neutral when its
     // properties were actually read: a missing, zero, or invalid property list,
     // or a value that is not a finite number (null, "", boolean, array), is
-    // unverified and keeps the sequence export. Live Premiere lists Left/Right
-    // (Channel Volume) and Balance (Panner), so an empty list is not proof.
+    // unverified and keeps the sequence export.
     function __checkIntrinsic(label, component, isChannelVolume) {
       var count = NaN;
       try { count = component.properties.numItems; } catch (eCount) {}
-      if (typeof count !== "number" || isNaN(count) || count < 1 || Math.floor(count) !== count) {
+      if (typeof count !== "number" || !isFinite(count) || count < 1 || Math.floor(count) !== count) {
         reasons.push("could not read the " + label + " properties");
         return;
       }
@@ -84,8 +83,8 @@ export function buildSequenceAudioScript(sequenceId: string | null): string {
       for (var pi = 0; pi < count; pi++) {
         var prop = null;
         var name = "";
-        try { prop = component.properties[pi]; name = String(prop.displayName); } catch (eProp) {}
-        if (!prop) { reasons.push("could not read " + label + " property " + pi); continue; }
+        try { prop = component.properties[pi]; name = String(prop.displayName || ""); } catch (eProp) {}
+        if (!name) { reasons.push("could not read " + label + " property " + pi); continue; }
         if (name === "Bypass") continue;
         checked++;
         var varying = false;
@@ -93,7 +92,7 @@ export function buildSequenceAudioScript(sequenceId: string | null): string {
         if (varying) { reasons.push(label + " " + name + " has keyframes"); continue; }
         var raw = null;
         try { raw = prop.getValue(); } catch (eValue) {}
-        if (typeof raw !== "number" || isNaN(raw) || raw === Infinity || raw === -Infinity) {
+        if (typeof raw !== "number" || !isFinite(raw)) {
           reasons.push("could not read " + label + " " + name);
         } else if (!isChannelVolume || name === "Balance" || name === "Pan") {
           if (Math.abs(raw) > 0.001) reasons.push(label + " " + name + " is " + raw + ", not 0");
