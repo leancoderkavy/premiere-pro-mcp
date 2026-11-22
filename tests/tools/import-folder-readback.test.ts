@@ -45,7 +45,7 @@ function host(options: Options = {}) {
   });
   const rootItem = { children };
   vi.mocked(sendCommand).mockImplementation(async script => JSON.parse(String(runInNewContext(
-    `${getHelpersSource()}\n${script}`, { app: { project: { rootItem, importFiles } }, File, Folder },
+    `${getHelpersSource()}\n${script}`, { app: { project: { rootItem, sequences: { numSequences: 0 }, importFiles } }, File, Folder },
   ))));
   return { importFiles, rootItem };
 }
