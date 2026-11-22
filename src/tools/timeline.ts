@@ -336,6 +336,7 @@ export function getTimelineTools(
           if (!item) return __refuse("Project item not found: ${escapeForExtendScript(args.item_id)}");
           var startTicks = __secondsToTicks(${startSeconds}).toString();
           var outcome = __insertClipHonoringSyncLock(seq, item, startTicks, ${trackIndex}, ${audioTrackIndex}, "${scope}");
+          if (!outcome.ok && outcome.refusedBeforeChange) return __refuse(outcome.error);
           if (!outcome.ok) return __error(outcome.error, outcome.changed ? { timelineChanged: true, outcome: "committed_unverified", verified: false, displacedTails: outcome.displacedTails, placedOn: outcome.placedOn } : null);
           var payload = {
             added: true,

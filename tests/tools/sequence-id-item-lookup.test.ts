@@ -13,10 +13,12 @@ vi.mock("../../src/bridge/file-bridge.js", () => ({
 }));
 
 import { sendCommand } from "../../src/bridge/file-bridge.js";
+import { runWithUndoTracking } from "../../src/bridge/undo-tracking.js";
 import { getUtilityTools } from "../../src/tools/utility.js";
 import { getSequenceTools } from "../../src/tools/sequence.js";
 import { getMediaTools } from "../../src/tools/media.js";
 import { getProjectTools } from "../../src/tools/project.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const bridgeOptions: BridgeOptions = { tempDir: "/tmp/test-bridge", timeoutMs: 5000 };
@@ -201,8 +203,18 @@ describe("bin-only lookups refuse a sequence ID", () => {
       expect(importFiles).toHaveBeenCalledTimes(1);
       expect((importFiles.mock.calls[0] as unknown[])[2]).toMatchObject({ name: "Sequences", type: 2 });
     }
-    const missing = run(await scriptFor(getMediaTools(bridgeOptions).import_media, { file_paths: [fileURLToPath(import.meta.url)], target_bin: 'no"bin' }), project().app);
-    expect(missing).toEqual({ success: false, error: 'Bin not found: no"bin' });
+    const importMedia = getMediaTools(bridgeOptions).import_media;
+    const script = await runWithUndoTracking(true, () => scriptFor(importMedia, { file_paths: [fileURLToPath(import.meta.url)], target_bin: 'no"bin' }));
+    const host = project();
+    const importFiles = vi.fn();
+    const missing = run(script, { project: { ...host.app.project, importFiles } });
+    expect(missing).toEqual({
+      success: false,
+      error: 'Bin not found: no"bin',
+      data: { mutationOutcome: "not_applied", timelineChanged: false, refusedBeforeChange: true },
+    });
+    expect(importFiles).not.toHaveBeenCalled();
+    expect(mutationReceipt(false, missing.data, { dispatched: true }, "import_media").outcome).toBe("not_applied");
   });
 
   it("import_ae_comps and import_fcp_xml resolve target_bin through the bin-only lookup", async () => {

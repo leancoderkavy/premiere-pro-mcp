@@ -11,12 +11,14 @@ vi.mock("../../src/bridge/file-bridge.js", () => ({
 }));
 
 import { sendCommand } from "../../src/bridge/file-bridge.js";
+import { runWithUndoTracking } from "../../src/bridge/undo-tracking.js";
 import { getSourceMonitorTools } from "../../src/tools/source-monitor.js";
 import { getTimelineTools } from "../../src/tools/timeline.js";
 import { confirmationToken, getEditPlanTools } from "../../src/tools/edit-plans.js";
 import { staticEditPlanTokenStore, fixtureEditPlanBinding } from "../helpers/static-edit-plan-token-store.js";
 import { getCompetitorGapTools } from "../../src/tools/competitor-gaps.js";
 import { getSpotWorkflowTools, spotWorkflowConfirmationToken } from "../../src/tools/spot-workflows.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const bridgeOptions: BridgeOptions = { tempDir: "/tmp/issue-562", timeoutMs: 5000 };
@@ -788,6 +790,26 @@ describe("issue #562 — insert_from_source honors sync lock", () => {
 });
 
 describe("issue #562 — other Sequence.insertClip callers use the same helper", () => {
+  it.each([
+    { hostOptions: { lockedVideo: [0] }, outcome: "not_applied", error: /locked: video track 0/i, changed: false },
+    { hostOptions: { emptyTargets: true, insertThrowsAfterMutation: true }, outcome: "committed_unverified", error: /timeline may be partially changed/i, changed: true },
+  ])("add_to_timeline reports $outcome after host dispatch", async ({ hostOptions, outcome, error, changed }) => {
+    const script = await runWithUndoTracking(true, () => scriptFor(getTimelineTools(bridgeOptions).add_to_timeline, {
+      item_id: "src",
+      start_seconds: 8,
+    }));
+    const { sandbox, seq, source } = issue562Host(hostOptions);
+    (sandbox.app as { project: { rootItem?: unknown } }).project.rootItem = { children: { numItems: 1, 0: source } };
+    const before = rangesOf(seq.videoTracks[0]);
+    const result = runScript(script, sandbox);
+    expect(result).toMatchObject({ success: false, error: expect.stringMatching(error), data: { timelineChanged: changed } });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "add_to_timeline").outcome).toBe(outcome);
+    if (!changed) {
+      expect(result.data).toMatchObject({ mutationOutcome: "not_applied", refusedBeforeChange: true });
+      expect(rangesOf(seq.videoTracks[0])).toEqual(before);
+    }
+  });
+
   it("add_to_timeline ripples sync-locked neighbours at the requested time", async () => {
     const script = await scriptFor(getTimelineTools(bridgeOptions).add_to_timeline, {
       item_id: "src",

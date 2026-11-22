@@ -3152,7 +3152,7 @@ function __insertClipHonoringSyncLock(seq, item, timeTicks, videoTrackIndex, aud
     if (lk) lockedList.push(parts[pi].type + " track " + parts[pi].index);
   }
   if (lockedList.length) {
-    return { ok: false, error: "Insert refused; nothing was changed. These tracks must shift but are locked: " + lockedList.join(", ") + ". Unlock them or use scope 'target_tracks' (which will desync other tracks)." };
+    return { ok: false, refusedBeforeChange: true, error: "Insert refused; nothing was changed. These tracks must shift but are locked: " + lockedList.join(", ") + ". Unlock them or use scope 'target_tracks' (which will desync other tracks)." };
   }
 
   var shiftPlan = [];

@@ -61,7 +61,7 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
         const suppress = args.suppress_ui !== false ? "true" : "false";
         const binLookup = args.target_bin
           ? `var targetBin = __findBin("${escapeForExtendScript(args.target_bin)}");
-             if (!targetBin) return __error(__findProjectItem("${escapeForExtendScript(args.target_bin)}") ? "${escapeForExtendScript(args.target_bin)} is not a bin; nothing was imported." : "Bin not found: ${escapeForExtendScript(args.target_bin)}");`
+             if (!targetBin) return __refuse(__findProjectItem("${escapeForExtendScript(args.target_bin)}") ? "${escapeForExtendScript(args.target_bin)} is not a bin; nothing was imported." : "Bin not found: ${escapeForExtendScript(args.target_bin)}");`
           : `var targetBin = app.project.rootItem;`;
 
         const script = buildToolScript(`
