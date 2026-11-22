@@ -135,9 +135,9 @@ export function moveClipScript(args: MoveClipArgs): string {
       } catch (groupError) { unreadable = true; }
       var restored = !changed && !unreadable;
       var unchanged = restored && !rollbackAttempted && undoBeforeWrite !== null && __readUndoIndex() === undoBeforeWrite;
-      var outcome = changed ? "committed_unverified" : unchanged ? "not_applied" : "unknown";
+      var outcome = changed ? "committed_unverified" : (unchanged ? "not_applied" : "unknown");
       var failure = { verified: false, outcome: outcome, mutationOutcome: outcome,
-        timelineChanged: changed ? true : unchanged ? false : null, mutationAttempted: attempted,
+        timelineChanged: changed ? true : (unchanged ? false : null), mutationAttempted: attempted,
         rollbackVerified: rollbackAttempted && restored, verificationScope: scope, affectedTargets: observed };
       if (!includeLinked && ids.length > 1 && unreadable) failure.warning = "A linked partner's state could not be verified after the target-only move.";
       return __error(message, failure);
