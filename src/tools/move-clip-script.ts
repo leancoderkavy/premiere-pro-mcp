@@ -105,6 +105,7 @@ export function moveClipScript(args: MoveClipArgs): string {
         inPointTicks: current.sourceIn, outPointTicks: current.sourceOut };
     }
     function failMove(message, rollback) {
+      var rollbackAttempted = false;
       if (rollback) {
         for (var i = written.length - 1; i >= 0; i--) {
           try {
@@ -118,6 +119,7 @@ export function moveClipScript(args: MoveClipArgs): string {
             onlySelf["$" + member.id] = true;
             requireVacant(before, onlySelf);
             if (__transitionEditGuard(seq, [before, current])) continue;
+            rollbackAttempted = true;
             __writeClipSpan(current.clip, before.start, before.end);
           } catch (rollbackError) {}
         }
@@ -131,13 +133,12 @@ export function moveClipScript(args: MoveClipArgs): string {
           if (!matches(state, item.before, item.before)) changed = true;
         }
       } catch (groupError) { unreadable = true; }
-      var undoNow = __undoStart === null ? null : __readUndoIndex();
       var restored = !changed && !unreadable;
-      var unchanged = restored && (__undoStart === null || (undoNow !== null && undoNow <= __undoStart));
+      var unchanged = restored && !rollbackAttempted && undoBeforeWrite !== null && __readUndoIndex() === undoBeforeWrite;
       var outcome = changed ? "committed_unverified" : unchanged ? "not_applied" : "unknown";
       var failure = { verified: false, outcome: outcome, mutationOutcome: outcome,
         timelineChanged: changed ? true : unchanged ? false : null, mutationAttempted: attempted,
-        rollbackVerified: rollback && written.length > 0 && restored, verificationScope: scope, affectedTargets: observed };
+        rollbackVerified: rollbackAttempted && restored, verificationScope: scope, affectedTargets: observed };
       if (!includeLinked && ids.length > 1 && unreadable) failure.warning = "A linked partner's state could not be verified after the target-only move.";
       return __error(message, failure);
     }
@@ -194,6 +195,7 @@ export function moveClipScript(args: MoveClipArgs): string {
       return __refuse("Move preflight failed: " + String(preflightError));
     }
 
+    var undoBeforeWrite = changesTrack || delta !== 0 ? __readUndoIndex() : null;
     try {
       ${args.new_track_index === undefined ? "" : `
       if (changesTrack) {
@@ -201,7 +203,7 @@ export function moveClipScript(args: MoveClipArgs): string {
         var qeSeq = qe.project.getActiveSequence();
         var qeTrack = qeSeq && (primary.type === "video" ? qeSeq.getVideoTrackAt(primary.index) : qeSeq.getAudioTrackAt(primary.index));
         var qeClip = __findQeClipByDomClip(qeTrack, primary.clip);
-        if (!qeClip) return __refuse("Could not locate the clip among the QE track's items; cannot change track.");
+        if (!qeClip || typeof qeClip.moveToTrack !== "function") return __refuse("Could not locate a QE clip that supports changing tracks.");
         var trackDelta = destinationTrack - primary.index;
         var videoDelta = primary.type === "video" ? trackDelta : 0;
         var audioDelta = primary.type === "audio" ? trackDelta : 0;

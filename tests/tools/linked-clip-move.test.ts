@@ -43,7 +43,7 @@ function host() {
   const v = track(video), a = track(audio);
   const sequence = { sequenceID: "seq", timebase: String(T / 25), videoTracks: { 0: v, numTracks: 1 }, audioTracks: { 0: a, numTracks: 1 } };
   const app = { project: { documentID: "project", activeSequence: sequence, path: "C:/project.prproj" }, enableQE: vi.fn() };
-  const qe = { project: { getActiveSequence: vi.fn() } };
+  const qe = { project: { getActiveSequence: vi.fn(), undoStackIndex: (): number | null => 4 } };
   const run = async (script: string) => {
     parse(script, { ecmaVersion: 3, allowReserved: "never" });
     return JSON.parse(runInNewContext(getHelpersSource() + script, { app, qe, $: { os: "Windows" },
@@ -132,6 +132,18 @@ describe("move_clip linked readback", () => {
     };
     expect(await move()).toMatchObject({ success: false, data: { verified: false, rollbackVerified: true } });
     expect([range(video), range(audio)]).toEqual(before);
+  });
+
+  it.each([null, 4])("classifies a refused write using the available undo index (%s)", async undoIndex => {
+    const { video, qe } = host();
+    qe.project.undoStackIndex = () => undoIndex;
+    video.onWrite = () => { throw new Error("Host refused move"); };
+    const result = await move();
+    expect(result).toMatchObject({ success: false, data: {
+      outcome: undoIndex === null ? "unknown" : "not_applied",
+      timelineChanged: undoIndex === null ? null : false,
+      rollbackVerified: false,
+    } });
   });
 
   it("leaves an unexpectedly moved partner alone and reports the partial outcome", async () => {

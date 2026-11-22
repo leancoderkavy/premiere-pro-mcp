@@ -38,7 +38,7 @@ export function validateExtendedEditPlan(input: unknown): Plan {
     if (step.tool !== "split_clip" && step.args.node_id !== clip.id) throw new Error("step node_id differs from bound clip_id");
     if (step.tool === "enable_disable_clip") { if (typeof step.args.enabled !== "boolean") throw new Error("enabled must be boolean"); }
     else if (step.tool === "move_clip") {
-      if (clip.linked_ids.length || step.args.include_linked === true) throw new Error("Compound move requires an unlinked target and include_linked:false");
+      if (clip.linked_ids.length || (step.args.include_linked !== undefined && step.args.include_linked !== false)) throw new Error("Compound move requires an unlinked target and include_linked:false");
       if (typeof step.args.new_start_seconds !== "number") throw new Error("new_start_seconds must be number");
       const start = secondsToTicks(step.args.new_start_seconds), end = (ticks(start) + ticks(clip.end_ticks) - ticks(clip.start_ticks)).toString();
       sourceHandlePreflight(snapshot, clip, clip.in_ticks, clip.out_ticks, start, end);
