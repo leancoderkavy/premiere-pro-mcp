@@ -229,11 +229,11 @@
   "dependencies": {
     "@modelcontextprotocol/node": "^2.1.2",
     "@modelcontextprotocol/server": "^2.4.0",
-    "@posthog/core": "1.67.1",
-    "@posthog/types": "1.424.0",
-    "jose": "^6.2.17",
-    "posthog-node": "5.69.0",
-    "ws": "^8.22.2",
+    "@posthog/core": "1.69.1",
+    "@posthog/types": "1.425.1",
+    "jose": "^6.2.18",
+    "posthog-node": "5.74.0",
+    "ws": "^8.23.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -241,12 +241,12 @@
     "@adobe/eslint-plugin-premierepro": "26.3.0",
     "@adobe/premierepro": "26.3.0",
     "@adobe/premierepro-beta": "npm:@adobe/premierepro@26.5.0-beta.73",
-    "@modelcontextprotocol/client": "^2.2.0",
+    "@modelcontextprotocol/client": "^2.4.0",
     "@types/node": "^26.6.6",
-    "@types/ws": "^8.18.1",
-    "@typescript-eslint/parser": "^8.72.2",
+    "@types/ws": "^8.18.2",
+    "@typescript-eslint/parser": "^8.73.0",
     "@vitest/coverage-v8": "^4.1.12",
-    "eslint": "^9.39.3",
+    "eslint": "^9.39.5",
     "typescript": "^5.9.3",
     "vitest": "^4.1.12"
   },
@@ -261,4 +261,3 @@
     "minimatch": "^11.0.3"
   }
 }
-
