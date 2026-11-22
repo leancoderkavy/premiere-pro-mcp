@@ -20,7 +20,7 @@ afterAll(() => rmSync(folder, { recursive: true }));
 beforeEach(() => vi.clearAllMocks());
 function children(items: any[]) { return Object.assign(items, { numItems: items.length }); }
 function execute(host: any, extra = {}) {
-  send.mockImplementation(async (script) => JSON.parse(runInNewContext(getHelpersSource() + "\n" + script, { app: { project: host }, ...extra })));
+  send.mockImplementation(async (script) => JSON.parse(runInNewContext(getHelpersSource() + "\n" + script, { app: { project: { sequences: { numSequences: 0 }, ...host } }, ...extra })));
 }
 
 function FakeFile(this: any, path: string) { this.fsName = path; this.name = path.split("/").pop(); this.exists = true; }
