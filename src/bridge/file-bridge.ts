@@ -412,9 +412,11 @@ export function ensurePrivateBridgeDirectory(
     try {
       acl = inspectWindowsAcl(dir, newlyCreated);
     } catch (error) {
+      const reason = error instanceof Error && "code" in error && error.code === "ETIMEDOUT"
+        ? "Windows ACL check timed out. Check whether security software is delaying PowerShell (ETIMEDOUT)."
+        : error instanceof Error ? error.message : String(error);
       throw new Error(
-        `Could not verify the Windows ACL for bridge temp dir ${dir}: ` +
-          `${error instanceof Error ? error.message : String(error)}`,
+        `Could not verify the Windows ACL for bridge temp dir ${dir}: ${reason}`,
       );
     }
     if (!acl.ownerSid || !acl.currentUserSid || acl.ownerSid !== acl.currentUserSid) {
