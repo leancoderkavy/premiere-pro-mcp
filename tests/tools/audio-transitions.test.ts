@@ -17,10 +17,11 @@ const tools = getAudioTransitionTools(options);
 const TICKS = 254016000000;
 const frameTicks = TICKS / 25;
 
-function mockHost(settings: { existing?: boolean; transitionExists?: boolean; throwAfterWrite?: boolean; audioOnly?: boolean; legacyCatalog?: boolean; ignoreWrite?: boolean } = {}) {
+function mockHost(settings: { existing?: boolean; transitionExists?: boolean; throwAfterWrite?: boolean; audioOnly?: boolean; legacyCatalog?: boolean; ignoreWrite?: boolean; mutateExisting?: boolean; distantExisting?: boolean } = {}) {
   const state = { writes: 0, names: [] as string[], starts: [] as boolean[], timecodes: [] as string[], undoIndex: 4 };
   const transition = { name: "Constant Power" };
   const transitions: Array<{ start: { ticks: string }; end: { ticks: string }; nodeId: string }> = [];
+  if (settings.distantExisting) transitions.push({ start: { ticks: String(5 * TICKS) }, end: { ticks: String(6 * TICKS) }, nodeId: "distant-transition" });
   if (settings.existing) {
     transitions.push({
       start: { ticks: String(1.5 * TICKS) }, end: { ticks: String(2.5 * TICKS) }, nodeId: "existing-transition",
@@ -38,6 +39,7 @@ function mockHost(settings: { existing?: boolean; transitionExists?: boolean; th
         state.starts.push(atStart);
         state.timecodes.push(durationCode);
         state.undoIndex += 1;
+        if (settings.mutateExisting) { transitions[0] = { start: { ticks: String(5.25 * TICKS) }, end: { ticks: String(6.25 * TICKS) }, nodeId: "distant-transition" }; return; }
         if (settings.ignoreWrite) return;
         const cut = atStart ? Number(clip.start.ticks) : Number(clip.end.ticks);
         const half = TICKS / 2;
@@ -145,6 +147,21 @@ describe("native QE audio transitions", () => {
     expect(result).toMatchObject({ success: false, data: { outcome: "not_applied", timelineChanged: false, transitionsAdded: 0 } });
     expect(result.error).toMatch(/without adding an audio transition/);
     expect(result.error).not.toMatch(/project may have changed/);
+    expect(state.writes).toBe(1);
+  });
+
+  it("does not mask a same-count transition range change as a no-op", async () => {
+    const state = mockHost({ distantExisting: true, mutateExisting: true });
+    const result = await runWithUndoTracking(true, () => tools.add_audio_transition.handler({ track_index: 0, cut_point_seconds: 2 }));
+    expect(result).toMatchObject({ success: false, data: { outcome: "committed_unverified", timelineChanged: true, verified: false } });
+    expect(result.data).not.toMatchObject({ outcome: "not_applied" });
+    expect(state.writes).toBe(1);
+  });
+
+  it("keeps a true no-op with an existing unchanged transition as not_applied", async () => {
+    const state = mockHost({ distantExisting: true, ignoreWrite: true });
+    const result = await runWithUndoTracking(true, () => tools.add_audio_transition.handler({ track_index: 0, cut_point_seconds: 2 }));
+    expect(result).toMatchObject({ success: false, data: { outcome: "not_applied", timelineChanged: false } });
     expect(state.writes).toBe(1);
   });
 
