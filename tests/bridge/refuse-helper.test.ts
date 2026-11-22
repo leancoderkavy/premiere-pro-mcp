@@ -8,6 +8,7 @@ import { runWithExpectedHostTarget } from "../../src/bridge/project-guard.js";
 vi.mock("../../src/bridge/file-bridge.js", () => ({ sendCommand: vi.fn() }));
 import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { getTimelineTools } from "../../src/tools/timeline.js";
+import { getTransitionsTools } from "../../src/tools/transitions.js";
 import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 
 // One long-lived engine, as in the CEP panel: helper globals survive between commands.
@@ -109,5 +110,14 @@ describe("refusals in tool scripts", () => {
     const result = await runWithUndoTracking(true, () => tools[name].handler(args as never)) as { success: boolean; data?: Record<string, unknown> };
     expect(result).toMatchObject({ success: false, error: "Clip not found: 000fffff", data: { mutationOutcome: "not_applied", timelineChanged: false } });
     expect(mutationReceipt(false, result.data, { dispatched: true }, name).outcome).toBe("not_applied");
+  });
+
+  it("add_transition_to_clip refuses a stale node ID as not_applied", async () => {
+    const run = engine({ value: 7 });
+    vi.mocked(sendCommand).mockImplementation(async (script) => run(script));
+    const tools = getTransitionsTools({});
+    const result = await runWithUndoTracking(true, () => tools.add_transition_to_clip.handler({ node_id: "000fffff", transition_name: "Cross Dissolve" })) as { success: boolean; error?: string; data?: Record<string, unknown> };
+    expect(result).toMatchObject({ success: false, error: "Clip not found", data: { mutationOutcome: "not_applied", timelineChanged: false } });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "add_transition_to_clip").outcome).toBe("not_applied");
   });
 });
