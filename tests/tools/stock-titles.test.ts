@@ -415,6 +415,7 @@ describe("add_title fields mapping", () => {
   it("validates fields before contacting Premiere", async () => {
     const cases: Array<[Record<string, unknown>, RegExp]> = [
       [{ fields: { Missing: "x" }, template: "Name Role" }, /no text field labelled "Missing"/],
+      [{ fields: { ["__proto__"]: "x", Name: "Ada" }, template: "Name Role" }, /no text field labelled "__proto__"/],
       [{ fields: { "": "x" }, template: "Name Role" }, /non-empty/],
       [{ fields: { "   ": "x" }, template: "Name Role" }, /non-empty/],
       [{ fields: {}, template: "Name Role" }, /at least one/],
@@ -443,12 +444,19 @@ describe("add_title fields mapping", () => {
     expect(result.data.warnings.join(" ")).toMatch(/label check/);
   });
 
-  it("checks live labels for positional lines too and writes nothing when one is wrong", async () => {
-    const state = hostWith({ textDefaults: ["Your Text", "Your Text"], labels: ["Name", "Other"] });
+  it("keeps positional writes when the host localizes text control labels", async () => {
+    const state = hostWith({ textDefaults: ["Your Text", "Your Text"], labels: ["Nom", "Fonction"] });
     const result = await mapped.add_title.handler({ lines: ["A", "B"], template: "Name Role" }) as TitleResult;
+    expect(state.clip!.props.map(valueOf)).toEqual(["A", "B"]);
+    expect(result.data.textVerification).toBe("verified");
+  });
+
+  it("refuses a named write when the matching live label appears twice", async () => {
+    const state = hostWith({ textDefaults: ["Your Text", "Your Text"], labels: ["Role", "Role"] });
+    const result = await mapped.add_title.handler({ fields: { Role: "Director" }, template: "Name Role" }) as TitleResult;
     expect(state.clip!.props.map(valueOf)).toEqual(["Your Text", "Your Text"]);
-    expect(result.data.textChecks.map((c: { status: string }) => c.status)).toEqual(["missing_property", "missing_property"]);
-    expect(result.data.textChecks[0].reason).toMatch(/not written/i);
+    expect(result.data.textVerification).toBe("missing_property");
+    expect(result.data.textChecks[0].reason).toMatch(/ambiguous/i);
   });
 
   it("writes nothing when the live text-control count differs from the catalog", async () => {

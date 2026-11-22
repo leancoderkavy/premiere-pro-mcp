@@ -190,16 +190,26 @@ export const MOGRT_TEXT_AT_HELPER = `
     function __mogrtLabelPreflight(props, labels, ordinals, out) {
       var entries = [];
       var countOk = props.length === labels.length;
+      var knownLabels = true;
+      var liveLabels = [];
+      for (var p = 0; p < props.length; p++) {
+        var label = null;
+        try { if (typeof props[p].displayName === "string") label = props[p].displayName; } catch (labelError) {}
+        if (!label) knownLabels = false;
+        liveLabels.push(label);
+      }
       var ok = true;
       for (var i = 0; i < ordinals.length; i++) {
         var ordinal = ordinals[i];
         var prop = props[ordinal];
-        var liveLabel = null;
-        if (prop) { try { liveLabel = String(prop.displayName); } catch (labelError) { liveLabel = null; } }
+        var liveLabel = liveLabels[ordinal];
+        var matches = 0;
+        for (var p = 0; p < liveLabels.length; p++) if (liveLabels[p] === labels[ordinal]) matches++;
         var entry = { index: ordinal, expectedLabel: labels[ordinal], liveLabel: liveLabel, liveCount: props.length, expectedCount: labels.length };
         if (!prop) { entry.missing = true; ok = false; }
         else if (!countOk) { entry.labelMismatch = "count"; ok = false; }
         else if (liveLabel !== labels[ordinal]) { entry.labelMismatch = "label"; ok = false; }
+        else if (!knownLabels || matches !== 1) { entry.labelMismatch = "ambiguous"; ok = false; }
         entries.push(entry);
       }
       if (ok) return true;
@@ -310,7 +320,7 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
 
     add_title: {
       description:
-        "Add an on-screen title from plain text using a stock Essential Graphics template that ships with Premiere (default: Basic Title). Pass text for one line, or lines to fill the template's text fields in order (for example a lower third's name and role). Premiere-built templates (kind 'premiere') get the text baked into a verified copy before import, because Premiere exposes no writable text for them (textVerification 'template_verified'; confirm the render with export_frame). The baked copy path is returned as templateFile and saved under the application support premiere-pro-mcp/titles folder (macOS: ~/Library/Application Support/premiere-pro-mcp/titles). The cache keeps the newest 50 baked copies by modification time; export or copy templates elsewhere if a project needs older copies retained. After Effects-built templates (kind 'after_effects') are imported and their text fields written by position and read back from Premiere (textVerification 'verified', 'mismatch', 'missing_property', or 'committed_unverified'). The graphic is trimmed to duration_seconds and its length read back. Optional styling: font_family (PostScript name) and font_size write every text run of each AE text control when the template allows font editing (Premiere 26 fontEditValue/fontSizeEditValue runs, or legacy fontName/fontSize keys); fill_color requires one exposed Fill Color control; position moves the whole graphic through intrinsic normalized Motion Position. Each requested field has styleChecks readback. Premiere-authored font/fill styling and align are refused before import: no reliable writable/readable CEP 26.5.2 contract is established. Tracking is unsupported. Font readback confirms the stored name, not installation or rendered glyphs. Use list_stock_titles to see templates, their kind, and how many lines each takes. The result reports every template text field in textFields and the ones left at the template's default text in untouchedFields, with a warning when any remain. Pass fields (label to text) instead of text/lines to change only named fields; each label must name exactly one field or the call is refused before any change. Before writing After Effects-built text, the live control labels and count are checked against the template and nothing is written if they differ (textVerification 'missing_property', with the title already imported at its default text).",
+        "Add an on-screen title from plain text using a stock Essential Graphics template that ships with Premiere (default: Basic Title). Pass text for one line, or lines to fill the template's text fields in order (for example a lower third's name and role). Premiere-built templates (kind 'premiere') get the text baked into a verified copy before import, because Premiere exposes no writable text for them (textVerification 'template_verified'; confirm the render with export_frame). The baked copy path is returned as templateFile and saved under the application support premiere-pro-mcp/titles folder (macOS: ~/Library/Application Support/premiere-pro-mcp/titles). The cache keeps the newest 50 baked copies by modification time; export or copy templates elsewhere if a project needs older copies retained. After Effects-built templates (kind 'after_effects') are imported and their text fields written by position and read back from Premiere (textVerification 'verified', 'mismatch', 'missing_property', or 'committed_unverified'). The graphic is trimmed to duration_seconds and its length read back. Optional styling: font_family (PostScript name) and font_size write every text run of each AE text control when the template allows font editing (Premiere 26 fontEditValue/fontSizeEditValue runs, or legacy fontName/fontSize keys); fill_color requires one exposed Fill Color control; position moves the whole graphic through intrinsic normalized Motion Position. Each requested field has styleChecks readback. Premiere-authored font/fill styling and align are refused before import: no reliable writable/readable CEP 26.5.2 contract is established. Tracking is unsupported. Font readback confirms the stored name, not installation or rendered glyphs. Use list_stock_titles to see templates, their kind, and how many lines each takes. The result reports every template text field in textFields and the ones left at the template's default text in untouchedFields, with a warning when any remain. Pass fields (label to text) instead of text/lines to change only named fields; each label must name exactly one field or the call is refused before any change. For named fields on an After Effects-built title, the live control labels and count are checked against the template and nothing is written if they differ (textVerification 'missing_property', with the title already imported at its default text).",
       parameters: {
         type: "object" as const,
         properties: {
@@ -321,7 +331,7 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
           lines: {
             type: "array",
             items: { type: "string" },
-            description: "Text for each of the template's text fields in order (see list_stock_titles). Fields beyond the lines given are left untouched. Specify exactly one of text or lines.",
+            description: "Text for each of the template's text fields in order (see list_stock_titles). Fields beyond the lines given are left untouched. Specify exactly one of text, lines or fields.",
           },
           fields: {
             type: "object",
@@ -480,7 +490,7 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
           } else {
             textReadback = [];
             var textProps = __mogrtTextProps(mgtComp);
-            textPreflightFailed = !__mogrtLabelPreflight(textProps, [${catalogLabels}], [${styleIndexes.join(",")}], textReadback);
+            ${fieldMapping ? `textPreflightFailed = !__mogrtLabelPreflight(textProps, [${catalogLabels}], [${styleIndexes.join(",")}], textReadback);` : ""}
             if (!textPreflightFailed) {${writeCalls}
             }
           }
@@ -540,12 +550,14 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
             const entry = (textReadback as Array<Record<string, unknown>>).find((item) => item.index === index);
             const displayName = `${template.textFields[index]?.label || "Text"} #${index + 1}`;
             if (!entry || entry.missing === true) {
-              return { displayName, expected, actual: null, status: "missing_property" as const, reason: `Live text control #${index + 1} was not found; no text was written.` };
+              return { displayName, expected, actual: null, status: "missing_property" as const, reason: `Live text control #${index + 1} was not found in the text readback.` };
             }
             if (entry.labelMismatch !== undefined) {
               const why = entry.labelMismatch === "count"
                 ? `Live title exposes ${String(entry.liveCount)} text control(s) but the template lists ${String(entry.expectedCount)}`
-                : `Live control #${index + 1} is labelled "${String(entry.liveLabel)}", expected "${String(entry.expectedLabel)}"`;
+                : entry.labelMismatch === "ambiguous"
+                  ? `Live label "${String(entry.expectedLabel)}" could not be mapped unambiguously`
+                  : `Live control #${index + 1} is labelled "${String(entry.liveLabel)}", expected "${String(entry.expectedLabel)}"`;
               return { displayName, expected, actual: null, status: "missing_property" as const, reason: `${why}; no text was written.` };
             }
             if (entry.notWritten === true) {
@@ -560,7 +572,7 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
           textChecks = liveChecks;
           textVerification = summarizeMogrtText(liveChecks);
           if (textVerification !== "verified") warnings.push("One or more title lines did not read back as written; inspect textChecks.");
-          if ((textReadback as Array<Record<string, unknown>>).some((item) => item.labelMismatch !== undefined || item.notWritten === true || item.missing === true)) {
+          if (fieldMapping && (textReadback as Array<Record<string, unknown>>).some((item) => item.labelMismatch !== undefined || item.notWritten === true || item.missing === true)) {
             warnings.push("The live label check failed, so no text was written; the imported title still shows the template's default text. Inspect textChecks.");
           }
         }

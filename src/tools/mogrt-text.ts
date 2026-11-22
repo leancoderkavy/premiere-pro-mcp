@@ -51,7 +51,7 @@ export function validateMogrtTextMap(value: unknown, field: string): Record<stri
   const entries = Object.entries(value as Record<string, unknown>);
   if (entries.length === 0) return undefined;
   if (entries.length > MAX_MOGRT_TEXT_FIELDS) throw new Error(`${field} accepts at most ${MAX_MOGRT_TEXT_FIELDS} parameters`);
-  const result: Record<string, string> = {};
+  const result: Record<string, string> = Object.create(null);
   for (const [name, text] of entries) {
     if (!name.trim()) throw new Error(`${field} parameter names must be non-empty`);
     if (typeof text !== "string") throw new Error(`${field}.${name} must be a string`);

@@ -72,18 +72,18 @@ describe("title style fields", () => {
         expect(r.data.styleChecks[0].actual).toBeNull();
         expect(r.data.outcome).toBe("committed_unverified");
     });
-    it("writes and styles nothing when the live title exposes fewer text controls than the template lists", async () => {
+    it("writes and styles an available positional field when another is missing", async () => {
         const s = host();
-        const before = s.json;
         catalog[0].textFields.push({ index: 1, label: "Subtitle", defaultText: "Other" });
         const r = await tool().handler({ lines: ["Brand", "Subtitle"], template: "Styled", font_size: 54 }) as any;
         expect(r.data.styleChecks).toEqual([
-            expect.objectContaining({ field: "font_size", index: 0, status: "committed_unverified" }),
+            expect.objectContaining({ field: "font_size", index: 0, status: "verified" }),
             expect.objectContaining({ field: "font_size", index: 1, status: "committed_unverified" }),
         ]);
-        expect(r.data.textChecks.map((c: any) => c.status)).toEqual(["missing_property", "missing_property"]);
+        expect(r.data.textChecks.map((c: any) => c.status)).toEqual(["verified", "missing_property"]);
         expect(r.data.outcome).toBe("committed_unverified");
-        expect(s.json).toBe(before);
+        expect(JSON.parse(s.json).textEditValue).toBe("Brand");
+        expect(r.data.warnings.join(" ")).not.toMatch(/no text was written/);
     });
     it("writes every Premiere 26 text run and reads each run back", async () => { const s = host({ runs: true }); const r = await add({ font_family: "Metropolis-Regular", font_size: 54 }); expect(r.data.styleChecks).toEqual([expect.objectContaining({ field: "font_family", actual: "Metropolis-Regular", status: "verified" }), expect.objectContaining({ field: "font_size", actual: 54, status: "verified" })]); const stored = JSON.parse(s.json); expect(stored.fontEditValue).toEqual(["Metropolis-Regular", "Metropolis-Regular"]); expect(stored.fontSizeEditValue).toEqual([54, 54]); expect(stored.fontTextRunLength).toEqual([4, 3]); expect(stored.fontFSBoldValue).toEqual([false, false]); expect(stored.textEditValue).toBe("Brand"); });
     it("refuses font and size writes when the template locks them", async () => { const s = host({ locked: true }); const r = await add({ font_family: "Metropolis-Regular", font_size: 54 }); expect(r.data.styleChecks.every((c: any) => c.status === "committed_unverified" && /does not allow/.test(c.reason))).toBe(true); const stored = JSON.parse(s.json); expect(stored.fontEditValue).toEqual(["BebasNeue-Regular", "BebasNeue-Bold"]); expect(stored.fontSizeEditValue).toEqual([40, 32]); });

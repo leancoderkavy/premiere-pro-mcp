@@ -240,6 +240,17 @@ describe("bakePremiereTitle with untouched fields", () => {
     expect(distinct.checks[0].actual).toBe("Name");
   });
 
+  it("does not let a skipped field claim the uniquely matching named layer", () => {
+    const edited = premiereTemplate(join(workspace, "Edited Defaults.mogrt"), ["Old Role", "Name Here"], ["Name Here", "Other"]);
+    const result = bakePremiereTitle(edited, [null, "Ada"], outDir, () => "cap", { strictLayerMapping: true });
+    expect(readPremiereTitleText(result.path)).toEqual(["Ada", "Other"]);
+  });
+
+  it("refuses a single matching layer when several controls share its default", () => {
+    const mismatched = premiereTemplate(join(workspace, "Twin Controls.mogrt"), ["Text", "Text"], ["Text", "Other"]);
+    expect(() => bakePremiereTitle(mismatched, [null, "Second"], outDir, () => "cap", { strictLayerMapping: true })).toThrow(/ambiguous/);
+  });
+
   it("rejects a request that writes no field", () => {
     expect(() => bakePremiereTitle(lowerThird, [null, null], outDir)).toThrow(/no text/i);
   });

@@ -130,9 +130,9 @@ export function buildTitleStyleScript(args: TitleStyleArgs, lines: number | read
                 commands.push(`__titleFont(titleStyleProps[${index}], "${field}", ${index}, "${escapeForExtendScript(JSON.stringify(args[field]))}", titleStyleReadback);`);
         }
     if (args.fill_color !== undefined)
-        commands.push(`__titleColor(mgtComp, [${titleColor(args.fill_color).join(",")}], titleStyleReadback);`);
+        commands.push(`if (!textPreflightFailed) __titleColor(mgtComp, [${titleColor(args.fill_color).join(",")}], titleStyleReadback);`);
     if (args.position !== undefined)
-        commands.push(`__titlePosition(clip, [${args.position.x},${args.position.y}], titleStyleReadback);`);
+        commands.push(`if (!textPreflightFailed) __titlePosition(clip, [${args.position.x},${args.position.y}], titleStyleReadback);`);
     return commands.length ? `${STYLE_HELPER}\nvar titleStyleProps = (mgtComp && !textPreflightFailed) ? __mogrtTextProps(mgtComp) : [];\n${commands.join("\n")}\nfor (var sfi = 0; sfi < titleStyleReadback.length; sfi++) { var sr = titleStyleReadback[sfi]; if (sr.index !== null && !sr.error) { try { sr.value = titleStyleProps[sr.index].getValue(); } catch (finalStyleError) { sr.error = String(finalStyleError); } } }\nif (textReadback) for (var sri = 0; sri < textReadback.length; sri++) { var styledText = textReadback[sri]; try { if (styledText.value !== undefined && titleStyleProps[styledText.index]) styledText.value = titleStyleProps[styledText.index].getValue(); } catch (styleTextError) { styledText.readbackError = String(styleTextError); } }` : "";
 }
 export function compareTitleStyle(args: TitleStyleArgs, lines: number | readonly number[], raw: unknown) {

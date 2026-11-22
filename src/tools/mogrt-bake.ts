@@ -307,7 +307,8 @@ export function bakePremiereTitle(
   const byName = new Map(entries.map((entry) => [entry.name, entry]));
   if (templateKind([...byName.keys()]) !== "premiere") throw new Error("Not a Premiere-built template (no project.prgraphic)");
 
-  const digest = createHash("sha256").update(readBoundedRegularFile(templatePath, MAX_TEMPLATE_BYTES)).update("\u0000").update(JSON.stringify(lines)).digest("hex").slice(0, 16);
+  const cacheKey = options.strictLayerMapping ? { namedFields: lines } : lines;
+  const digest = createHash("sha256").update(readBoundedRegularFile(templatePath, MAX_TEMPLATE_BYTES)).update("\u0000").update(JSON.stringify(cacheKey)).digest("hex").slice(0, 16);
   const slug = (templatePath.split(/[\\/]/).pop() ?? "title").replace(/\.mogrt$/i, "").replace(/[^A-Za-z0-9._-]+/g, "-");
   const outPath = join(outDir, `${slug}-${digest}.mogrt`);
 
@@ -333,11 +334,18 @@ export function bakePremiereTitle(
   const assignment: number[] = [];
   lines.forEach((line, field) => {
     const wanted = localizedDefault(textControls[field]?.value);
-    if (options.strictLayerMapping && line !== null) {
-      const sameText = blobs.filter((candidate) => candidate.blob.text === wanted).length;
-      if (sameText !== 1) {
-        throw new Error(`Text field #${field + 1} is ambiguous: ${sameText} layer(s) carry its default text "${wanted}", so its layer cannot be identified`);
+    if (options.strictLayerMapping) {
+      if (line === null) {
+        assignment.push(-1);
+        return;
       }
+      const matchingControls = textControls.filter((control: Record<string, unknown>) => localizedDefault(control.value) === wanted);
+      const matchingLayers = blobs.filter((candidate) => candidate.blob.text === wanted);
+      if (matchingControls.length !== 1 || matchingLayers.length !== 1) {
+        throw new Error(`Text field #${field + 1} is ambiguous: ${matchingControls.length} control(s) and ${matchingLayers.length} layer(s) share its default text "${wanted}"`);
+      }
+      assignment.push(blobs.indexOf(matchingLayers[0]));
+      return;
     }
     let layer = blobs.findIndex((candidate, index) => !used.has(index) && candidate.blob.text === wanted);
     if (layer < 0) layer = blobs.findIndex((_candidate, index) => !used.has(index) && index >= field);
