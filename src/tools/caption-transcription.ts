@@ -68,6 +68,45 @@ export function buildSequenceAudioScript(sequenceId: string | null): string {
     var isActive = false;
     try { isActive = !!activeSeq && String(activeSeq.sequenceID) === String(seq.sequenceID); } catch (eActive) {}
     var reasons = [];
+    // A Channel Volume or Panner component only counts as neutral when its
+    // properties were actually read: a missing, zero, or invalid property list,
+    // or a value that is not a finite number (null, "", boolean, array), is
+    // unverified and keeps the sequence export. Live Premiere lists Left/Right
+    // (Channel Volume) and Balance (Panner), so an empty list is not proof.
+    function __checkIntrinsic(label, component, isChannelVolume) {
+      var count = NaN;
+      try { count = component.properties.numItems; } catch (eCount) {}
+      if (typeof count !== "number" || isNaN(count) || count < 1 || Math.floor(count) !== count) {
+        reasons.push("could not read the " + label + " properties");
+        return;
+      }
+      var checked = 0;
+      for (var pi = 0; pi < count; pi++) {
+        var prop = null;
+        var name = "";
+        try { prop = component.properties[pi]; name = String(prop.displayName); } catch (eProp) {}
+        if (!prop) { reasons.push("could not read " + label + " property " + pi); continue; }
+        if (name === "Bypass") continue;
+        checked++;
+        var varying = false;
+        try { varying = !!prop.isTimeVarying(); } catch (eVarying) { reasons.push("could not read whether " + label + " " + name + " has keyframes"); continue; }
+        if (varying) { reasons.push(label + " " + name + " has keyframes"); continue; }
+        var raw = null;
+        try { raw = prop.getValue(); } catch (eValue) {}
+        if (typeof raw !== "number" || isNaN(raw) || raw === Infinity || raw === -Infinity) {
+          reasons.push("could not read " + label + " " + name);
+        } else if (!isChannelVolume || name === "Balance" || name === "Pan") {
+          if (Math.abs(raw) > 0.001) reasons.push(label + " " + name + " is " + raw + ", not 0");
+        } else if (Math.abs(raw - ${UNITY_LEVEL}) > 0.001) {
+          if (raw > 0) {
+            reasons.push(label + " " + name + " is " + (Math.round((20 * (Math.log(raw) / Math.LN10) + 15) * 100) / 100) + " dB, not 0 dB");
+          } else {
+            reasons.push(label + " " + name + " is silent, not 0 dB");
+          }
+        }
+      }
+      if (checked === 0) reasons.push("the " + label + " component exposes no value to check");
+    }
     var audible = [];
     var trackCount = 0;
     try { trackCount = seq.audioTracks.numTracks; } catch (eTracks) { return __refuse("Could not read the sequence audio tracks: " + eTracks); }
@@ -126,47 +165,9 @@ export function buildSequenceAudioScript(sequenceId: string | null): string {
             if (String(component.properties[pi].displayName) === "Level") { volumeLevel = component.properties[pi]; break; }
           }
         } else if (matchName.indexOf("Internal Channel Volume") === 0 || displayName === "Channel Volume") {
-          for (var pi = 0; pi < component.properties.numItems; pi++) {
-            var chProp = component.properties[pi];
-            var chName = "";
-            try { chName = String(chProp.displayName); } catch (eChName) {}
-            if (chName === "Bypass") continue;
-            var chVarying = false;
-            try { chVarying = !!chProp.isTimeVarying(); } catch (eChVarying) { reasons.push("could not read whether Channel Volume " + chName + " has keyframes"); continue; }
-            if (chVarying) { reasons.push("Channel Volume " + chName + " has keyframes"); continue; }
-            var chValue = NaN;
-            try { chValue = Number(chProp.getValue()); } catch (eChValue) {}
-            if (isNaN(chValue)) {
-              reasons.push("could not read Channel Volume " + chName);
-            } else if (chName === "Balance" || chName === "Pan") {
-              if (Math.abs(chValue) > 0.001) reasons.push("Channel Volume " + chName + " is " + chValue + ", not 0");
-            } else if (Math.abs(chValue - ${UNITY_LEVEL}) > 0.001) {
-              var chDb = 0;
-              if (chValue > 0) chDb = Math.round((20 * (Math.log(chValue) / Math.LN10) + 15) * 100) / 100;
-              if (chValue > 0) {
-                reasons.push("Channel Volume " + chName + " is " + chDb + " dB, not 0 dB");
-              } else {
-                reasons.push("Channel Volume " + chName + " is silent, not 0 dB");
-              }
-            }
-          }
+          __checkIntrinsic("Channel Volume", component, true);
         } else if (matchName.indexOf("Internal Panner") === 0 || displayName === "Panner") {
-          for (var pi = 0; pi < component.properties.numItems; pi++) {
-            var panProp = component.properties[pi];
-            var panName = "";
-            try { panName = String(panProp.displayName); } catch (ePanName) {}
-            if (panName === "Bypass") continue;
-            var panVarying = false;
-            try { panVarying = !!panProp.isTimeVarying(); } catch (ePanVarying) { reasons.push("could not read whether Panner " + panName + " has keyframes"); continue; }
-            if (panVarying) { reasons.push("Panner " + panName + " has keyframes"); continue; }
-            var panValue = NaN;
-            try { panValue = Number(panProp.getValue()); } catch (ePanValue) {}
-            if (isNaN(panValue)) {
-              reasons.push("could not read Panner " + panName);
-            } else if (Math.abs(panValue) > 0.001) {
-              reasons.push("Panner " + panName + " is " + panValue + ", not 0");
-            }
-          }
+          __checkIntrinsic("Panner", component, false);
         } else {
           reasons.push("the clip has an extra audio component: " + (displayName || matchName));
         }
