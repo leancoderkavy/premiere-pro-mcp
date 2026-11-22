@@ -8,10 +8,10 @@ export interface ExpectedHostTarget {
   source_item?: { node_id: string; media_path?: string };
   clip?: { node_id: string; track_type: "video" | "audio"; track_index: number; project_item_id?: string; start_ticks?: string; end_ticks?: string; in_ticks?: string; out_ticks?: string; effect?: { match_name: string; display_name?: string; parameter_index: number; parameter_name: string } };
 }
-const expectedTarget = new AsyncLocalStorage<ExpectedHostTarget | undefined>();
+const expectedTarget = new AsyncLocalStorage<{ target: ExpectedHostTarget; requireUnlinked: boolean } | undefined>();
 
 /** Backend-scoped identities are never inferred from a track/clip index alone. */
-export function runWithExpectedHostTarget<T>(value: unknown, operation: () => T): T {
+export function runWithExpectedHostTarget<T>(value: unknown, operation: () => T, options?: { requireUnlinked: boolean }): T {
   if (value === undefined) return expectedTarget.run(undefined, operation);
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("expected_target must be an object");
   const target = value as ExpectedHostTarget;
@@ -32,10 +32,11 @@ export function runWithExpectedHostTarget<T>(value: unknown, operation: () => T)
       if (!effect || typeof effect !== "object" || Array.isArray(effect) || Object.keys(effect).some(key => !["match_name", "display_name", "parameter_index", "parameter_name"].includes(key)) || typeof effect.match_name !== "string" || !effect.match_name || effect.match_name.length > 512 || typeof effect.parameter_name !== "string" || !effect.parameter_name || effect.parameter_name.length > 512 || (effect.display_name !== undefined && (typeof effect.display_name !== "string" || !effect.display_name || effect.display_name.length > 512)) || !Number.isInteger(effect.parameter_index) || effect.parameter_index < 0 || effect.parameter_index > 255) throw new Error("expected_target.clip.effect requires bounded match identity and exact indexed parameter identity");
     }
   }
-  return expectedTarget.run(target, operation);
+  return expectedTarget.run({ target, requireUnlinked: options?.requireUnlinked === true }, operation);
 }
 
-export function expectedHostTarget(): ExpectedHostTarget | undefined { return expectedTarget.getStore(); }
+export function expectedHostTarget(): ExpectedHostTarget | undefined { return expectedTarget.getStore()?.target; }
+export function expectedUnlinkedClip(): boolean { return expectedTarget.getStore()?.requireUnlinked === true; }
 
 /** Scope a project assertion to one MCP request, including its async CEP work. */
 export function runWithExpectedProject<T>(value: unknown, operation: () => T): T {

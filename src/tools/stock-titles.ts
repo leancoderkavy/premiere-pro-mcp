@@ -3,7 +3,7 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import { basename, delimiter, dirname, join, relative, sep } from "node:path";
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
-import { extractMogrtText, MAX_MOGRT_TEXT_LENGTH, MogrtTextCheck, summarizeMogrtText } from "./mogrt-text.js";
+import { extractMogrtText, MAX_MOGRT_TEXT_LENGTH, MogrtTextCheck, summarizeMogrtText, validateMogrtTextMap } from "./mogrt-text.js";
 import { MOGRT_DURATION_HELPER } from "./text.js";
 import { bakePremiereTitle, BakeResult, readTemplateKind, readZipEntry, TemplateKind } from "./mogrt-bake.js";
 
@@ -183,6 +183,42 @@ export const MOGRT_TEXT_AT_HELPER = `
       }
       return props;
     }
+    // Label preflight: every requested ordinal must exist, the live text-control
+    // count must equal the catalog's, and each live displayName must equal the
+    // catalog label. All-or-nothing: on any failure nothing is written and every
+    // requested ordinal is reported (labelMismatch / missing / notWritten).
+    function __mogrtLabelPreflight(props, labels, ordinals, out) {
+      var entries = [];
+      var countOk = props.length === labels.length;
+      var knownLabels = true;
+      var liveLabels = [];
+      for (var p = 0; p < props.length; p++) {
+        var label = null;
+        try { if (typeof props[p].displayName === "string") label = props[p].displayName; } catch (labelError) {}
+        if (!label) knownLabels = false;
+        liveLabels.push(label);
+      }
+      var ok = true;
+      for (var i = 0; i < ordinals.length; i++) {
+        var ordinal = ordinals[i];
+        var prop = props[ordinal];
+        var liveLabel = liveLabels[ordinal];
+        var matches = 0;
+        for (var p = 0; p < liveLabels.length; p++) if (liveLabels[p] === labels[ordinal]) matches++;
+        var entry = { index: ordinal, expectedLabel: labels[ordinal], liveLabel: liveLabel, liveCount: props.length, expectedCount: labels.length };
+        if (!prop) { entry.missing = true; ok = false; }
+        else if (!countOk) { entry.labelMismatch = "count"; ok = false; }
+        else if (liveLabel !== labels[ordinal]) { entry.labelMismatch = "label"; ok = false; }
+        else if (!knownLabels || matches !== 1) { entry.labelMismatch = "ambiguous"; ok = false; }
+        entries.push(entry);
+      }
+      if (ok) return true;
+      for (var j = 0; j < entries.length; j++) {
+        if (!entries[j].missing && !entries[j].labelMismatch) entries[j].notWritten = true;
+        out.push(entries[j]);
+      }
+      return false;
+    }
     function __mogrtWriteTextAt(props, out, ordinal, plain, encoded) {
       var prop = props[ordinal];
       if (!prop) { out.push({ index: ordinal, missing: true }); return; }
@@ -193,6 +229,52 @@ export const MOGRT_TEXT_AT_HELPER = `
       catch (readError) { out.push({ index: ordinal, displayName: prop.displayName, readbackError: String(readError) }); }
     }
 `;
+
+interface TitleWrite {
+  /** Index of the template text field (definition.json order). */
+  index: number;
+  text: string;
+}
+
+/**
+ * Map a { label: text } request onto template text fields. Every key must name
+ * exactly one field: unknown, shared (duplicate) or doubly-targeted labels are
+ * refused, because guessing would write text into the wrong control.
+ */
+function resolveTitleFields(
+  template: StockTitleTemplate,
+  fields: Record<string, string>,
+): { writes: TitleWrite[]; mapping: Array<{ name: string; index: number; label: string }> } | { error: string } {
+  const byLabel = new Map<string, number[]>();
+  for (const field of template.textFields) {
+    const label = field.label.trim();
+    byLabel.set(label, [...(byLabel.get(label) ?? []), field.index]);
+  }
+  const claimed = new Map<number, string>();
+  const writes: TitleWrite[] = [];
+  const mapping: Array<{ name: string; index: number; label: string }> = [];
+  for (const [name, text] of Object.entries(fields)) {
+    const label = name.trim();
+    const matches = byLabel.get(label) ?? [];
+    if (matches.length === 0) {
+      const available = [...byLabel.keys()].filter(Boolean).map((candidate) => `"${candidate}"`).join(", ");
+      return { error: `${template.name} has no text field labelled "${label}" (available: ${available || "none"}). No change was attempted.` };
+    }
+    if (matches.length > 1) {
+      return { error: `Field label "${label}" is ambiguous in ${template.name}: it names text fields ${matches.map((index) => `#${index + 1}`).join(" and ")}. Use lines to fill fields by position. No change was attempted.` };
+    }
+    const index = matches[0];
+    const earlier = claimed.get(index);
+    if (earlier !== undefined) {
+      return { error: `fields entries "${earlier}" and "${name}" both target text field #${index + 1} of ${template.name}. No change was attempted.` };
+    }
+    claimed.set(index, name);
+    writes.push({ index, text });
+    mapping.push({ name, index, label: template.textFields[index].label });
+  }
+  writes.sort((a, b) => a.index - b.index);
+  return { writes, mapping };
+}
 
 function finiteInRange(value: unknown, field: string, min: number, max: number): number {
   if (typeof value !== "number" || !Number.isFinite(value) || value < min || value > max) {
@@ -238,7 +320,7 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
 
     add_title: {
       description:
-        "Add an on-screen title from plain text using a stock Essential Graphics template that ships with Premiere (default: Basic Title). Pass text for one line, or lines to fill the template's text fields in order (for example a lower third's name and role). Premiere-built templates (kind 'premiere') get the text baked into a verified copy before import, because Premiere exposes no writable text for them (textVerification 'template_verified'; confirm the render with export_frame). The baked copy path is returned as templateFile and saved under the application support premiere-pro-mcp/titles folder (macOS: ~/Library/Application Support/premiere-pro-mcp/titles). The cache keeps the newest 50 baked copies by modification time; export or copy templates elsewhere if a project needs older copies retained. After Effects-built templates (kind 'after_effects') are imported and their text fields written by position and read back from Premiere (textVerification 'verified', 'mismatch', 'missing_property', or 'committed_unverified'). The graphic is trimmed to duration_seconds and its length read back. Optional styling: font_family (PostScript name) and font_size write every text run of each AE text control when the template allows font editing (Premiere 26 fontEditValue/fontSizeEditValue runs, or legacy fontName/fontSize keys); fill_color requires one exposed Fill Color control; position moves the whole graphic through intrinsic normalized Motion Position. Each requested field has styleChecks readback. Premiere-authored font/fill styling and align are refused before import: no reliable writable/readable CEP 26.5.2 contract is established. Tracking is unsupported. Font readback confirms the stored name, not installation or rendered glyphs. Use list_stock_titles to see templates, their kind, and how many lines each takes.",
+        "Add an on-screen title from plain text using a stock Essential Graphics template that ships with Premiere (default: Basic Title). Pass text for one line, or lines to fill the template's text fields in order (for example a lower third's name and role). Premiere-built templates (kind 'premiere') get the text baked into a verified copy before import, because Premiere exposes no writable text for them (textVerification 'template_verified'; confirm the render with export_frame). The baked copy path is returned as templateFile and saved under the application support premiere-pro-mcp/titles folder (macOS: ~/Library/Application Support/premiere-pro-mcp/titles). The cache keeps the newest 50 baked copies by modification time; export or copy templates elsewhere if a project needs older copies retained. After Effects-built templates (kind 'after_effects') are imported and their text fields written by position and read back from Premiere (textVerification 'verified', 'mismatch', 'missing_property', or 'committed_unverified'). The graphic is trimmed to duration_seconds and its length read back. Optional styling: font_family (PostScript name) and font_size write every text run of each AE text control when the template allows font editing (Premiere 26 fontEditValue/fontSizeEditValue runs, or legacy fontName/fontSize keys); fill_color requires one exposed Fill Color control; position moves the whole graphic through intrinsic normalized Motion Position. Each requested field has styleChecks readback. Premiere-authored font/fill styling and align are refused before import: no reliable writable/readable CEP 26.5.2 contract is established. Tracking is unsupported. Font readback confirms the stored name, not installation or rendered glyphs. Use list_stock_titles to see templates, their kind, and how many lines each takes. The result reports every template text field in textFields and the ones left at the template's default text in untouchedFields, with a warning when any remain. Pass fields (label to text) instead of text/lines to change only named fields; each label must name exactly one field or the call is refused before any change. For named fields on an After Effects-built title, the live control labels and count are checked against the template and nothing is written if they differ (textVerification 'missing_property', with the title already imported at its default text).",
       parameters: {
         type: "object" as const,
         properties: {
@@ -249,7 +331,12 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
           lines: {
             type: "array",
             items: { type: "string" },
-            description: "Text for each of the template's text fields in order (see list_stock_titles). Specify exactly one of text or lines.",
+            description: "Text for each of the template's text fields in order (see list_stock_titles). Fields beyond the lines given are left untouched. Specify exactly one of text, lines or fields.",
+          },
+          fields: {
+            type: "object",
+            additionalProperties: { type: "string", maxLength: MAX_MOGRT_TEXT_LENGTH },
+            description: "Optional alternative to text/lines: a map from a text field's label (as list_stock_titles shows it) to its text, used when only some fields should change. Every key must name exactly one text field of the template; a label that is empty, unknown, shared by several fields, or named twice is refused before anything changes. Values may be empty strings. Use instead of text and lines, not with them.",
           },
           font_family: { type: "string", minLength: 1, maxLength: 256, description: "Optional PostScript font name (for example Metropolis-Regular) for every requested AE text field and every text run in it. Requires a template that allows font editing (Premiere 26 fontEditValue runs, or a legacy fontName key). Stored-name readback does not prove the font is installed or rendered." },
           font_size: { type: "number", exclusiveMinimum: 0, maximum: 1000, description: "Optional text size in points for every requested AE text field and every text run in it. Requires a template that allows size editing (Premiere 26 fontSizeEditValue runs, or a legacy fontSize key)." },
@@ -277,6 +364,7 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
       handler: async (args: {
         text?: string;
         lines?: string[];
+        fields?: Record<string, string>;
         template?: string;
         track_index?: number;
         start_seconds?: number;
@@ -284,15 +372,27 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
       } & TitleStyleArgs) => {
         const styleError = validateTitleStyle(args);
         if (styleError) return { success: false, error: styleError };
-        if ((args.text === undefined) === (args.lines === undefined)) {
-          return { success: false, error: "add_title requires exactly one of text or lines." };
+        const supplied = [args.text, args.lines, args.fields].filter((value) => value !== undefined).length;
+        if (supplied !== 1) {
+          return { success: false, error: "add_title requires exactly one of text or lines (or, instead, the optional fields map)." };
         }
-        const lines = args.lines ?? [args.text];
-        if (!Array.isArray(lines) || lines.length === 0 || lines.some((line) => typeof line !== "string")) {
-          return { success: false, error: "lines must be a non-empty array of strings." };
-        }
-        if (lines.some((line) => (line as string).length > MAX_MOGRT_TEXT_LENGTH)) {
-          return { success: false, error: `Each title line must be at most ${MAX_MOGRT_TEXT_LENGTH} characters.` };
+        let fieldsMap: Record<string, string> | undefined;
+        let lines: string[] = [];
+        if (args.fields !== undefined) {
+          try {
+            fieldsMap = validateMogrtTextMap(args.fields, "fields");
+          } catch (error) {
+            return { success: false, error: (error as Error).message };
+          }
+          if (!fieldsMap) return { success: false, error: "fields must name at least one text field." };
+        } else {
+          lines = (args.lines ?? [args.text]) as string[];
+          if (!Array.isArray(lines) || lines.length === 0 || lines.some((line) => typeof line !== "string")) {
+            return { success: false, error: "lines must be a non-empty array of strings." };
+          }
+          if (lines.some((line) => (line as string).length > MAX_MOGRT_TEXT_LENGTH)) {
+            return { success: false, error: `Each title line must be at most ${MAX_MOGRT_TEXT_LENGTH} characters.` };
+          }
         }
         let trackIndex: number;
         let startSeconds: number;
@@ -315,12 +415,23 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
             error: `Stock title template not found: ${requestedTemplate}. Call list_stock_titles for available names.`,
           };
         }
-        if (lines.length > template.textFields.length) {
-          return {
-            success: false,
-            error: `${template.name} has ${template.textFields.length} text field(s) but ${lines.length} line(s) were given. No change was attempted.`,
-          };
+        let writes: TitleWrite[];
+        let fieldMapping: Array<{ name: string; index: number; label: string }> | undefined;
+        if (fieldsMap) {
+          const resolved = resolveTitleFields(template, fieldsMap);
+          if ("error" in resolved) return { success: false, error: resolved.error };
+          writes = resolved.writes;
+          fieldMapping = resolved.mapping;
+        } else {
+          if (lines.length > template.textFields.length) {
+            return {
+              success: false,
+              error: `${template.name} has ${template.textFields.length} text field(s) but ${lines.length} line(s) were given. No change was attempted.`,
+            };
+          }
+          writes = lines.map((text, index) => ({ index, text }));
         }
+        const styleIndexes = writes.map((write) => write.index);
 
         const unavailableStyle = args.align !== undefined ? "align has no established CEP text setter/readback contract"
           : template.kind === "premiere" && (args.font_family !== undefined || args.font_size !== undefined || args.fill_color !== undefined)
@@ -333,7 +444,9 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
         let baked: BakeResult | undefined;
         if (template.kind === "premiere") {
           try {
-            baked = bakePremiereTitle(template.path, lines as string[]);
+            const bakeLines: Array<string | null> = Array.from({ length: Math.max(...styleIndexes) + 1 }, () => null);
+            for (const write of writes) bakeLines[write.index] = write.text;
+            baked = bakePremiereTitle(template.path, bakeLines, undefined, undefined, { strictLayerMapping: fieldsMap !== undefined });
           } catch (error) {
             return {
               success: false,
@@ -349,8 +462,9 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
           importPath = baked.path;
         }
 
-        const writes = baked ? "" : (lines as string[]).map((line, index) => `
-            __mogrtWriteTextAt(textProps, textReadback, ${index}, "${escapeForExtendScript(line)}", "${escapeForExtendScript(JSON.stringify(line))}");`).join("");
+        const writeCalls = baked ? "" : writes.map((write) => `
+            __mogrtWriteTextAt(textProps, textReadback, ${write.index}, "${escapeForExtendScript(write.text)}", "${escapeForExtendScript(JSON.stringify(write.text))}");`).join("");
+        const catalogLabels = template.textFields.map((field) => `"${escapeForExtendScript(field.label)}"`).join(",");
 
         const script = buildToolScript(`
           ${MOGRT_TEXT_AT_HELPER}
@@ -363,6 +477,7 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
 
           var textReadback = null;
           var textWriteError = null;
+          var textPreflightFailed = false;
           var mgtComp = null;
           var bakedTemplate = ${baked ? "true" : "false"};
           if (!bakedTemplate) {
@@ -375,10 +490,12 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
           } else {
             textReadback = [];
             var textProps = __mogrtTextProps(mgtComp);
-            ${writes}
+            ${fieldMapping ? `textPreflightFailed = !__mogrtLabelPreflight(textProps, [${catalogLabels}], [${styleIndexes.join(",")}], textReadback);` : ""}
+            if (!textPreflightFailed) {${writeCalls}
+            }
           }
           var titleStyleReadback = [];
-          ${buildTitleStyleScript(args, lines.length)}
+          ${buildTitleStyleScript(args, styleIndexes)}
           var durationCheck = __mogrtSetDuration(clip, ${trackIndex}, ${durationSeconds});
           var appliedStartSeconds = null;
           try {
@@ -429,10 +546,23 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
           textVerification = "committed_unverified";
           warnings.push(String(textWriteError ?? "Title text could not be written or read back"));
         } else {
-          const liveChecks: MogrtTextCheck[] = (lines as string[]).map((expected, index) => {
+          const liveChecks: MogrtTextCheck[] = writes.map(({ index, text: expected }) => {
             const entry = (textReadback as Array<Record<string, unknown>>).find((item) => item.index === index);
             const displayName = `${template.textFields[index]?.label || "Text"} #${index + 1}`;
-            if (!entry || entry.missing === true) return { displayName, expected, actual: null, status: "missing_property" as const };
+            if (!entry || entry.missing === true) {
+              return { displayName, expected, actual: null, status: "missing_property" as const, reason: `Live text control #${index + 1} was not found in the text readback.` };
+            }
+            if (entry.labelMismatch !== undefined) {
+              const why = entry.labelMismatch === "count"
+                ? `Live title exposes ${String(entry.liveCount)} text control(s) but the template lists ${String(entry.expectedCount)}`
+                : entry.labelMismatch === "ambiguous"
+                  ? `Live label "${String(entry.expectedLabel)}" could not be mapped unambiguously`
+                  : `Live control #${index + 1} is labelled "${String(entry.liveLabel)}", expected "${String(entry.expectedLabel)}"`;
+              return { displayName, expected, actual: null, status: "missing_property" as const, reason: `${why}; no text was written.` };
+            }
+            if (entry.notWritten === true) {
+              return { displayName, expected, actual: null, status: "missing_property" as const, reason: "Not written: another requested field failed the live label check." };
+            }
             if (entry.setError !== undefined || entry.readbackError !== undefined) {
               return { displayName, expected, actual: null, status: "committed_unverified" as const };
             }
@@ -442,6 +572,36 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
           textChecks = liveChecks;
           textVerification = summarizeMogrtText(liveChecks);
           if (textVerification !== "verified") warnings.push("One or more title lines did not read back as written; inspect textChecks.");
+          if (fieldMapping && (textReadback as Array<Record<string, unknown>>).some((item) => item.labelMismatch !== undefined || item.notWritten === true || item.missing === true)) {
+            warnings.push("The live label check failed, so no text was written; the imported title still shows the template's default text. Inspect textChecks.");
+          }
+        }
+
+        // Every template text field, written or not. Untouched fields keep the template's default text.
+        const checkByField = new Map<number, { expected: string; actual: string | null; status: string }>();
+        writes.forEach((write, position) => {
+          const check = baked
+            ? baked.checks.find((candidate) => candidate.index === write.index)
+            : textChecks?.[position];
+          checkByField.set(write.index, {
+            expected: write.text,
+            actual: check?.actual ?? null,
+            status: baked ? "template_verified" : (check as { status?: string } | undefined)?.status ?? "committed_unverified",
+          });
+        });
+        const textFields = template.textFields.map((field) => {
+          const check = checkByField.get(field.index);
+          return check
+            ? { index: field.index, label: field.label, defaultText: field.defaultText, requestedText: check.expected, status: check.status, actual: check.actual }
+            : { index: field.index, label: field.label, defaultText: field.defaultText, status: "untouched" };
+        });
+        const untouchedFields = template.textFields
+          .filter((field) => !checkByField.has(field.index))
+          .map((field) => ({ index: field.index, label: field.label, defaultText: field.defaultText }));
+        if (untouchedFields.length > 0) {
+          const shown = untouchedFields.slice(0, 5).map((field) => `#${field.index + 1} "${field.label}" (default "${field.defaultText}")`).join(", ");
+          const more = untouchedFields.length > 5 ? ` and ${untouchedFields.length - 5} more` : "";
+          warnings.push(`${untouchedFields.length} of ${template.textFields.length} text field(s) were not written and still show the template's default text: ${shown}${more}. Pass a line for every field, or name them in fields, to replace them.`);
         }
 
         const durationStatus = (duration as { status?: string } | undefined)?.status ?? "committed_unverified";
@@ -451,7 +611,7 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
         const textOk = textVerification === "verified" || textVerification === "template_verified";
         let outcome = textVerification;
         if (textOk) outcome = durationStatus === "verified" ? textVerification : "committed_unverified";
-        const styleChecks = compareTitleStyle(args, lines.length, titleStyleReadback);
+        const styleChecks = compareTitleStyle(args, styleIndexes, titleStyleReadback);
         if (styleChecks.some(check => check.status !== "verified")) {
           outcome = "committed_unverified";
           warnings.push("One or more requested style fields were unavailable or did not read back; inspect styleChecks. The title may already exist.");
@@ -470,6 +630,9 @@ export function getStockTitleTools(bridgeOptions: BridgeOptions, catalog: () => 
                 }
               : {}),
             ...(textChecks ? { textChecks } : {}),
+            textFields,
+            untouchedFields,
+            ...(fieldMapping ? { fieldMapping } : {}),
             ...(warnings.length ? { warnings } : {}),
           },
         };

@@ -32,14 +32,14 @@ describe("transition-safe structural edits", () => {
   });
   it("the real move handler refuses before any clip write", async () => {
     const h = fixture(); const move = vi.fn();
-    h.track.clips.push({nodeId:"clip",name:"Clip",start:time(20),end:time(24),inPoint:time(0),outPoint:time(4),move});
+    h.track.clips.push({nodeId:"clip",name:"Clip",start:time(20),end:time(24),inPoint:time(0),outPoint:time(4),getLinkedItems:()=>null,move});
     vi.mocked(sendCommand).mockImplementation(async script => h.run(script));
     expect(await getTimelineTools({}).move_clip.handler({node_id:"clip",new_start_seconds:30})).toMatchObject({success:false,data:{timelineChanged:false,transitionsAffected:[{index:0}]}});
     expect(move).not.toHaveBeenCalled();
   });
   it("guards the snapped destination when a fractional request lies just past a transition", async () => {
     const h=fixture(); h.transitions[0].start=time(29.8); h.transitions[0].end=time(30.01);
-    h.track.clips.push({nodeId:"clip",name:"Clip",start:time(20),end:time(24),inPoint:time(0),outPoint:time(4)});
+    h.track.clips.push({nodeId:"clip",name:"Clip",start:time(20),end:time(24),inPoint:time(0),outPoint:time(4),getLinkedItems:()=>null});
     vi.mocked(sendCommand).mockImplementation(async script=>h.run(script));
     expect(await getTimelineTools({}).move_clip.handler({node_id:"clip",new_start_seconds:30.018})).toMatchObject({success:false,data:{timelineChanged:false,transitionsAffected:[{startTicks:String(29.8*T)}]}});
   });
@@ -49,7 +49,7 @@ describe("transition-safe structural edits", () => {
   });
   it("compound preview checks the snapped move destination before issuing any token", async () => {
     const h=fixture();h.transitions[0].start=time(29.8);h.transitions[0].end=time(30);
-    const clip={nodeId:"clip",projectItem:{nodeId:"source"},start:time(20),end:time(24),inPoint:time(0),outPoint:time(4)};h.track.clips.push(clip);
+    const clip={nodeId:"clip",projectItem:{nodeId:"source"},start:time(20),end:time(24),inPoint:time(0),outPoint:time(4),getLinkedItems:()=>null};h.track.clips.push(clip);
     const snapshot:any={schema_version:1,backend:"cep",project_id:"project",sequence_id:"sequence",session_id:"session",revision:"",frame_rate:{numerator:25,denominator:1},display_start_ticks:"0",tracks:[{id:"video:0",type:"video",index:0,locked:false,sync_locked:true,targeted:true,muted:false}],clips:[{id:"clip",source_id:"source",track_id:"video:0",start_ticks:clip.start.ticks,end_ticks:clip.end.ticks,in_ticks:clip.inPoint.ticks,out_ticks:clip.outPoint.ticks,source_duration_ticks:String(100*T),speed:{numerator:1,denominator:1},reversed:false,enabled:true,linked_ids:[],identity:"host",effects:[],nested:false}],completeness:{clips:true,links:true,locks:true,effects:true,transitions:true,markers:true},transitions:[],markers:[],pagination:{offset:0,total:1,next_offset:null}};snapshot.revision=snapshotRevision(snapshot);
     const writer=vi.fn();const tool=getExtendedEditPlanTools({}, {send:async script=>h.run(script),getToolCatalog:()=>({move_clip:{handler:writer}}) as any});
     const result=await tool.preview_extended_edit_plan.handler({plan:{project_path:"/project.prproj",snapshot,steps:[{tool:"move_clip",clip_id:"clip",args:{node_id:"clip",new_start_seconds:30.018}}]}});

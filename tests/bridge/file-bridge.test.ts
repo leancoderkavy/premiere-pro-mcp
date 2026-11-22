@@ -424,6 +424,17 @@ describe("sendCommand", () => {
     } as unknown as ReturnType<typeof lstatSync>);
   }
 
+  it("refuses the bridge directory with a specific message when ACL inspection times out", () => {
+    mockWindowsDirectoryStatus();
+    const inspect = vi.fn(() => {
+      throw Object.assign(new Error("spawnSync powershell.exe ETIMEDOUT"), { code: "ETIMEDOUT" });
+    });
+
+    expect(() => ensurePrivateBridgeDirectory("C:\\private\\premiere-mcp-bridge", "win32", undefined, inspect))
+      .toThrow(/Windows ACL check timed out.*security software/i);
+    expect(inspect).toHaveBeenCalledTimes(1);
+  });
+
   it("lists every unsafe Windows ancestor with its reason and SID", () => {
     mockWindowsDirectoryStatus();
 

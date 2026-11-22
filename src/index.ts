@@ -349,8 +349,18 @@ async function main() {
   debugLog("Starting MCP server...");
   debugLog(`Temp directory: ${tempDir}`);
 
-  // Clean up any stale files from previous sessions
-  cleanupTempDir(bridgeOptions);
+  // Clean up any stale files from previous sessions. A rejected bridge directory
+  // is a local configuration problem: name the rejection on stderr (the generic
+  // fatal handler would only print "Error") and still exit without using it.
+  try {
+    cleanupTempDir(bridgeOptions);
+  } catch (error) {
+    console.error(
+      "[premiere-pro-mcp] Bridge directory check failed; refusing to start:",
+      error instanceof Error ? error.message : String(error),
+    );
+    process.exit(1);
+  }
 
   let uxpBridge: UxpWebSocketBridge | undefined;
   let lazyUxp: LazyUxpStart | undefined;

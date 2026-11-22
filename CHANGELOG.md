@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- A stdio server that refuses its bridge directory at startup now prints the reason on stderr (`Bridge directory check failed; refusing to start: ...`) instead of only `Fatal error: Error`, and still exits without using the directory. The ACL, ownership and ancestor checks are unchanged (#1010).
+- `export_sequence_review_frames`, `export_sequence_marker_review_frames` and the clip review-frames tool keep each frame's failure reason and capture notes (QE, Media Encoder) when no frame was written, instead of returning only "Premiere did not write any review frames" (#994).
+
 ## [1.31.0] - 2026-11-11
 
 ### Fixed

@@ -11,7 +11,7 @@ const ROUTES = ["trim_clip", "split_clip", "move_clip", "enable_disable_clip", "
 type Route = typeof ROUTES[number];
 interface Step { tool: Route; clip_id: string; args: Record<string, unknown>; time_domain?: "source" | "clip_relative" | "sequence"; time_ticks?: string; effect_identity?: string; parameter_identity?: string }
 interface Plan { project_path: string; snapshot: TimelineSnapshot; steps: Step[] }
-const KEYS: Record<Route, string[]> = { trim_clip: ["node_id", "new_in_seconds", "new_out_seconds", "include_linked", "keyframe_policy"], split_clip: ["time_seconds", "track_type", "track_index"], move_clip: ["node_id", "new_start_seconds"], enable_disable_clip: ["node_id", "enabled"], set_effect_property: ["node_id", "effect_name", "property_name", "property_index", "value"], add_keyframe: ["node_id", "effect_name", "property_name", "property_index", "time_seconds", "value"] };
+const KEYS: Record<Route, string[]> = { trim_clip: ["node_id", "new_in_seconds", "new_out_seconds", "include_linked", "keyframe_policy"], split_clip: ["time_seconds", "track_type", "track_index"], move_clip: ["node_id", "new_start_seconds", "include_linked"], enable_disable_clip: ["node_id", "enabled"], set_effect_property: ["node_id", "effect_name", "property_name", "property_index", "value"], add_keyframe: ["node_id", "effect_name", "property_name", "property_index", "time_seconds", "value"] };
 const lit = (value: string) => `"${escapeForExtendScript(value)}"`;
 export function validateExtendedEditPlan(input: unknown): Plan {
   const raw = boundedObject(input, ["project_path", "snapshot", "steps"], "extended edit plan");
@@ -38,10 +38,11 @@ export function validateExtendedEditPlan(input: unknown): Plan {
     if (step.tool !== "split_clip" && step.args.node_id !== clip.id) throw new Error("step node_id differs from bound clip_id");
     if (step.tool === "enable_disable_clip") { if (typeof step.args.enabled !== "boolean") throw new Error("enabled must be boolean"); }
     else if (step.tool === "move_clip") {
-      if (clip.linked_ids.length) throw new Error("Compound move requires separately reviewed linked group");
+      if (clip.linked_ids.length || (step.args.include_linked !== undefined && step.args.include_linked !== false)) throw new Error("Compound move requires an unlinked target and include_linked:false");
       if (typeof step.args.new_start_seconds !== "number") throw new Error("new_start_seconds must be number");
       const start = secondsToTicks(step.args.new_start_seconds), end = (ticks(start) + ticks(clip.end_ticks) - ticks(clip.start_ticks)).toString();
       sourceHandlePreflight(snapshot, clip, clip.in_ticks, clip.out_ticks, start, end);
+      step.args.include_linked = false;
     } else if (step.tool === "trim_clip") {
       if ((step.args.new_in_seconds === undefined) === (step.args.new_out_seconds === undefined)) throw new Error("trim requires exactly one source boundary");
       // Existing trim_clip handles physical probing and linked preflight; the
@@ -80,7 +81,26 @@ export function validateExtendedEditPlan(input: unknown): Plan {
 function preflightScript(plan: Plan): string {
   const targets = plan.steps.map(step => {
     const clip = plan.snapshot.clips.find(c => c.id === step.clip_id)!;
-    return `var located = __findClip(${lit(clip.id)}); if (!located || String(located.clip.projectItem.nodeId)!==${lit(clip.source_id)} || String(located.clip.start.ticks)!==${lit(clip.start_ticks)} || String(located.clip.end.ticks)!==${lit(clip.end_ticks)} || String(located.clip.inPoint.ticks)!==${lit(clip.in_ticks)} || String(located.clip.outPoint.ticks)!==${lit(clip.out_ticks)} || located.trackType!==${lit(plan.snapshot.tracks.find(t=>t.id===clip.track_id)!.type)} || located.trackIndex!==${plan.snapshot.tracks.find(t=>t.id===clip.track_id)!.index}) return __error("Compound target changed; preview again"); ${["trim_clip", "move_clip", "split_clip"].includes(step.tool) ? `var transitionScopes = [{type:located.trackType,index:located.trackIndex,start:Number(located.clip.start.ticks),end:Number(located.clip.end.ticks)}]; ${step.tool === "move_clip" ? `var destinationStart = __snapSequenceTicks(app.project.activeSequence, __secondsToTicks(${Number(step.args.new_start_seconds)})); transitionScopes.push({type:located.trackType,index:located.trackIndex,start:destinationStart,end:destinationStart+Number(located.clip.end.ticks)-Number(located.clip.start.ticks)});` : ""} var transitionFailure = __transitionEditGuard(app.project.activeSequence, transitionScopes); if (transitionFailure) return transitionFailure;` : ""}`;
+    const track = plan.snapshot.tracks.find(t => t.id === clip.track_id)!;
+    const move = step.tool === "move_clip";
+    return `
+      var located = __findClip(${lit(clip.id)});
+      if (!located || String(located.clip.projectItem.nodeId)!==${lit(clip.source_id)} ||
+          String(located.clip.start.ticks)!==${lit(clip.start_ticks)} || String(located.clip.end.ticks)!==${lit(clip.end_ticks)} ||
+          String(located.clip.inPoint.ticks)!==${lit(clip.in_ticks)} || String(located.clip.outPoint.ticks)!==${lit(clip.out_ticks)} ||
+          located.trackType!==${lit(track.type)} || located.trackIndex!==${track.index}) return __error("Compound target changed; preview again");
+      ${move ? "var linkFailure = __unlinkedClipGuard(located.clip); if (linkFailure) return linkFailure;" : ""}
+      ${["trim_clip", "move_clip", "split_clip"].includes(step.tool) ? `
+        var start = Number(located.clip.start.ticks), end = Number(located.clip.end.ticks);
+        var transitionScopes = [{type:located.trackType,index:located.trackIndex,start:start,end:end}];
+        ${move ? `
+          var destinationStart = __snapSequenceTicks(app.project.activeSequence, __secondsToTicks(${Number(step.args.new_start_seconds)}));
+          transitionScopes.push({type:located.trackType,index:located.trackIndex,start:destinationStart,end:destinationStart+end-start});
+        ` : ""}
+        var transitionFailure = __transitionEditGuard(app.project.activeSequence, transitionScopes);
+        if (transitionFailure) return transitionFailure;
+      ` : ""}
+    `;
   }).join("\n");
   return buildToolScript(`if (!app.project || String(app.project.documentID)!==${lit(plan.snapshot.project_id)} || !app.project.activeSequence || String(app.project.activeSequence.sequenceID)!==${lit(plan.snapshot.sequence_id)}) return __error("Compound project/active sequence changed; preview again"); ${targets} return __result({targetsValidated:true});`);
 }
@@ -108,8 +128,16 @@ export function getExtendedEditPlanTools(options: BridgeOptions, dependencies: T
           const step = plan.steps[index], clip = plan.snapshot.clips.find(c => c.id === step.clip_id)!, tool = dependencies.getToolCatalog?.()[step.tool];
           if (!tool) return { success: false, error: "Previously supported route unavailable; inspect partial state", data: { outcome: completed.length ? "committed_unverified" : "not_applied", completed, failed_index: index, atomic: false } };
           try {
-            const receipt = await runWithExpectedProject(plan.project_path, () => runWithExpectedHostTarget(target(plan.snapshot, clip, step), () => tool.handler(step.args)));
-            if (receipt?.success !== true || receipt?.data?.verified !== true || receipt?.data?.outcome === "committed_unverified") return { success: false, error: "Compound step failed or lacked readback; inspect before continuing", data: { outcome: "committed_unverified", completed, failed_index: index, receipt, atomic: false, retry_safe: false } };
+            const receipt = await runWithExpectedProject(plan.project_path, () => runWithExpectedHostTarget(
+              target(plan.snapshot, clip, step), () => tool.handler(step.args), { requireUnlinked: step.tool === "move_clip" },
+            ));
+            if (receipt?.success !== true || receipt?.data?.verified !== true || receipt?.data?.outcome === "committed_unverified") {
+              const outcome = receipt?.data?.mutationOutcome ?? receipt?.data?.outcome;
+              return { success: false, error: "Compound step failed or lacked readback; inspect before continuing", data: {
+                outcome: outcome === "unknown" ? "unknown" : outcome === "not_applied" && !completed.length ? "not_applied" : "committed_unverified",
+                completed, failed_index: index, receipt, atomic: false, retry_safe: false,
+              } };
+            }
             completed.push({ index, tool: step.tool, receipt });
           } catch (error) { return { success: false, error: error instanceof Error ? error.message : String(error), data: { outcome: "unknown", completed, failed_index: index, atomic: false, retry_safe: false } }; }
         }

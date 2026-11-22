@@ -169,9 +169,11 @@
         try {
           acl = inspectWindowsAcl(resolved, newlyCreated);
         } catch (error) {
+          var reason = error && error.code === "ETIMEDOUT"
+            ? "Windows ACL check timed out. Check whether security software is delaying PowerShell (ETIMEDOUT)."
+            : (error && error.message ? error.message : String(error));
           throw new Error(
-            "Could not verify the Windows ACL for bridge directory " + resolved + ": " +
-            (error && error.message ? error.message : String(error))
+            "Could not verify the Windows ACL for bridge directory " + resolved + ": " + reason
           );
         }
         if (!acl || !acl.ownerSid || !acl.currentUserSid || acl.ownerSid !== acl.currentUserSid) {

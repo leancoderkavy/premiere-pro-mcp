@@ -172,12 +172,14 @@ interface FakeClipOptions {
   noMgt?: boolean;
   snapFrameTicks?: number;
   unreadableStart?: boolean;
+  /** Live displayName of each text control, in host order (default: "TextLayer"). */
+  labels?: string[];
 }
 
 function fakeClip(opts: FakeClipOptions, requestedSeconds: number) {
   const startSeconds = opts.snapFrameTicks ? Math.round(requestedSeconds * TICKS / opts.snapFrameTicks) * opts.snapFrameTicks / TICKS : requestedSeconds;
   const props = (opts.textDefaults ?? ["Your Title Here"]).map((text, i) => ({
-    displayName: "TextLayer",
+    displayName: opts.labels?.[i] ?? "TextLayer",
     value: textJson(text) as unknown,
     getValue() { return this.value; },
     setValue(v: unknown) { if (opts.ignoreSetAt !== i) this.value = v; },
@@ -323,6 +325,198 @@ describe("add_title", () => {
       expect(result.success).toBe(false);
       expect(result.error).toMatch(pattern);
     }
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+});
+
+describe("add_title reports every text field and the ones it left untouched", () => {
+  it("lists all textFields, flags untouched defaults, and warns without changing the outcome", async () => {
+    const state = hostWith({ textDefaults: ["Second Line is Smaller", "Your Name Here"] });
+    const result = await tools.add_title.handler({ lines: ["Director"], template: "Basic Lower Third" }) as TitleResult;
+    expect(result.success).toBe(true);
+    expect(result.data.outcome).toBe("verified");
+    expect(result.data.textFields).toEqual([
+      { index: 0, label: "TextLayer", defaultText: "Second Line is Smaller", requestedText: "Director", status: "verified", actual: "Director" },
+      { index: 1, label: "TextLayer", defaultText: "Your Name Here", status: "untouched" },
+    ]);
+    expect(result.data.untouchedFields).toEqual([{ index: 1, label: "TextLayer", defaultText: "Your Name Here" }]);
+    expect(result.data.warnings).toEqual([expect.stringMatching(/1 of 2 text field\(s\) .*not written.*#2.*Your Name Here/)]);
+    expect(JSON.parse(String(state.clip!.props[1].value)).textEditValue).toBe("Your Name Here");
+  });
+
+  it("reports an empty untouchedFields list and no warning when every field is written", async () => {
+    hostWith({ textDefaults: ["Second Line is Smaller", "Your Name Here"] });
+    const result = await tools.add_title.handler({ lines: ["Director", "Ada"], template: "Basic Lower Third" }) as TitleResult;
+    expect(result.data.textFields.map((f: { status: string }) => f.status)).toEqual(["verified", "verified"]);
+    expect(result.data.untouchedFields).toEqual([]);
+    expect(result.data.warnings).toBeUndefined();
+  });
+
+  it("still reports textFields when the clip exposes no MGT component", async () => {
+    hostWith({ noMgt: true, textDefaults: ["Second Line is Smaller", "Your Name Here"] });
+    const result = await tools.add_title.handler({ lines: ["Director"], template: "Basic Lower Third" }) as TitleResult;
+    expect(result.data.textFields[0]).toMatchObject({ index: 0, requestedText: "Director", status: "committed_unverified", actual: null });
+    expect(result.data.untouchedFields).toHaveLength(1);
+  });
+});
+
+describe("add_title fields mapping", () => {
+  // Two controls whose default text is identical; only their labels differ.
+  const duplicateDefaults: StockTitleTemplate[] = [{
+    name: "Name Role",
+    category: "",
+    path: "/stock/Name Role.mogrt",
+    kind: "after_effects",
+    textFields: [
+      { index: 0, label: "Name", defaultText: "Your Text" },
+      { index: 1, label: "Role", defaultText: "Your Text" },
+    ],
+  }];
+  const dupLabels: StockTitleTemplate[] = [{
+    name: "Twin",
+    category: "",
+    path: "/stock/Twin.mogrt",
+    kind: "after_effects",
+    textFields: [
+      { index: 0, label: "TextLayer", defaultText: "Same" },
+      { index: 1, label: "TextLayer", defaultText: "Same" },
+    ],
+  }];
+  const mapped = getStockTitleTools(bridgeOptions, () => [...duplicateDefaults, ...dupLabels, ...catalog]);
+  const valueOf = (prop: { value: unknown }) => JSON.parse(String(prop.value)).textEditValue;
+
+  it("writes only the named control when default text is duplicated, targeting it by label", async () => {
+    const state = hostWith({ textDefaults: ["Your Text", "Your Text"], labels: ["Name", "Role"] });
+    const result = await mapped.add_title.handler({ fields: { Role: "Director" }, template: "Name Role" }) as TitleResult;
+    expect(result.success).toBe(true);
+    expect(state.clip!.props.map(valueOf)).toEqual(["Your Text", "Director"]);
+    expect(result.data.outcome).toBe("verified");
+    expect(result.data.fieldMapping).toEqual([{ name: "Role", index: 1, label: "Role" }]);
+    expect(result.data.untouchedFields).toEqual([{ index: 0, label: "Name", defaultText: "Your Text" }]);
+    expect(result.data.warnings).toEqual([expect.stringMatching(/not written/)]);
+    expect(result.data.textChecks).toEqual([expect.objectContaining({ displayName: "Role #2", expected: "Director", status: "verified" })]);
+  });
+
+  it("maps several named fields and allows an empty value", async () => {
+    const state = hostWith({ textDefaults: ["Your Text", "Your Text"], labels: ["Name", "Role"] });
+    const result = await mapped.add_title.handler({ fields: { Role: "", Name: "Ada" }, template: "Name Role" }) as TitleResult;
+    expect(result.data.outcome).toBe("verified");
+    expect(state.clip!.props.map(valueOf)).toEqual(["Ada", ""]);
+    expect(result.data.untouchedFields).toEqual([]);
+    expect(result.data.warnings).toBeUndefined();
+  });
+
+  it("refuses a label that names several controls and attempts no change", async () => {
+    const result = await mapped.add_title.handler({ fields: { TextLayer: "x" }, template: "Twin" }) as TitleResult;
+    expect(result).toMatchObject({ success: false, error: expect.stringMatching(/"TextLayer" is ambiguous.*#1.*#2/) });
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+
+  it("validates fields before contacting Premiere", async () => {
+    const cases: Array<[Record<string, unknown>, RegExp]> = [
+      [{ fields: { Missing: "x" }, template: "Name Role" }, /no text field labelled "Missing"/],
+      [{ fields: { ["__proto__"]: "x", Name: "Ada" }, template: "Name Role" }, /no text field labelled "__proto__"/],
+      [{ fields: { "": "x" }, template: "Name Role" }, /non-empty/],
+      [{ fields: { "   ": "x" }, template: "Name Role" }, /non-empty/],
+      [{ fields: {}, template: "Name Role" }, /at least one/],
+      [{ fields: ["Name"], template: "Name Role" }, /object/],
+      [{ fields: { Name: 5 }, template: "Name Role" }, /must be a string/],
+      [{ fields: { Name: "x".repeat(2001) }, template: "Name Role" }, /exceeds/],
+      [{ fields: { Name: "a", " Name": "b" }, template: "Name Role" }, /both target text field #1/],
+      [{ fields: { Name: "a" }, text: "b", template: "Name Role" }, /exactly one of text or lines/],
+      [{ fields: { Name: "a" }, lines: ["b"], template: "Name Role" }, /exactly one of text or lines/],
+    ];
+    for (const [args, pattern] of cases) {
+      const result = await mapped.add_title.handler(args as never) as TitleResult;
+      expect(result.success, JSON.stringify(args)).toBe(false);
+      expect(result.error).toMatch(pattern);
+    }
+    expect(mockedSendCommand).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing when live labels do not match the catalog order (swapped controls)", async () => {
+    const state = hostWith({ textDefaults: ["Your Text", "Your Text"], labels: ["Role", "Name"] });
+    const result = await mapped.add_title.handler({ fields: { Name: "Ada" }, template: "Name Role" }) as TitleResult;
+    expect(state.clip!.props.map(valueOf)).toEqual(["Your Text", "Your Text"]);
+    expect(result.data.textVerification).toBe("missing_property");
+    expect(result.data.outcome).toBe("missing_property");
+    expect(result.data.textChecks[0]).toMatchObject({ status: "missing_property", actual: null, reason: expect.stringMatching(/labelled "Role".*expected "Name"/) });
+    expect(result.data.warnings.join(" ")).toMatch(/label check/);
+  });
+
+  it("keeps positional writes when the host localizes text control labels", async () => {
+    const state = hostWith({ textDefaults: ["Your Text", "Your Text"], labels: ["Nom", "Fonction"] });
+    const result = await mapped.add_title.handler({ lines: ["A", "B"], template: "Name Role" }) as TitleResult;
+    expect(state.clip!.props.map(valueOf)).toEqual(["A", "B"]);
+    expect(result.data.textVerification).toBe("verified");
+  });
+
+  it("refuses a named write when the matching live label appears twice", async () => {
+    const state = hostWith({ textDefaults: ["Your Text", "Your Text"], labels: ["Role", "Role"] });
+    const result = await mapped.add_title.handler({ fields: { Role: "Director" }, template: "Name Role" }) as TitleResult;
+    expect(state.clip!.props.map(valueOf)).toEqual(["Your Text", "Your Text"]);
+    expect(result.data.textVerification).toBe("missing_property");
+    expect(result.data.textChecks[0].reason).toMatch(/ambiguous/i);
+  });
+
+  it("writes nothing when the live text-control count differs from the catalog", async () => {
+    const state = hostWith({ textDefaults: ["Your Text", "Your Text", "Extra"], labels: ["Name", "Role", "Extra"] });
+    const result = await mapped.add_title.handler({ fields: { Role: "R" }, template: "Name Role" }) as TitleResult;
+    expect(state.clip!.props.map(valueOf)).toEqual(["Your Text", "Your Text", "Extra"]);
+    expect(result.data.textVerification).toBe("missing_property");
+  });
+
+  it("does not apply font styling through a failed label check", async () => {
+    const state = hostWith({ textDefaults: ["Your Text", "Your Text"], labels: ["Role", "Name"] });
+    const result = await mapped.add_title.handler({ fields: { Name: "Ada" }, font_size: 40, template: "Name Role" }) as TitleResult;
+    expect(state.clip!.props.map(valueOf)).toEqual(["Your Text", "Your Text"]);
+    expect(result.data.styleChecks).toEqual([expect.objectContaining({ field: "font_size", index: 0, status: "committed_unverified" })]);
+  });
+});
+
+describe("add_title fields mapping with a Premiere-built template", () => {
+  function blob(text: string): string {
+    const body = Buffer.from(JSON.stringify({ mTextParam: { mStyleSheet: { mText: text } }, mVersion: 1 }), "utf16le");
+    const header = Buffer.alloc(8);
+    header.writeUInt32LE(body.length, 0);
+    return Buffer.concat([header, body]).toString("base64");
+  }
+  function native(file: string, defaults: string[], labels: string[]): string {
+    const path = join(workspace, file);
+    const layers = defaults.map((text) => `<StartKeyframeValue Encoding="base64">${blob(text)}</StartKeyframeValue>`).join("");
+    writeFileSync(path, writeZip([
+      { name: "definition.json", data: Buffer.from(JSON.stringify({ capsuleID: "c", clientControls: defaults.map((text, i) => ({ type: 6, uiName: loc(labels[i]), value: loc(text) })) })) },
+      { name: "project.prgraphic", data: writeZip([{ name: "p.prproj", data: gzipSync(Buffer.from(`<X>${layers}</X>`)) }]) },
+    ]));
+    return path;
+  }
+  const distinct = native("Distinct.mogrt", ["Role Here", "Name Here"], ["Role", "Name"]);
+  const twins = native("Twins.mogrt", ["Text", "Text"], ["Name", "Role"]);
+  const premiereCatalog: StockTitleTemplate[] = [
+    { name: "Distinct", category: "", path: distinct, kind: "premiere", textFields: [{ index: 0, label: "Role", defaultText: "Role Here" }, { index: 1, label: "Name", defaultText: "Name Here" }] },
+    { name: "Twins", category: "", path: twins, kind: "premiere", textFields: [{ index: 0, label: "Name", defaultText: "Text" }, { index: 1, label: "Role", defaultText: "Text" }] },
+  ];
+  const premiereTools = getStockTitleTools(bridgeOptions, () => premiereCatalog);
+
+  it("bakes only the named field, leaves the other layer at its default, and reports it untouched", async () => {
+    vi.stubEnv("PREMIERE_MCP_TITLE_DIR", join(workspace, "baked-fields"));
+    try {
+      const state = hostWith({ noMgt: true });
+      const result = await premiereTools.add_title.handler({ fields: { Name: "Ada" }, template: "Distinct" }) as TitleResult;
+      expect(result.success).toBe(true);
+      expect(readPremiereTitleText(String(state.imported?.[0]))).toEqual(["Role Here", "Ada"]);
+      expect(result.data.outcome).toBe("template_verified");
+      expect(result.data.untouchedFields).toEqual([{ index: 0, label: "Role", defaultText: "Role Here" }]);
+      expect(result.data.warnings).toEqual([expect.stringMatching(/not written.*Role Here/)]);
+      expect(result.data.fieldMapping).toEqual([{ name: "Name", index: 1, label: "Name" }]);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("refuses a named field whose layer cannot be told apart by default text, before touching Premiere", async () => {
+    const result = await premiereTools.add_title.handler({ fields: { Role: "Director" }, template: "Twins" }) as TitleResult;
+    expect(result).toMatchObject({ success: false, error: expect.stringMatching(/Could not prepare Twins.*ambiguous.*No change was made/) });
     expect(mockedSendCommand).not.toHaveBeenCalled();
   });
 });

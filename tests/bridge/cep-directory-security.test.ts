@@ -67,6 +67,22 @@ it("reports each unsafe ancestor path, reason, and SID from the ACL script", () 
 });
 
 describe.each(pluginDirectories)("%s bridge directory security", (pluginDirectory) => {
+  it("refuses Windows bridge directories when ACL inspection times out", () => {
+    const inspectWindowsAcl = vi.fn(() => {
+      throw Object.assign(new Error("spawnSync powershell.exe ETIMEDOUT"), { code: "ETIMEDOUT" });
+    });
+    const security = loadSecurity(pluginDirectory).createBridgeDirectorySecurity({
+      fs: { mkdirSync: vi.fn(), lstatSync: vi.fn(() => status()) },
+      path: win32,
+      platform: "win32",
+      inspectWindowsAcl,
+    });
+
+    expect(() => security.ensurePrivateBridgeDirectory("C:\\private\\premiere-mcp-bridge"))
+      .toThrow(/Windows ACL check timed out.*security software/i);
+    expect(inspectWindowsAcl).toHaveBeenCalledTimes(1);
+  });
+
   it("refuses an existing symbolic-link bridge directory", () => {
     const security = loadSecurity(pluginDirectory).createBridgeDirectorySecurity({
       fs: {

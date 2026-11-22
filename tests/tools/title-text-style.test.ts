@@ -5,6 +5,7 @@ import { getHelpersSource } from "../../src/bridge/script-builder.js";
 vi.mock("../../src/bridge/file-bridge.js", () => ({ sendCommand: vi.fn() }));
 import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { getStockTitleTools, type StockTitleTemplate } from "../../src/tools/stock-titles.js";
+import { buildTitleStyleScript, compareTitleStyle } from "../../src/tools/title-text-style.js";
 const send = vi.mocked(sendCommand);
 const ticks = 254016000000;
 const catalog: StockTitleTemplate[] = [{ name: "Styled", category: "", path: "/scratch/Styled.mogrt", kind: "after_effects", textFields: [{ index: 0, label: "Headline", defaultText: "Default" }] }];
@@ -71,15 +72,18 @@ describe("title style fields", () => {
         expect(r.data.styleChecks[0].actual).toBeNull();
         expect(r.data.outcome).toBe("committed_unverified");
     });
-    it("represents each requested line even when only the first text control is exposed", async () => {
-        host();
+    it("writes and styles an available positional field when another is missing", async () => {
+        const s = host();
         catalog[0].textFields.push({ index: 1, label: "Subtitle", defaultText: "Other" });
         const r = await tool().handler({ lines: ["Brand", "Subtitle"], template: "Styled", font_size: 54 }) as any;
-        expect(r.data.styleChecks).toEqual(expect.arrayContaining([
+        expect(r.data.styleChecks).toEqual([
             expect.objectContaining({ field: "font_size", index: 0, status: "verified" }),
             expect.objectContaining({ field: "font_size", index: 1, status: "committed_unverified" }),
-        ]));
+        ]);
+        expect(r.data.textChecks.map((c: any) => c.status)).toEqual(["verified", "missing_property"]);
         expect(r.data.outcome).toBe("committed_unverified");
+        expect(JSON.parse(s.json).textEditValue).toBe("Brand");
+        expect(r.data.warnings.join(" ")).not.toMatch(/no text was written/);
     });
     it("writes every Premiere 26 text run and reads each run back", async () => { const s = host({ runs: true }); const r = await add({ font_family: "Metropolis-Regular", font_size: 54 }); expect(r.data.styleChecks).toEqual([expect.objectContaining({ field: "font_family", actual: "Metropolis-Regular", status: "verified" }), expect.objectContaining({ field: "font_size", actual: 54, status: "verified" })]); const stored = JSON.parse(s.json); expect(stored.fontEditValue).toEqual(["Metropolis-Regular", "Metropolis-Regular"]); expect(stored.fontSizeEditValue).toEqual([54, 54]); expect(stored.fontTextRunLength).toEqual([4, 3]); expect(stored.fontFSBoldValue).toEqual([false, false]); expect(stored.textEditValue).toBe("Brand"); });
     it("refuses font and size writes when the template locks them", async () => { const s = host({ locked: true }); const r = await add({ font_family: "Metropolis-Regular", font_size: 54 }); expect(r.data.styleChecks.every((c: any) => c.status === "committed_unverified" && /does not allow/.test(c.reason))).toBe(true); const stored = JSON.parse(s.json); expect(stored.fontEditValue).toEqual(["BebasNeue-Regular", "BebasNeue-Bold"]); expect(stored.fontSizeEditValue).toEqual([40, 32]); });
@@ -91,4 +95,21 @@ describe("title style fields", () => {
     it("does not rewrite nested keys that only resemble the supported root keys", async () => { const s = host({ nested: true }); const r = await add({ font_family: "Metropolis", font_size: 54 }); expect(r.data.styleChecks.every((c: any) => c.status === "committed_unverified")).toBe(true); expect(JSON.parse(s.json).opaque).toEqual({ fontName: "Nested", fontSize: 72 }); });
     it("compares font names after the last style write, including host collateral changes", async () => { host({ resetFont: true }); const r = await add({ font_family: "Metropolis", font_size: 54 }); expect(r.data.styleChecks.find((c: any) => c.field === "font_family").status).toBe("committed_unverified"); });
     it("reports no MGT component without losing position verification", async () => { host({ noMgt: true }); const r = await add({ font_size: 54, position: { x: 0.3, y: 0.6 } }); expect(r.data.styleChecks.find((c: any) => c.field === "font_size").status).toBe("committed_unverified"); expect(r.data.styleChecks.find((c: any) => c.field === "position").status).toBe("verified"); });
+});
+
+describe("title style addressing by field index", () => {
+  it("styles only the listed text controls", () => {
+    const script = buildTitleStyleScript({ font_size: 40 }, [1]);
+    expect(script).toContain('titleStyleProps[1], "font_size", 1');
+    expect(script).not.toContain('titleStyleProps[0]');
+  });
+
+  it("compares readback only for the listed indices", () => {
+    const checks = compareTitleStyle({ font_size: 40 }, [1], [{ field: "font_size", index: 1, value: JSON.stringify({ fontSize: 40 }) }]);
+    expect(checks).toEqual([expect.objectContaining({ field: "font_size", index: 1, status: "verified" })]);
+  });
+
+  it("keeps a numeric count meaning the first N controls", () => {
+    expect(buildTitleStyleScript({ font_size: 40 }, 2)).toContain('titleStyleProps[1], "font_size", 1');
+  });
 });
