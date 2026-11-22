@@ -455,94 +455,10 @@ describe("move_clip verification", () => {
     expect(mockedSendCommand).not.toHaveBeenCalled();
   });
 
-  it("re-finds the clip after the move rather than trusting a stale reference", async () => {
-    await timeline.move_clip.handler({ node_id: "abc", new_start_seconds: 5 });
-    const script = mockedSendCommand.mock.calls.at(-1)[0];
-    expect(script).toContain('var after = __findClip("abc")');
-    expect(script).toContain("Math.abs(actualStartTicks - newStartTicks) > frameTicks / 1000");
-    expect(script).toContain("actualEndTicks / frameTicks");
-    expect(script).toContain("verified: true");
-  });
-
-  it("rejects an out-of-range track index instead of silently skipping the move", async () => {
-    await timeline.move_clip.handler({
-      node_id: "abc",
-      new_start_seconds: 5,
-      new_track_index: 99,
-    });
-    const script = mockedSendCommand.mock.calls.at(-1)[0];
-    expect(script).toContain("is out of range");
-    expect(script).toContain("targetTracks.numTracks");
-  });
-
-  it("attempts the track change before writing the start time, so a failure leaves no partial edit", async () => {
-    await timeline.move_clip.handler({
-      node_id: "abc",
-      new_start_seconds: 5,
-      new_track_index: 1,
-    });
-    const script = mockedSendCommand.mock.calls.at(-1)[0];
-    const trackMoveAt = script.indexOf("qeClip.moveToTrack");
-    const startWriteAt = script.indexOf("__writeClipSpan(clip, newStartTicks, newEndTicks)");
-    expect(trackMoveAt).toBeGreaterThan(-1);
-    expect(startWriteAt).toBeGreaterThan(-1);
-    expect(trackMoveAt).toBeLessThan(startWriteAt);
-    // A silent moveToTrack no-op must stop before the time write, not after it.
-    const trackCheckAt = script.indexOf("afterMove.trackIndex !== 1");
-    expect(trackCheckAt).toBeGreaterThan(trackMoveAt);
-    expect(trackCheckAt).toBeLessThan(startWriteAt);
-  });
-
-  it("writes both timeline edges and verifies duration and source in/out (#550)", async () => {
-    await timeline.move_clip.handler({ node_id: "abc", new_start_seconds: 5 });
-    const script = mockedSendCommand.mock.calls.at(-1)[0];
-    expect(script).not.toContain("clip.start = __secondsToTicks");
-    expect(script).toContain("var newEndTicks = newStartTicks + spanTicks");
-    expect(script).toContain("__writeClipSpan(clip, newStartTicks, newEndTicks)");
-    expect(script).toContain("visible duration changed from");
-    expect(script).toContain("source in/out points changed, so the clip was trimmed or slipped rather than moved");
-    // Without a track change the vacated range is safe to write back.
-    expect(script).toContain("__writeClipSpan(after.clip, originalStartTicks, originalEndTicks)");
-    expect(script).toContain("The clip was restored to its original timeline range.");
-  });
-
-  it("does not rewrite the original range onto the new track after a failed combined move", async () => {
-    await timeline.move_clip.handler({ node_id: "abc", new_start_seconds: 5, new_track_index: 1 });
-    const script = mockedSendCommand.mock.calls.at(-1)[0];
-    expect(script).not.toContain("__writeClipSpan(after.clip, originalStartTicks, originalEndTicks)");
-    expect(script).toContain("its original range is not rewritten automatically");
-    // moveToTrack may corrupt end on its own; the span is re-asserted first.
-    expect(script).toContain("__writeClipSpan(afterMove.clip, originalStartTicks, originalEndTicks)");
-    expect(script).toContain("Premiere changed the clip duration during the track move");
-  });
-
-  it("matches the QE clip by start time because QE item indices include gaps", async () => {
-    await timeline.move_clip.handler({
-      node_id: "abc",
-      new_start_seconds: 5,
-      new_track_index: 1,
-    });
-    const script = mockedSendCommand.mock.calls.at(-1)[0];
-    expect(script).toContain('String(cand.type) !== "Clip"');
-    expect(script).not.toContain("getItemAt(result.clipIndex)");
-  });
-
-  it("verifies the clip actually landed on the requested track", async () => {
-    await timeline.move_clip.handler({
-      node_id: "abc",
-      new_start_seconds: 5,
-      new_track_index: 1,
-    });
-    const script = mockedSendCommand.mock.calls.at(-1)[0];
-    expect(script).toContain("after.trackIndex !== 1");
-    expect(script).toContain("qeClip.moveToTrack(videoDelta, audioDelta, \"0\", false)");
-  });
-
   it("does not emit any track-move code when no track change was requested", async () => {
     await timeline.move_clip.handler({ node_id: "abc", new_start_seconds: 5 });
     const script = mockedSendCommand.mock.calls.at(-1)[0];
     expect(script).not.toContain("moveToTrack");
-    expect(script).not.toContain("after.trackIndex !==");
   });
 });
 

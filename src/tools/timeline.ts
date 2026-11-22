@@ -3,6 +3,7 @@ import { prepareAdjacentMediaBounds } from "./adjacent-media-bounds.js";
 import { probeMediaDurationTicks } from "./media-evidence.js";
 import { rippleDeleteScriptBody } from "./ripple-delete-script.js";
 import { rippleTimeoutMs } from "./ripple-timeout.js";
+import { moveClipScript, type MoveClipArgs } from "./move-clip-script.js";
 import { buildToolScript, escapeForExtendScript } from "../bridge/script-builder.js";
 import { sendCommand, BridgeOptions } from "../bridge/file-bridge.js";
 
@@ -444,7 +445,7 @@ export function getTimelineTools(
     },
 
     move_clip: {
-      description: "Refuses attached transitions or unreadable transition collections before structural edits; inspect transitionsAffected and use remove_transition first. EXPERIMENTAL (undocumented QE DOM for track changes): Move a clip to a new position on the timeline; optional track moves use Premiere's QE API and may not work on every version.",
+      description: "Move a clip in time, including its linked partners by default. A linked move applies one frame-snapped displacement and verifies each member's timeline and source ranges. Refuses occupied destinations and affected or unreadable transitions. Optional track changes require a proven unlinked clip and use the experimental QE DOM.",
       parameters: {
         type: "object" as const,
         properties: {
@@ -454,191 +455,31 @@ export function getTimelineTools(
           },
           new_start_seconds: {
             type: "number",
-            description: "New start time in seconds",
+            minimum: 0,
+            description: "Requested timeline start in seconds. Linked moves preserve each member's offset from the sequence frame grid.",
           },
           new_track_index: {
             type: "number",
-            description: "Optional new track index to move the clip to",
+            description: "Optional new track index for an unlinked clip",
+          },
+          include_linked: {
+            type: "boolean",
+            description: "Move linked partners too (default true). False requests a target-only move and warns if Premiere moves a partner anyway.",
           },
         },
         required: ["node_id", "new_start_seconds"],
       },
-      handler: async (args: { node_id: string; new_start_seconds: number; new_track_index?: number }) => {
+      handler: async (args: MoveClipArgs) => {
         if (!Number.isFinite(args.new_start_seconds) || args.new_start_seconds < 0) {
           return { success: false, error: "new_start_seconds must be finite and non-negative timeline seconds." };
         }
-        if (args.new_track_index !== undefined && (!Number.isInteger(args.new_track_index) || args.new_track_index < 0)) {
+        if (args.new_track_index !== undefined && (!Number.isSafeInteger(args.new_track_index) || args.new_track_index < 0)) {
           return { success: false, error: "new_track_index must be a non-negative integer." };
         }
-        const nodeId = escapeForExtendScript(args.node_id);
-        const script = buildToolScript(`
-          var result = __findClip("${nodeId}");
-          if (!result) return __refuse("Clip not found: ${nodeId}");
-
-          var clip = result.clip;
-          var clipName = clip.name;
-
-          // Snap both visible edges to the active sequence frame grid.
-          var seq = app.project.activeSequence;
-          var frameTicks = seq && seq.timebase ? parseFloat(seq.timebase) : NaN;
-          if (!isFinite(frameTicks) || frameTicks <= 0) return __refuse("The active sequence frame grid could not be read; no move was attempted.");
-
-          // Capture the visible span and source range as tick strings before any
-          // write. Premiere can mutate the same Time instance on write, so never
-          // keep the object references. A move must preserve both the duration
-          // and the source in/out points; anything else is a trim or a stretch.
-          var originalStartTicks = String(clip.start.ticks);
-          var originalEndTicks = String(clip.end.ticks);
-          var originalInPointTicks = String(clip.inPoint.ticks);
-          var originalOutPointTicks = String(clip.outPoint.ticks);
-          var spanTicks = parseFloat(originalEndTicks) - parseFloat(originalStartTicks);
-          if (!(spanTicks > 0)) return __refuse("Clip has an empty or inverted timeline range; move was not attempted.");
-          if (Math.abs(parseFloat(originalStartTicks) / frameTicks - Math.round(parseFloat(originalStartTicks) / frameTicks)) > 0.001 ||
-              Math.abs(parseFloat(originalEndTicks) / frameTicks - Math.round(parseFloat(originalEndTicks) / frameTicks)) > 0.001 ||
-              Math.abs(spanTicks / frameTicks - Math.round(spanTicks / frameTicks)) > 0.001) {
-            return __refuse("The clip's existing start, end or duration is off the active sequence frame grid. Repair it in Premiere before moving; no change was attempted.");
-          }
-
-          var requestedStartTicks = __secondsToTicks(${args.new_start_seconds});
-          var newStartTicks = __snapSequenceTicks(seq, requestedStartTicks);
-          var newEndTicks = newStartTicks + spanTicks;
-          var transitionFailure = __transitionEditGuard(seq, [
-            { type: result.trackType, index: result.trackIndex, start: Number(clip.start.ticks), end: Number(clip.end.ticks) },
-            { type: result.trackType, index: ${args.new_track_index ?? "result.trackIndex"}, start: newStartTicks, end: newEndTicks }
-          ]);
-          if (transitionFailure) return transitionFailure;
-
-          ${args.new_track_index !== undefined ? `
-          // The track change is attempted before the start time is written, so
-          // a failure here leaves the clip completely untouched rather than
-          // repositioned-but-not-moved.
-          var targetTracks = result.trackType === "video" ? seq.videoTracks : seq.audioTracks;
-          if (${args.new_track_index} >= targetTracks.numTracks) {
-            return __refuse("Track index ${args.new_track_index} is out of range: the sequence has " + targetTracks.numTracks + " " + result.trackType + " track(s).");
-          }
-
-          // TrackItem has no DOM moveToTrack; only the QE clip exposes one.
-          app.enableQE();
-          var qeSeq = qe.project.getActiveSequence();
-          if (!qeSeq) return __refuse("No active sequence (QE); cannot change track.");
-          var qeTrack = result.trackType === "video"
-            ? qeSeq.getVideoTrackAt(result.trackIndex)
-            : qeSeq.getAudioTrackAt(result.trackIndex);
-          if (!qeTrack) return __refuse("QE track not found; cannot change track.");
-
-          // QE item indices count gaps ("Empty" items) alongside clips, so the
-          // DOM clip index does not map onto getItemAt. Match on start time.
-          var qeClip = null;
-          var wantStart = parseFloat(clip.start.ticks);
-          for (var qi = 0; qi < qeTrack.numItems; qi++) {
-            var cand = qeTrack.getItemAt(qi);
-            if (!cand || String(cand.type) !== "Clip") continue;
-            if (Math.abs(parseFloat(cand.start.ticks) - wantStart) < 1) { qeClip = cand; break; }
-          }
-          if (!qeClip) return __refuse("Could not locate the clip among the QE track's items; cannot change track.");
-
-          // QE moveToTrack takes track *deltas*, not an absolute index.
-          var videoDelta = result.trackType === "video" ? (${args.new_track_index} - result.trackIndex) : 0;
-          var audioDelta = result.trackType === "audio" ? (${args.new_track_index} - result.trackIndex) : 0;
-          try {
-            qeClip.moveToTrack(videoDelta, audioDelta, "0", false);
-          } catch (moveErr) {
-            return __error("Could not move the clip to track ${args.new_track_index}: the QE moveToTrack API rejected the call (" + moveErr.toString() + "). This is a known QE limitation on Premiere Pro 26.x (confirmed on 26.2.2). The clip was left untouched — call move_clip without new_track_index to reposition it in time.");
-          }
-          var afterMove = __findClip("${nodeId}");
-          if (!afterMove) return __error("Clip ${nodeId} could not be found after the track move; the timeline may be in an unexpected state.");
-          if (afterMove.trackIndex !== ${args.new_track_index}) {
-            return __error("Premiere did not move the clip to track ${args.new_track_index}; it is still on track " + afterMove.trackIndex + ", so the start time was not written. Structural clip edits are known to no-op on some Premiere Pro 26.x installations (confirmed on 26.2.2).");
-          }
-          // moveToTrack can rewrite end independently of start (#550). Re-assert
-          // the original span before verifying, then fail closed if it did not hold.
-          if (String(afterMove.clip.start.ticks) !== originalStartTicks || String(afterMove.clip.end.ticks) !== originalEndTicks) {
-            try {
-              __writeClipSpan(afterMove.clip, originalStartTicks, originalEndTicks);
-            } catch (spanErr) {
-              return __error("Premiere changed the clip's timeline range during the track move and it could not be restored (" + spanErr.toString() + "). Use Undo and retry in the Premiere UI.");
-            }
-            afterMove = __findClip("${nodeId}");
-            if (!afterMove) return __error("Clip ${nodeId} could not be found after restoring its timeline range; the timeline may be in an unexpected state.");
-          }
-          var afterMoveStartTicks = String(afterMove.clip.start.ticks);
-          var afterMoveEndTicks = String(afterMove.clip.end.ticks);
-          if (parseFloat(afterMoveStartTicks) >= parseFloat(afterMoveEndTicks)) {
-            return __error("Premiere left clip ${nodeId} with an inverted or empty timeline range after the track move. Use Undo and retry in the Premiere UI.");
-          }
-          if (Math.abs((parseFloat(afterMoveEndTicks) - parseFloat(afterMoveStartTicks)) - spanTicks) > 1) {
-            return __error("Premiere changed the clip duration during the track move. Use Undo and retry in the Premiere UI.");
-          }
-          clip = afterMove.clip;
-          ` : ""}
-
-          // Writing start alone leaves end in place on Premiere Pro 26.x, which
-          // stretches (earlier move) or trims (later move) the clip instead of
-          // moving it. Write both edges in the order that keeps start < end.
-          try {
-            __writeClipSpan(clip, newStartTicks, newEndTicks);
-          } catch (moveWriteErr) {
-            return __error("Premiere rejected the timeline move (" + moveWriteErr.toString() + "). Inspect the clip; if only one edge moved, use Undo to restore it.");
-          }
-
-          // Re-find the clip rather than trusting the original reference, which
-          // can go stale once the clip changes track.
-          var after = __findClip("${nodeId}");
-          if (!after) return __error("Clip ${nodeId} could not be found after the move; the timeline may be in an unexpected state.");
-
-          var actualStart = __ticksToSeconds(after.clip.start.ticks);
-          var actualEnd = __ticksToSeconds(after.clip.end.ticks);
-          var moveDrift = [];
-          var actualStartTicks = parseFloat(after.clip.start.ticks);
-          var actualEndTicks = parseFloat(after.clip.end.ticks);
-          if (Math.abs(actualStartTicks - newStartTicks) > frameTicks / 1000 || Math.abs(actualStartTicks / frameTicks - Math.round(actualStartTicks / frameTicks)) > 0.001) {
-            moveDrift.push("requested start ${args.new_start_seconds}s, read back " + actualStart + "s");
-          }
-          if (Math.abs(actualEndTicks / frameTicks - Math.round(actualEndTicks / frameTicks)) > 0.001) moveDrift.push("the clip end read back off the active sequence frame grid");
-          if (Math.abs((actualEndTicks - actualStartTicks) - spanTicks) > frameTicks / 1000) {
-            moveDrift.push("visible duration changed from " + __ticksToSeconds(spanTicks) + "s to " + (actualEnd - actualStart) + "s");
-          }
-          if (String(after.clip.inPoint.ticks) !== originalInPointTicks || String(after.clip.outPoint.ticks) !== originalOutPointTicks) {
-            moveDrift.push("source in/out points changed, so the clip was trimmed or slipped rather than moved");
-          }
-          if (moveDrift.length) {
-            ${args.new_track_index === undefined ? `
-            // Best-effort rollback: the original range on this track was vacated
-            // by this very clip, so writing it back cannot land on a neighbour.
-            var rolledBack = false;
-            try {
-              __writeClipSpan(after.clip, originalStartTicks, originalEndTicks);
-              var restored = __findClip("${nodeId}");
-              rolledBack = !!restored &&
-                String(restored.clip.start.ticks) === originalStartTicks && String(restored.clip.end.ticks) === originalEndTicks &&
-                String(restored.clip.inPoint.ticks) === originalInPointTicks && String(restored.clip.outPoint.ticks) === originalOutPointTicks;
-            } catch (rollbackErr) {}
-            return __error("Premiere did not apply a verified move: " + moveDrift.join("; ") + ". " + (rolledBack ? "The clip was restored to its original timeline range." : "The clip may be in an inconsistent state; use Undo to restore it.") + " Structural clip edits are known to no-op on some Premiere Pro 26.x installations (confirmed on 26.2.2).");
-            ` : `
-            return __error("Premiere did not apply a verified move: " + moveDrift.join("; ") + ". The clip changed track, so its original range is not rewritten automatically; use Undo to restore it. Structural clip edits are known to no-op on some Premiere Pro 26.x installations (confirmed on 26.2.2).");
-            `}
-          }
-          ${args.new_track_index !== undefined ? `
-          if (after.trackIndex !== ${args.new_track_index}) {
-            return __error("Premiere did not move the clip to track ${args.new_track_index}; it is still on track " + after.trackIndex + ". Structural clip edits are known to no-op on some Premiere Pro 26.x installations (confirmed on 26.2.2).");
-          }
-          ` : ""}
-
-          var movePayload = {
-            transitionsAffected: [],
-            moved: true,
-            verified: true,
-            clipName: clipName,
-            newStart: actualStart,
-            newEnd: actualEnd,
-            durationSeconds: actualEnd - actualStart,
-            trackIndex: after.trackIndex
-          };
-          var moveSnap = __frameSnapReceipt(requestedStartTicks, newStartTicks, frameTicks, "requestedStartSeconds", "appliedStartSeconds");
-          if (moveSnap.requestedStartSeconds !== undefined) { movePayload.requestedStartSeconds = moveSnap.requestedStartSeconds; movePayload.appliedStartSeconds = moveSnap.appliedStartSeconds; }
-          return __result(movePayload);
-        `);
-        return sendCommand(script, bridgeOptions);
+        if (args.include_linked !== undefined && typeof args.include_linked !== "boolean") {
+          return { success: false, error: "include_linked must be boolean." };
+        }
+        return sendCommand(moveClipScript(args), bridgeOptions);
       },
     },
 

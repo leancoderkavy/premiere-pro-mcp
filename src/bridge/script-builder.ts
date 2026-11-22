@@ -2654,8 +2654,35 @@ function __undoStepsResult(outcome, doneKey) {
   return __result(summary);
 }
 
-// Linked partners of a clip on other tracks (its synced audio for a video
-// clip, and vice versa). getLinkedItems() returns null for unlinked clips.
+// A readable null (or an empty/self-only collection) means unlinked.
+// Missing or malformed evidence must never be treated as a singleton.
+function __linkedClipIds(clip) {
+  var id = clip.nodeId;
+  if (typeof id !== "string" || !id.length || typeof clip.getLinkedItems !== "function") throw new Error("Linked clip identity or accessor is unavailable");
+  var items = clip.getLinkedItems();
+  if (items === null) return [];
+  var count = items && items.numItems;
+  if (typeof count !== "number" || !isFinite(count) || count < 0 || Math.floor(count) !== count || count > 256) throw new Error("Linked collection is unreadable");
+  var ids = [], seen = {};
+  for (var i = 0; i < count; i++) {
+    var member = items[i], memberId = member && member.nodeId;
+    if (typeof memberId !== "string" || !memberId.length || seen["$" + memberId]) throw new Error("Linked member identity is unreadable or duplicated");
+    seen["$" + memberId] = true;
+    if (memberId !== id) ids.push(memberId);
+  }
+  return ids;
+}
+
+function __unlinkedClipGuard(clip) {
+  try {
+    if (!__linkedClipIds(clip).length) return null;
+  } catch (linkError) {
+    return __refuse("Could not prove the live clip is unlinked; inspect and preview again. " + String(linkError));
+  }
+  return __refuse("Expected an unlinked clip but live linked partners were found; inspect and preview again.");
+}
+
+// Linked partners on other tracks (for example synced audio for video).
 function __linkedPartnerClips(result) {
   var partners = [];
   var linked = null;
