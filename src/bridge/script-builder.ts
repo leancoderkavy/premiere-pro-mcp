@@ -3548,7 +3548,10 @@ function __captureRestorationReceipt(data) {
 function __readUndoIndex() {
   try {
     app.enableQE();
-    var v = Number(qe.project.undoStackIndex());
+    var index = qe.project.undoStackIndex();
+    if (typeof index !== "number" && typeof index !== "string") return null;
+    if (typeof index === "string" && !index.replace(/^\\s+|\\s+$/g, "")) return null;
+    var v = Number(index);
     return isFinite(v) ? v : null;
   } catch (eUndoIdx) {
     return null;
