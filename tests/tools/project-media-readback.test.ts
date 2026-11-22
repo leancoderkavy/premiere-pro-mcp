@@ -73,6 +73,7 @@ function host(options: { existingFiles?: string[]; ignore?: string[]; resetParOn
   const app = {
     project: {
       rootItem: root,
+      sequences: { numSequences: 0 },
       importFiles: (paths: string[], _suppress: boolean, target: Item) => {
         for (const p of paths) {
           if (ignored(`import:${p}`)) continue;

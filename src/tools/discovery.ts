@@ -10,7 +10,11 @@ export function getDiscoveryTools(bridgeOptions: BridgeOptions) {
       handler: async () => {
         const script = buildToolScript(`
           var project = app.project;
-          if (!project) return __refuse("No project is open");
+          // CEP can expose a named project shell with null collections when closed.
+          // An empty path alone is valid for an unsaved project.
+          if (!project || !project.rootItem || !project.rootItem.children || !project.sequences) {
+            return __refuse("No project is open", { code: "NO_PROJECT_OPEN" });
+          }
           
           var info = {
             name: project.name,
@@ -50,7 +54,12 @@ export function getDiscoveryTools(bridgeOptions: BridgeOptions) {
       handler: async (args: { bin_path?: string }) => {
         const binPath = args.bin_path ? `"${escapeForExtendScript(args.bin_path)}"` : "null";
         const script = buildToolScript(`
-          var rootItem = app.project.rootItem;
+          var project = app.project;
+          // CEP can expose a named project shell with null collections when closed.
+          if (!project || !project.rootItem || !project.rootItem.children || !project.sequences) {
+            return __refuse("No project is open", { code: "NO_PROJECT_OPEN" });
+          }
+          var rootItem = project.rootItem;
           var targetItem = rootItem;
           
           var binPath = ${binPath};
@@ -96,7 +105,10 @@ export function getDiscoveryTools(bridgeOptions: BridgeOptions) {
       handler: async () => {
         const script = buildToolScript(`
           var project = app.project;
-          if (!project) return __refuse("No project is open");
+          // CEP can expose a named project shell with null collections when closed.
+          if (!project || !project.rootItem || !project.rootItem.children || !project.sequences) {
+            return __refuse("No project is open", { code: "NO_PROJECT_OPEN" });
+          }
           
           var sequences = [];
           for (var i = 0; i < project.sequences.numSequences; i++) {

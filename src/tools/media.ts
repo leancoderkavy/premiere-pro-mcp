@@ -65,6 +65,9 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
           : `var targetBin = app.project.rootItem;`;
 
         const script = buildToolScript(`
+          if (!app.project || !app.project.rootItem || !app.project.rootItem.children || !app.project.sequences) {
+            return __refuse("No project is open", { code: "NO_PROJECT_OPEN" });
+          }
           ${binLookup}
           var filePaths = [${paths}];
           var missing = [];
@@ -147,6 +150,9 @@ export function getMediaTools(bridgeOptions: BridgeOptions) {
              if (!targetBin) return __error(__findProjectItem("${escapeForExtendScript(args.target_bin)}") ? "${escapeForExtendScript(args.target_bin)} is not a bin; nothing was imported." : "Bin not found: ${escapeForExtendScript(args.target_bin)}");`
           : `var targetBin = app.project.rootItem;`;
         const script = buildToolScript(`
+          if (!app.project || !app.project.rootItem || !app.project.rootItem.children || !app.project.sequences) {
+            return __refuse("No project is open", { code: "NO_PROJECT_OPEN" });
+          }
           ${folderBinLookup}
           var folder = new Folder("${escapeForExtendScript(resolvedFolder)}");
           if (!folder.exists) return __error("Folder not found: ${escapeForExtendScript(args.folder_path)}");

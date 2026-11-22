@@ -30,6 +30,7 @@ import { cleanupTempDirs, makeTempDir } from "../helpers/temp-dir.js";
 import { existsSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { makeFakeCaptionHost, TPS, type FakeHostOptions } from "../helpers/fake-caption-host.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 
 const tool = getCaptionGraphicsTools({}).add_caption_graphics;
 const mockedSend = vi.mocked(sendCommand);
@@ -353,6 +354,8 @@ describe("generated scripts", () => {
       expect(() => acorn.parse(script, { ecmaVersion: 3, allowReturnOutsideFunction: true })).not.toThrow();
       expect(script).not.toMatch(/\blet\b|\bconst\b|=>|`/);
     }
+    expect(buildGraphicsTrackInspectScript(1, "Caption", 0, 10)).toContain("return __refuse(\"No active sequence\")");
+    expect(buildGraphicsRemoveScript(1, "Caption")).toContain("return __refuse(\"No active sequence\")");
   });
 });
 
@@ -476,6 +479,8 @@ describe("add_caption_graphics against a fake Premiere", () => {
     expect(result.error).toContain("overlap");
     expect(result.error).toContain("add_track");
     expect(result.data.overlapping_clips.map((c: any) => c.name)).toContain("B-roll");
+    expect(result.data).toMatchObject({ mutationOutcome: "not_applied", timelineChanged: false });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "add_caption_graphics").outcome).toBe("not_applied");
     expect(host.log.imports).toBe(0);
     expect(host.log.removes).toBe(0);
     expect(calls).toEqual(["read", "inspect"]);
@@ -486,10 +491,14 @@ describe("add_caption_graphics against a fake Premiere", () => {
     const missing = await run({ transcript_text: THREE, track_index: 3 });
     expect(missing.success).toBe(false);
     expect(missing.error).toContain("add_track");
+    expect(missing.data).toMatchObject({ mutationOutcome: "not_applied", timelineChanged: false });
+    expect(mutationReceipt(false, missing.data, { dispatched: true }, "add_caption_graphics").outcome).toBe("not_applied");
     install({ lockedTracks: [1] });
     const locked = await run({ transcript_text: THREE });
     expect(locked.success).toBe(false);
     expect(locked.error).toContain("locked");
+    expect(locked.data).toMatchObject({ mutationOutcome: "not_applied", timelineChanged: false });
+    expect(mutationReceipt(false, locked.data, { dispatched: true }, "add_caption_graphics").outcome).toBe("not_applied");
   });
 
   it("validates before contacting Premiere", async () => {
@@ -504,11 +513,17 @@ describe("add_caption_graphics against a fake Premiere", () => {
 
   it("reports sequence and plan problems", async () => {
     install({}, (_s, kind) => (kind === "read" ? { success: false, error: "No active sequence" } : undefined));
-    expect(await run({ transcript_text: THREE })).toMatchObject({ success: false, error: expect.stringContaining("No active sequence") });
+    const missingSequence = await run({ transcript_text: THREE });
+    expect(missingSequence).toMatchObject({ success: false, error: expect.stringContaining("No active sequence"), data: { mutationOutcome: "not_applied", timelineChanged: false } });
+    expect(mutationReceipt(false, missingSequence.data, { dispatched: true }, "add_caption_graphics").outcome).toBe("not_applied");
     install();
-    expect(await run({ plan_path: "x.json", transcript_text: THREE })).toMatchObject({ success: false, error: expect.stringContaining("exactly one") });
+    const bothInputs = await run({ plan_path: "x.json", transcript_text: THREE });
+    expect(bothInputs).toMatchObject({ success: false, error: expect.stringContaining("exactly one"), data: { mutationOutcome: "not_applied", timelineChanged: false } });
+    expect(mutationReceipt(false, bothInputs.data, { dispatched: true }, "add_caption_graphics").outcome).toBe("not_applied");
     const empty = await run({ transcript_text: THREE, from_s: 5000 });
     expect(empty.success).toBe(false);
+    expect(empty.data).toMatchObject({ mutationOutcome: "not_applied", timelineChanged: false });
+    expect(mutationReceipt(false, empty.data, { dispatched: true }, "add_caption_graphics").outcome).toBe("not_applied");
   });
 
   it("stops at the first failed placement and never reports a partial batch as success", async () => {

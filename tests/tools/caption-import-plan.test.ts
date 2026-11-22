@@ -13,6 +13,7 @@ import { getCaptionTools } from "../../src/tools/captions.js";
 import { resolveCaptionPlan, writeCaptionPlanDocument } from "../../src/tools/caption-inputs.js";
 import { cleanupTempDirs, makeTempDir as makeRawTempDir } from "../helpers/temp-dir.js";
 import { makeFakeCaptionHost, type FakeHostOptions } from "../helpers/fake-caption-host.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 
 /** A temp dir by its realpath: the tool returns canonical paths, and on macOS tmpdir() (/var/...) is a link to /private/var/.... */
 const makeTempDir = (prefix: string) => realpathSync(makeRawTempDir(prefix));
@@ -190,14 +191,20 @@ describe("create_caption_track action import_plan", () => {
   it("reports a sequence that cannot be read and an empty plan, writing nothing", async () => {
     const dir = makeTempDir("import-plan-");
     install({}, () => ({ success: false, error: "No active sequence" }));
-    expect(await call({ transcript_text: SRT, approved_workspace_path: dir })).toMatchObject({ success: false, error: expect.stringContaining("No active sequence") });
+    const missingSequence = await call({ transcript_text: SRT, approved_workspace_path: dir });
+    expect(missingSequence).toMatchObject({ success: false, error: expect.stringContaining("No active sequence"), data: { mutationOutcome: "not_applied", timelineChanged: false } });
+    expect(mutationReceipt(false, missingSequence.data, { dispatched: true }, "create_caption_track").outcome).toBe("not_applied");
     install();
-    expect(await call({ transcript_text: SRT, approved_workspace_path: dir, from_s: 9000 })).toMatchObject({ success: false, error: expect.stringContaining("No transcript segment") });
+    const emptyRange = await call({ transcript_text: SRT, approved_workspace_path: dir, from_s: 9000 });
+    expect(emptyRange).toMatchObject({ success: false, error: expect.stringContaining("No transcript segment"), data: { mutationOutcome: "not_applied", timelineChanged: false } });
+    expect(mutationReceipt(false, emptyRange.data, { dispatched: true }, "create_caption_track").outcome).toBe("not_applied");
     const { document } = resolveCaptionPlan({ transcript_text: SRT });
     writeFileSync(path.join(dir, "empty.json"), JSON.stringify({ ...document, captions: [] }));
     const empty = await call({ plan_path: path.join(dir, "empty.json"), approved_workspace_path: dir });
     expect(empty.success).toBe(false);
-    if (empty.data) expect(empty.data.plan.caption_count).toBe(0);
+    expect(empty.data).toMatchObject({ mutationOutcome: "not_applied", timelineChanged: false });
+    if (empty.data?.plan) expect(empty.data.plan.caption_count).toBe(0);
+    expect(mutationReceipt(false, empty.data, { dispatched: true }, "create_caption_track").outcome).toBe("not_applied");
   });
 
   it("warns that speaker colours cannot be applied to a native caption track and writes plain text", async () => {
