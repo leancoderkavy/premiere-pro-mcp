@@ -71,8 +71,19 @@ async function connected() {
       replied.add(commandName);
       if (script.includes("fixture-host-mutation")) accepted.push(commandName);
       // What __refuse returns when a lookup fails before any write.
+      // If this refusal comes after a mutation (write_then_refused), __refuse would detect
+      // that the undo history moved and NOT set refusedBeforeChange.
       if (script.includes("fixture-host-refusal")) {
-        writeFileSync(join(tempDir, commandName.replace(/^cmd_/, "res_").replace(/\.jsx$/, ".json")), JSON.stringify({ success: false, error: "Clip not found: stale", data: { mutationOutcome: "not_applied", timelineChanged: false, refusedBeforeChange: true } }), { mode: 0o600 });
+        const isAfterMutation = accepted.length > 0;
+        writeFileSync(join(tempDir, commandName.replace(/^cmd_/, "res_").replace(/\.jsx$/, ".json")), JSON.stringify({ 
+          success: false, 
+          error: "Clip not found: stale", 
+          data: { 
+            mutationOutcome: isAfterMutation ? undefined : "not_applied", 
+            timelineChanged: isAfterMutation ? null : false, 
+            ...(isAfterMutation ? {} : { refusedBeforeChange: true })
+          } 
+        }), { mode: 0o600 });
         continue;
       }
       const snapshot = script.includes("snapshot.clips.push")

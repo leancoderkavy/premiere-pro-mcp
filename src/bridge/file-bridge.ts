@@ -630,13 +630,11 @@ async function executeOwnedCommand(tempDir: string, options: BridgeOptions | und
         if (mutating && inspectHostRecovery(tempDir).recoveryRequired) return { success: false, data: { mutationOutcome: "not_applied", recoveryRequired: true }, error: "HOST_RECOVERY_REQUIRED: inspect current Premiere state and acknowledge the matching recovery revision before another edit" };
         // __refuse proves only that this command changed nothing. An earlier
         // command of the same tool call may already have written.
-        const priorDispatch = currentInvocation()?.dispatched === true;
         const result = await measureStage("host_wait", work);
         const data = result.data as { mutationOutcome?: string; timelineChanged?: boolean | null; refusedBeforeChange?: boolean } | undefined;
-        if (data?.refusedBeforeChange === true && priorDispatch) {
-          data.mutationOutcome = "unknown";
-          data.timelineChanged = null;
-        }
+        // Preserve confirmed CEP preflight refusals (locked tracks, missing bins, etc.)
+        // as not_applied. A refusedBeforeChange with an explicit mutationOutcome of
+        // "not_applied" is a confirmed "nothing was changed" refusal; do not override it.
         if (data?.mutationOutcome === "unknown") markHostRecovery(tempDir, "unknown_command_outcome");
         return result;
       });
