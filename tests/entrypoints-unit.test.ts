@@ -460,6 +460,20 @@ describe("stdio CLI entry point", () => {
     expect(exit).toHaveBeenCalledWith(1);
   });
 
+  it("names a rejected bridge directory on stderr and refuses to start (#1010)", async () => {
+    process.argv = [process.execPath, "index.js"];
+    const reason = "Bridge path has a replaceable ancestor C:\\ (replacement_rights: S-1-5-11).";
+    mocks.cleanup.mockImplementationOnce(() => { throw new Error(reason); });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+    await import("../src/index.js");
+    await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(1));
+    expect(error).toHaveBeenCalledWith(
+      "[premiere-pro-mcp] Bridge directory check failed; refusing to start:",
+      reason,
+    );
+  });
+
   it("runs and diagnoses the Windows CEP installer", async () => {
     vi.spyOn(process, "platform", "get").mockReturnValue("win32");
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
