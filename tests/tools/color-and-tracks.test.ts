@@ -11,9 +11,11 @@ vi.mock("../../src/bridge/file-bridge.js", () => ({
 }));
 
 import { sendCommand } from "../../src/bridge/file-bridge.js";
+import { runWithUndoTracking } from "../../src/bridge/undo-tracking.js";
 import { getTrackTools } from "../../src/tools/tracks.js";
 import { getKeyframeTools } from "../../src/tools/keyframes.js";
 import { getAdvancedTools } from "../../src/tools/advanced.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const bridge = { tempDir: "/tmp/color-tracks", timeoutMs: 5000 } as BridgeOptions;
@@ -90,7 +92,7 @@ describe("delete_track", () => {
         }
       },
     };
-    run({ app: { enableQE: () => {}, project: { activeSequence: { videoTracks, audioTracks: { numTracks: 1 } } } }, qe: { project: { getActiveSequence: () => qeSeq } } });
+    run({ app: { enableQE: () => {}, project: { activeSequence: { videoTracks, audioTracks: { numTracks: 1 } } } }, qe: { project: { getActiveSequence: () => qeSeq, undoStackIndex: () => 4 } } });
     return list;
   }
 
@@ -103,10 +105,11 @@ describe("delete_track", () => {
 
   it("refuses a track with clips unless forced", async () => {
     const list = trackHost([5, 0]);
-    await expect(getTrackTools(bridge).delete_track.handler({ track_type: "video", track_index: 0 }))
-      .resolves.toMatchObject({ success: false, error: expect.stringContaining("holds 5 clip(s)") });
+    const refused = await runWithUndoTracking(true, () => getTrackTools(bridge).delete_track.handler({ track_type: "video", track_index: 0 }));
+    expect(refused).toMatchObject({ success: false, error: expect.stringContaining("holds 5 clip(s)"), data: { mutationOutcome: "not_applied", timelineChanged: false, refusedBeforeChange: true } });
+    expect(mutationReceipt(false, refused.data, { dispatched: true }, "delete_track").outcome).toBe("not_applied");
     expect(list).toHaveLength(2);
-    await expect(getTrackTools(bridge).delete_track.handler({ track_type: "video", track_index: 0, force: true }))
+    await expect(runWithUndoTracking(true, () => getTrackTools(bridge).delete_track.handler({ track_type: "video", track_index: 0, force: true })))
       .resolves.toMatchObject({ success: true, data: { clipsRemoved: 5 } });
   });
 

@@ -184,12 +184,12 @@ export function getTrackTools(bridgeOptions: BridgeOptions) {
           var deletedName = String(tracks[${args.track_index}].name || "");
           var clipCount = tracks[${args.track_index}].clips.numItems;
           if (clipCount > 0 && ${args.force === true ? "false" : "true"}) {
-            return __error("${video ? "V" : "A"}${args.track_index + 1} holds " + clipCount + " clip(s); pass force: true to delete the track and those clips.");
+            return __refuse("${video ? "V" : "A"}${args.track_index + 1} holds " + clipCount + " clip(s); pass force: true to delete the track and those clips.");
           }
           // Sequence.deleteVideoTrackAt does not exist (live 25.2); QE removes tracks.
           app.enableQE();
           var qeSeq = qe.project.getActiveSequence();
-          if (!qeSeq) return __error("QE could not resolve the active sequence");
+          if (!qeSeq) return __refuse("QE could not resolve the active sequence");
           qeSeq.${video ? "removeVideoTrack" : "removeAudioTrack"}(${args.track_index});
           var after = (${video ? "seq.videoTracks" : "seq.audioTracks"}).numTracks;
           if (after !== before - 1) return __error("Premiere did not remove the track (" + before + " -> " + after + " ${args.track_type} tracks)");
