@@ -11,7 +11,9 @@ vi.mock("../../src/bridge/file-bridge.js", () => ({
 }));
 
 import { sendCommand } from "../../src/bridge/file-bridge.js";
+import { runWithUndoTracking } from "../../src/bridge/undo-tracking.js";
 import { getTransitionsTools } from "../../src/tools/transitions.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const TICKS = 254016000000;
@@ -73,6 +75,7 @@ function hostWith(place: (cutSeconds: number) => [number, number], existing: Arr
     },
     qe: {
       project: {
+        undoStackIndex: () => 4,
         getActiveSequence: () => ({ getVideoTrackAt: () => ({ numItems: qeClips.length, getItemAt: (i: number) => qeClips[i] }) }),
         getVideoTransitionByName: (name: string) => ({ name }),
       },
@@ -125,9 +128,15 @@ describe("add_transition readback", () => {
     expect(host.calls()).toBe(1);
   });
 
-  it("refuses a cut point more than half a frame from any clip edge", async () => {
+  it("refuses a cut point more than half a frame from any clip edge as not_applied", async () => {
     const host = hostWith((cut) => [cut - 0.5, cut + 0.5]);
-    await expect(add(6.03)).resolves.toMatchObject({ success: false, error: expect.stringContaining("within half a frame") });
+    const result = await runWithUndoTracking(true, () => add(6.03));
+    expect(result).toMatchObject({
+      success: false,
+      error: expect.stringContaining("within half a frame"),
+      data: { mutationOutcome: "not_applied", timelineChanged: false, refusedBeforeChange: true },
+    });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "add_transition").outcome).toBe("not_applied");
     expect(host.calls()).toBe(0);
   });
 
@@ -241,9 +250,15 @@ describe("batch_add_transitions with an existing transition", () => {
 });
 
 describe("transition readback ignores transitions that were already there", () => {
-  it("add_transition refuses a cut that already has a transition instead of verifying the old one", async () => {
+  it("add_transition refuses a cut that already has a transition as not_applied", async () => {
     const host = hostWith((cut) => [cut - 0.5, cut + 0.5], [[5.5, 6.5]]);
-    await expect(add(6)).resolves.toMatchObject({ success: false, error: expect.stringContaining("already covers the cut") });
+    const result = await runWithUndoTracking(true, () => add(6));
+    expect(result).toMatchObject({
+      success: false,
+      error: expect.stringContaining("already covers the cut"),
+      data: { mutationOutcome: "not_applied", timelineChanged: false, refusedBeforeChange: true },
+    });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "add_transition").outcome).toBe("not_applied");
     expect(host.calls()).toBe(0);
   });
 
