@@ -232,12 +232,12 @@ export function getEditorRequestTools(bridgeOptions: BridgeOptions) {
             var requestedStartTicks = __secondsToTicks(snapSpec.t);
             var appliedStartTicks = targetKind === "clip" ? requestedStartTicks : __snapSequenceTicks(seq, requestedStartTicks);
             snapSpec.t = __ticksToSeconds(appliedStartTicks);
-            snapSpec.startTicks = String(appliedStartTicks); snapSpec.endTicks = String(appliedStartTicks);
+            snapSpec.startTicks = __tickDigits(appliedStartTicks); snapSpec.endTicks = __tickDigits(appliedStartTicks);
             if (snapSpec.d > 0) {
               snapSpec.requestedEnd = snapSpec.requestedT + snapSpec.d;
               var appliedEndTicks = targetKind === "clip" ? __secondsToTicks(snapSpec.requestedEnd) : __snapSequenceTicks(seq, __secondsToTicks(snapSpec.requestedEnd));
               snapSpec.d = __ticksToSeconds(appliedEndTicks - appliedStartTicks);
-              snapSpec.endTicks = String(appliedEndTicks);
+              snapSpec.endTicks = __tickDigits(appliedEndTicks);
             }
           }
           var allowBeyondEnd = ${args.allow_beyond_end ? "true" : "false"};
@@ -307,7 +307,7 @@ export function getEditorRequestTools(bridgeOptions: BridgeOptions) {
             if (spec.k !== null && (typeof actualColor !== "number" || !isFinite(actualColor))) unverifiedFields.push({ markerIndex: i, field: "color" });
             else if (spec.k !== null && actualColor !== spec.k) fieldProblems.push("color index reads back as " + actualColor);
             if (fieldProblems.length) return __batchFailure("Marker " + i + " at " + spec.t + "s was created, but " + fieldProblems.join("; ") + ".", true);
-            var createdMarker = { requestedTicks: String(__secondsToTicks(spec.requestedT)), appliedTicks: spec.startTicks, storedTicks: markerClock.startTicks, storedEndTicks: markerClock.endTicks, timeSeconds: actualStart, name: marker.name, comments: marker.comments, endSeconds: actualEnd, color: typeof actualColor === "number" && isFinite(actualColor) ? actualColor : null };
+            var createdMarker = { requestedTicks: __tickDigits(__secondsToTicks(spec.requestedT)), appliedTicks: spec.startTicks, storedTicks: markerClock.startTicks, storedEndTicks: markerClock.endTicks, timeSeconds: actualStart, name: marker.name, comments: marker.comments, endSeconds: actualEnd, color: typeof actualColor === "number" && isFinite(actualColor) ? actualColor : null };
             if (Math.abs(actualStart - spec.requestedT) > frameSeconds / 1000) { createdMarker.requestedSeconds = spec.requestedT; createdMarker.appliedSeconds = actualStart; }
             if (spec.requestedEnd !== undefined && Math.abs(actualEnd - spec.requestedEnd) > frameSeconds / 1000) { createdMarker.requestedEndSeconds = spec.requestedEnd; createdMarker.appliedEndSeconds = actualEnd; }
             created.push(createdMarker);

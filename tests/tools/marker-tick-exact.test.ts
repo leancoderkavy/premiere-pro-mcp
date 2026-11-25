@@ -96,6 +96,59 @@ describe("marker integer tick storage", () => {
     expect(runInNewContext(`${getHelpersSource()}\n__setMarkerTick(marker, "start", wanted)`, { marker, wanted })).toBe(true);
     expect(stored).toBe(wanted);
   });
+  it("formats 16-digit tick clocks as decimal digits when toFixed is scientific", () => {
+    // ExtendScript Number.toFixed(0) switches to scientific notation at 1e15
+    // (~1:05:37). Premiere still stores decimal Time.ticks, so the old compare failed
+    // and add_marker returned before writing name/comments/color (issue 1020).
+    const wanted = "1108670242680000";
+    const original = Number.prototype.toFixed;
+    Number.prototype.toFixed = function (this: number, fractionDigits?: number) {
+      const n = Number(this);
+      if ((fractionDigits ?? 0) === 0 && n >= 1e15) return n.toExponential(6);
+      return original.call(this, fractionDigits as number);
+    };
+    try {
+      expect(runInNewContext(`${getHelpersSource()}\n__tickDigits(${wanted})`)).toBe(wanted);
+      expect(runInNewContext(`${getHelpersSource()}\n__tickDigits(1e15)`)).toBe("1000000000000000");
+      let stored = "0";
+      const marker = {
+        get start() {
+          return {
+            get ticks() { return stored; },
+            set ticks(value: string) {
+              if (!/^\d+$/.test(String(value))) throw new Error("scientific tick write");
+              stored = String(value);
+            },
+          };
+        },
+      };
+      expect(runInNewContext(`${getHelpersSource()}\n__setMarkerTick(marker, "start", wanted)`, { marker, wanted })).toBe(true);
+      expect(stored).toBe(wanted);
+    } finally {
+      Number.prototype.toFixed = original;
+    }
+  });
+  it("still writes name, comments and color when exact tick storage fails", async () => {
+    const h = host({ ignored: true });
+    const result = await getMarkerTools(options).add_marker.handler({
+      time_seconds: 0.5005, name: "Chapter 12", comments: "podcast note", color: 2, duration_seconds: 3,
+    });
+    expect(result).toMatchObject({ success: false, data: { outcome: "committed_unverified", guid: "guid-0" } });
+    expect(h.list[0]).toMatchObject({ name: "Chapter 12", comments: "podcast note", color: 2 });
+  });
+  it("stores a marker past 1:05:37 with name and decimal tick digits", async () => {
+    const h = host({ detached: true });
+    const result = await getMarkerTools(options).add_marker.handler({
+      time_seconds: 4100, duration_seconds: 3, name: "Late chapter", comments: "after the hour", color: 4,
+    });
+    expect(result, JSON.stringify(result)).toMatchObject({
+      success: true,
+      data: { name: "Late chapter", comments: "after the hour", storedTicks: expect.stringMatching(/^\d{15,}$/) },
+    });
+    expect((result.data as { storedTicks: string }).storedTicks).not.toMatch(/e/i);
+    expect(h.list[0]).toMatchObject({ name: "Late chapter", comments: "after the hour", color: 4 });
+    expect(h.list[0].start.ticks).toMatch(/^\d+$/);
+  });
   it.each([NaN, Infinity, -1])("refuses invalid marker time %s before dispatch", async time_seconds => {
     host(); expect(await getMarkerTools(options).add_marker.handler({ time_seconds })).toMatchObject({ success: false }); expect(send).not.toHaveBeenCalled();
   });

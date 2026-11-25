@@ -1772,13 +1772,12 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
           if (!isFinite(requestedMarkerTicks) || !isFinite(requestedMarkerEndTicks)) return __error("Marker time exceeds the finite tick range; no marker was created.");
           var marker = markers.createMarker(${args.time_seconds});
           if (!marker) return __error("Premiere did not return a source marker after creation; inspect before retrying.", { outcome: "committed_unverified", timelineChanged: null, verified: false });
-          var markerClock = __setMarkerRangeTicks(marker, requestedMarkerTicks, requestedMarkerEndTicks);
-          if (!markerClock.ok) return __error("The source marker was created but its exact tick range could not be verified; inspect before retrying.", { markerCreated: true, timelineChanged: true, verified: false, outcome: "committed_unverified", guid: marker.guid ? String(marker.guid) : null, requestedTicks: String(requestedMarkerTicks), storedTicks: markerClock.startTicks, storedEndTicks: markerClock.endTicks });
-
           ${args.name ? `marker.name = "${escapeForExtendScript(args.name)}";` : ""}
           ${args.comments ? `marker.comments = "${escapeForExtendScript(args.comments)}";` : ""}
           ${args.type ? `marker.type = "${escapeForExtendScript(args.type)}";` : ""}
           ${args.color_index !== undefined ? `marker.setColorByIndex(${args.color_index});` : ""}
+          var markerClock = __setMarkerRangeTicks(marker, requestedMarkerTicks, requestedMarkerEndTicks);
+          if (!markerClock.ok) return __error("The source marker was created but its exact tick range could not be verified; inspect before retrying.", { markerCreated: true, timelineChanged: true, verified: false, outcome: "committed_unverified", guid: marker.guid ? String(marker.guid) : null, requestedTicks: __tickDigits(requestedMarkerTicks), storedTicks: markerClock.startTicks, storedEndTicks: markerClock.endTicks });
 
           var problems = [], unverifiedFields = [];
           ${args.name ? `if (String(marker.name) !== "${escapeForExtendScript(args.name)}") problems.push("name reads back as " + marker.name);` : ""}
@@ -1790,7 +1789,7 @@ export function getUtilityTools(bridgeOptions: BridgeOptions, dependencies: Util
             return __error("The marker was created at ${args.time_seconds}s on " + item.name + ", but " + problems.join("; ") + ".", { markerCreated: true, timelineChanged: true, verified: false, outcome: "committed_unverified", unverifiedFields: unverifiedFields });
           }
 
-          return __result({ added: true, verified: unverifiedFields.length === 0, outcome: unverifiedFields.length ? "committed_unverified" : "verified", unverifiedFields: unverifiedFields, item: item.name, requestedTicks: String(requestedMarkerTicks), storedTicks: markerClock.startTicks, storedEndTicks: markerClock.endTicks, timeSeconds: __ticksToSeconds(marker.start.ticks), endSeconds: parseFloat(marker.end.seconds), name: marker.name, type: marker.type });
+          return __result({ added: true, verified: unverifiedFields.length === 0, outcome: unverifiedFields.length ? "committed_unverified" : "verified", unverifiedFields: unverifiedFields, item: item.name, requestedTicks: __tickDigits(requestedMarkerTicks), storedTicks: markerClock.startTicks, storedEndTicks: markerClock.endTicks, timeSeconds: __ticksToSeconds(marker.start.ticks), endSeconds: parseFloat(marker.end.seconds), name: marker.name, type: marker.type });
         `);
         return sendCommand(script, bridgeOptions);
       },
