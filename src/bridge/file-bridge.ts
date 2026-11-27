@@ -253,7 +253,13 @@ export const WINDOWS_BRIDGE_ACL_SCRIPT = [
   '$current = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value',
   '$initialize = [Environment]::GetEnvironmentVariable("PREMIERE_MCP_ACL_INITIALIZE", "Process") -eq "1"',
   '$trustedAncestors = @($current, "S-1-5-18", "S-1-5-32-544", "S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464")',
-  '$replacement = [System.Security.AccessControl.FileSystemRights]::DeleteSubdirectoriesAndFiles -bor [System.Security.AccessControl.FileSystemRights]::Delete -bor [System.Security.AccessControl.FileSystemRights]::ChangePermissions -bor [System.Security.AccessControl.FileSystemRights]::TakeOwnership',
+  // Volume roots cannot be renamed or deleted, so Delete on C:\ is not a
+  // replaceable-ancestor right. Stock Windows 11 can grant Authenticated Users
+  // Modify (which includes Delete) on the drive root; treating that as unsafe
+  // rejects every path on C: (issue #1010). DeleteSubdirectoriesAndFiles,
+  // ChangePermissions, and TakeOwnership on the root still are.
+  '$volumeRootReplacement = [System.Security.AccessControl.FileSystemRights]::DeleteSubdirectoriesAndFiles -bor [System.Security.AccessControl.FileSystemRights]::ChangePermissions -bor [System.Security.AccessControl.FileSystemRights]::TakeOwnership',
+  '$replacement = $volumeRootReplacement -bor [System.Security.AccessControl.FileSystemRights]::Delete',
   '$unsafeAncestors = @()',
   '$ancestor = (New-Object System.IO.DirectoryInfo($path)).Parent',
   'while ($null -ne $ancestor) {',
@@ -262,8 +268,9 @@ export const WINDOWS_BRIDGE_ACL_SCRIPT = [
   '  $ancestorAcl = [System.IO.Directory]::GetAccessControl($ancestor.FullName)',
   '  $ancestorOwner = $ancestorAcl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value',
   '  if ($ancestorOwner -notin $trustedAncestors) { $unsafeAncestors += [pscustomobject]@{ sid = $ancestorOwner; path = $ancestor.FullName; reason = "owner" } }',
+  '  $rightsMask = if ($null -eq $ancestor.Parent) { $volumeRootReplacement } else { $replacement }',
   '  $unsafeAncestors += @($ancestorAcl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]) | Where-Object {',
-  '    $_.AccessControlType -eq [System.Security.AccessControl.AccessControlType]::Allow -and (($_.PropagationFlags -band [System.Security.AccessControl.PropagationFlags]::InheritOnly) -eq 0) -and (($_.FileSystemRights -band $replacement) -ne 0) -and $_.IdentityReference.Value -notin $trustedAncestors -and $_.IdentityReference.Value -notlike "S-1-15-*"',
+  '    $_.AccessControlType -eq [System.Security.AccessControl.AccessControlType]::Allow -and (($_.PropagationFlags -band [System.Security.AccessControl.PropagationFlags]::InheritOnly) -eq 0) -and (($_.FileSystemRights -band $rightsMask) -ne 0) -and $_.IdentityReference.Value -notin $trustedAncestors -and $_.IdentityReference.Value -notlike "S-1-15-*"',
   '  } | ForEach-Object { [pscustomobject]@{ sid = $_.IdentityReference.Value; path = $ancestor.FullName; reason = "replacement_rights" } })',
   '  $ancestor = $ancestor.Parent',
   '}',

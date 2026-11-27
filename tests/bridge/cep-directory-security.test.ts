@@ -48,7 +48,7 @@ it("keeps the Premiere, After Effects, and server Windows ACL policy in sync", (
 it("skips only Windows capability SIDs in the ancestor and directory ACL scans", () => {
   const lines = WINDOWS_BRIDGE_ACL_SCRIPT.split("\n");
   const capabilityFilter = '$_.IdentityReference.Value -notlike "S-1-15-*"';
-  const ancestorFilter = lines.find((line) => line.includes("-band $replacement) -ne 0)"));
+  const ancestorFilter = lines.find((line) => line.includes("-band $rightsMask) -ne 0)"));
   const directoryFilter = lines.find((line) => line.includes("-notin $trusted "));
   expect(ancestorFilter).toContain(`-notin $trustedAncestors -and ${capabilityFilter}`);
   expect(directoryFilter).toContain(`-notin $trusted -and ${capabilityFilter}`);
@@ -56,6 +56,22 @@ it("skips only Windows capability SIDs in the ancestor and directory ACL scans",
   // Owner checks and the SIDs granted on initialize stay unchanged.
   expect(WINDOWS_BRIDGE_ACL_SCRIPT).toContain("if ($ancestorOwner -notin $trustedAncestors)");
   expect(WINDOWS_BRIDGE_ACL_SCRIPT).toContain('foreach ($sid in @($current, "S-1-5-18", "S-1-5-32-544"))');
+});
+
+it("does not treat Delete-only ACEs on a volume root as replaceable-ancestor rights", () => {
+  const volumeRootLine = WINDOWS_BRIDGE_ACL_SCRIPT.split("\n")
+    .find((line) => line.startsWith("$volumeRootReplacement ="));
+  expect(volumeRootLine).toContain("DeleteSubdirectoriesAndFiles");
+  expect(volumeRootLine).toContain("ChangePermissions");
+  expect(volumeRootLine).toContain("TakeOwnership");
+  expect(volumeRootLine).not.toContain("]::Delete ");
+  expect(volumeRootLine).not.toContain("]::Delete -bor");
+  expect(WINDOWS_BRIDGE_ACL_SCRIPT).toContain(
+    "$replacement = $volumeRootReplacement -bor [System.Security.AccessControl.FileSystemRights]::Delete",
+  );
+  expect(WINDOWS_BRIDGE_ACL_SCRIPT).toContain(
+    "$rightsMask = if ($null -eq $ancestor.Parent) { $volumeRootReplacement } else { $replacement }",
+  );
 });
 
 it("reports each unsafe ancestor path, reason, and SID from the ACL script", () => {
