@@ -27,7 +27,7 @@ function applyEffectWithReadback(kind: "Video" | "Audio"): string {
       return snapshot;
     }
     try { before = readComponents(); }
-    catch (beforeError) { return __error("Cannot read components before adding the effect; nothing was changed."); }
+    catch (beforeError) { return __refuse("Cannot read components before adding the effect; nothing was changed."); }
     var addError = "";
     try { qeClip.add${kind}Effect(qeEffect); }
     catch (effectError) { addError = String(effectError); }
@@ -101,13 +101,13 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
       },
       handler: async (args: { node_id: string; effect_name: string }) => {
         const script = buildToolScript(`
+          var result = __findClip("${escapeForExtendScript(args.node_id)}");
+          if (!result) return __refuse("Clip not found: ${escapeForExtendScript(args.node_id)}");
+
           app.enableQE();
           var qeSeq = qe.project.getActiveSequence();
           if (!qeSeq) return __refuse("No active sequence (QE)");
-          
-          var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __refuse("Clip not found: ${escapeForExtendScript(args.node_id)}");
-          
+
           // Find the effect in QE
           var effectName = "${escapeForExtendScript(args.effect_name)}";
           var qeTrack = result.trackType === "video" 
@@ -128,7 +128,7 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
           var lookupSource = qeEffect ? "qe.byName" : "qe.catalog";
           if (!qeEffect) {
             var effectCatalog = __getQeEffectCatalog("video");
-            if (!effectCatalog.ok) return __error(effectCatalog.error + " Direct QE lookup for \\"" + effectName + "\\" also did not resolve an effect.");
+            if (!effectCatalog.ok) return __refuse(effectCatalog.error + " Direct QE lookup for \\"" + effectName + "\\" also did not resolve an effect.");
             var effects = effectCatalog.effects;
             for (var i = 0; i < effects.numItems; i++) {
               if (effects[i].name === effectName) {
@@ -137,7 +137,7 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
               }
             }
           }
-          if (!qeEffect) return __error("Effect not found: " + effectName);
+          if (!qeEffect) return __refuse("Effect not found: " + effectName);
           ${applyEffectWithReadback("Video")}
         `);
         return sendCommand(script, bridgeOptions);
@@ -162,13 +162,13 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
       },
       handler: async (args: { node_id: string; effect_name: string }) => {
         const script = buildToolScript(`
+          var result = __findClip("${escapeForExtendScript(args.node_id)}");
+          if (!result) return __refuse("Clip not found");
+
           app.enableQE();
           var qeSeq = qe.project.getActiveSequence();
           if (!qeSeq) return __refuse("No active sequence (QE)");
-          
-          var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __refuse("Clip not found");
-          
+
           var effectName = "${escapeForExtendScript(args.effect_name)}";
           var qeTrack = qeSeq.getAudioTrackAt(result.trackIndex);
           if (!qeTrack) return __refuse("QE audio track not found");
@@ -191,7 +191,7 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
               }
             }
           }
-          if (!qeEffect) return __error("Audio effect not found: " + effectName);
+          if (!qeEffect) return __refuse("Audio effect not found: " + effectName);
           ${applyEffectWithReadback("Audio")}
         `);
         return sendCommand(script, bridgeOptions);
@@ -380,13 +380,13 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
 
         // First apply Lumetri Color effect, then set its properties
         const script = buildToolScript(`
+          var result = __findClip("${escapeForExtendScript(args.node_id)}");
+          if (!result) return __refuse("Clip not found");
+
           app.enableQE();
           var qeSeq = qe.project.getActiveSequence();
           if (!qeSeq) return __refuse("No active sequence (QE)");
-          
-          var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __refuse("Clip not found");
-          
+
           // Apply Lumetri Color if not already present
           var clip = result.clip;
           var hasLumetri = false;
@@ -405,9 +405,9 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
             var qeTrack = qeSeq.getVideoTrackAt(result.trackIndex);
             // QE track items include gaps, so the DOM clip index is not a QE index.
             var qeClip = __findQeClipByDomClip(qeTrack, clip);
-            if (!qeClip) return __error("Could not match the QE clip for " + clip.name + " by timeline start; nothing was changed.");
+            if (!qeClip) return __refuse("Could not match the QE clip for " + clip.name + " by timeline start; nothing was changed.");
             var effectCatalog = __getQeEffectCatalog("video");
-            if (!effectCatalog.ok) return __error(effectCatalog.error);
+            if (!effectCatalog.ok) return __refuse(effectCatalog.error);
             var effects = effectCatalog.effects;
             var qeEffect = null;
             for (var i = 0; i < effects.numItems; i++) {
@@ -416,7 +416,7 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
                 break;
               }
             }
-            if (!qeEffect) return __error("The QE video-effect catalog does not contain Lumetri Color; nothing was changed.");
+            if (!qeEffect) return __refuse("The QE video-effect catalog does not contain Lumetri Color; nothing was changed.");
             qeAttempted = true;
             try { qeClip.addVideoEffect(qeEffect); } catch (eAdd) { qeAddError = String(eAdd); }
             for (var li = 0; li < clip.components.numItems; li++) {
@@ -646,16 +646,15 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
         if (args.smoothness !== undefined && (!Number.isFinite(args.smoothness) || args.smoothness < 0 || args.smoothness > 100)) return { success: false, error: "smoothness must be a finite percentage from 0 to 100" };
         if (args.method !== undefined && !["Subspace Warp", "Position", "Position, Scale, Rotation"].includes(args.method)) return { success: false, error: "Unsupported stabilization method" };
         const script = buildToolScript(`
+          var result = __findClip("${escapeForExtendScript(args.node_id)}");
+          if (!result) return __refuse("Clip not found: ${escapeForExtendScript(args.node_id)}");
+          if (result.trackType !== "video") return __refuse("Warp Stabilizer can only be applied to video clips");
+
           app.enableQE();
           var qeSeq = qe.project.getActiveSequence();
           if (!qeSeq) return __refuse("No active sequence (QE)");
-          
-          var result = __findClip("${escapeForExtendScript(args.node_id)}");
-          if (!result) return __refuse("Clip not found: ${escapeForExtendScript(args.node_id)}");
-          
-          var qeTrack = result.trackType === "video"
-            ? qeSeq.getVideoTrackAt(result.trackIndex)
-            : null;
+
+          var qeTrack = qeSeq.getVideoTrackAt(result.trackIndex);
           if (!qeTrack) return __refuse("Warp Stabilizer can only be applied to video clips");
           
           // QE track items include gaps, so the DOM clip index is not a QE index.
@@ -677,7 +676,7 @@ export function getEffectsTools(bridgeOptions: BridgeOptions) {
             }
           }
           
-          if (!found) return __error("Warp Stabilizer effect not found");
+          if (!found) return __refuse("Warp Stabilizer effect not found");
           
           var clip = result.clip;
           var afterCount = null;

@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { runInNewContext } from "node:vm";
 import { getHelpersSource } from "../../src/bridge/script-builder.js";
+import { runWithUndoTracking } from "../../src/bridge/undo-tracking.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 vi.mock("../../src/bridge/file-bridge.js", () => ({ sendCommand: vi.fn() }));
 import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { getEffectsTools } from "../../src/tools/effects.js";
@@ -38,7 +40,9 @@ describe("color_correct verified receipts (#720)", () => {
   });
   it("fails before mutation when Lumetri is absent from the catalog", async () => {
     const state = host({ missingCatalog: true });
-    await expect(tool.handler({ node_id: "c1", exposure: 0.5 })).resolves.toMatchObject({ success: false });
+    const result = await runWithUndoTracking(true, () => tool.handler({ node_id: "c1", exposure: 0.5 }));
+    expect(result).toMatchObject({ success: false, data: { mutationOutcome: "not_applied", timelineChanged: false, refusedBeforeChange: true } });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "color_correct").outcome).toBe("not_applied");
     expect(state.add).not.toHaveBeenCalled();
   });
   it("does not report success when QE silently ignores insertion", async () => {

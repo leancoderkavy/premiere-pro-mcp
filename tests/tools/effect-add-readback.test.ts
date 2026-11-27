@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { runInNewContext } from "node:vm";
 import { getHelpersSource, escapeForExtendScript } from "../../src/bridge/script-builder.js";
+import { runWithUndoTracking } from "../../src/bridge/undo-tracking.js";
 import { getEffectsTools } from "../../src/tools/effects.js";
 import { sendCommand } from "../../src/bridge/file-bridge.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 
 vi.mock("../../src/bridge/file-bridge.js", () => ({ sendCommand: vi.fn() }));
 const send = vi.mocked(sendCommand);
@@ -79,15 +81,22 @@ describe.each(["apply_effect", "apply_audio_effect"] as const)("%s readback", (t
     host("unchanged", "Time Remapping");
     expect(await tools[tool].handler({ node_id: "clip", effect_name: "Time Remapping" })).toMatchObject({ success: false, data: { componentCountBefore: 1, componentCountAfter: 1, outcome: "committed_unverified" } });
   });
-  it.each(["invalid", "missing"])("refuses before mutation on %s preconditions", async (mode) => {
+  it.each(["invalid", "missing"])("refuses before mutation on %s preconditions without locking recovery", async (mode) => {
     const h = host(mode);
-    expect(await tools[tool].handler({ node_id: "clip", effect_name: "Test effect" })).toMatchObject({ success: false });
+    const result = await runWithUndoTracking(true, () => tools[tool].handler({ node_id: "clip", effect_name: "Test effect" }));
+    expect(result).toMatchObject({ success: false, data: { mutationOutcome: "not_applied", timelineChanged: false, refusedBeforeChange: true } });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, tool).outcome).toBe("not_applied");
     expect(h.add).not.toHaveBeenCalled();
   });
-  it("refuses a missing clip before mutation", async () => {
+  it("refuses a missing clip before QE and does not lock later edits", async () => {
     const h = host();
-    expect(await tools[tool].handler({ node_id: "missing", effect_name: "Test effect" })).toMatchObject({ success: false });
+    const result = await runWithUndoTracking(true, () => tools[tool].handler({ node_id: "missing", effect_name: "Test effect" }));
+    expect(result).toMatchObject({ success: false, data: { mutationOutcome: "not_applied", timelineChanged: false, refusedBeforeChange: true } });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, tool).outcome).toBe("not_applied");
     expect(h.add).not.toHaveBeenCalled();
+    const iife = send.mock.calls[0][0].slice(send.mock.calls[0][0].lastIndexOf("(function()"));
+    expect(iife.indexOf("__findClip(")).toBeGreaterThan(-1);
+    expect(iife.indexOf("__findClip(")).toBeLessThan(iife.indexOf("app.enableQE()"));
   });
   it("escapes names and node IDs in the generated ES3 script", async () => {
     const nodeId = 'node"\\\n\u2028';
