@@ -68,6 +68,44 @@ export function buildSequenceAudioScript(sequenceId: string | null): string {
     var isActive = false;
     try { isActive = !!activeSeq && String(activeSeq.sequenceID) === String(seq.sequenceID); } catch (eActive) {}
     var reasons = [];
+    // A Channel Volume or Panner component only counts as neutral when its
+    // properties were actually read: a missing, zero, or invalid property list,
+    // or a value that is not a finite number (null, "", boolean, array), is
+    // unverified and keeps the sequence export.
+    function __checkIntrinsic(label, component, isChannelVolume) {
+      var count = NaN;
+      try { count = component.properties.numItems; } catch (eCount) {}
+      if (typeof count !== "number" || !isFinite(count) || count < 1 || Math.floor(count) !== count) {
+        reasons.push("could not read the " + label + " properties");
+        return;
+      }
+      var checked = 0;
+      for (var pi = 0; pi < count; pi++) {
+        var prop = null;
+        var name = "";
+        try { prop = component.properties[pi]; name = String(prop.displayName || ""); } catch (eProp) {}
+        if (!name) { reasons.push("could not read " + label + " property " + pi); continue; }
+        if (name === "Bypass") continue;
+        checked++;
+        var varying = false;
+        try { varying = !!prop.isTimeVarying(); } catch (eVarying) { reasons.push("could not read whether " + label + " " + name + " has keyframes"); continue; }
+        if (varying) { reasons.push(label + " " + name + " has keyframes"); continue; }
+        var raw = null;
+        try { raw = prop.getValue(); } catch (eValue) {}
+        if (typeof raw !== "number" || !isFinite(raw)) {
+          reasons.push("could not read " + label + " " + name);
+        } else if (!isChannelVolume || name === "Balance" || name === "Pan") {
+          if (Math.abs(raw) > 0.001) reasons.push(label + " " + name + " is " + raw + ", not 0");
+        } else if (Math.abs(raw - ${UNITY_LEVEL}) > 0.001) {
+          if (raw > 0) {
+            reasons.push(label + " " + name + " is " + (Math.round((20 * (Math.log(raw) / Math.LN10) + 15) * 100) / 100) + " dB, not 0 dB");
+          } else {
+            reasons.push(label + " " + name + " is silent, not 0 dB");
+          }
+        }
+      }
+      if (checked === 0) reasons.push("the " + label + " component exposes no value to check");
+    }
     var audible = [];
     var trackCount = 0;
     try { trackCount = seq.audioTracks.numTracks; } catch (eTracks) { return __refuse("Could not read the sequence audio tracks: " + eTracks); }
@@ -126,9 +164,9 @@ export function buildSequenceAudioScript(sequenceId: string | null): string {
             if (String(component.properties[pi].displayName) === "Level") { volumeLevel = component.properties[pi]; break; }
           }
         } else if (matchName.indexOf("Internal Channel Volume") === 0 || displayName === "Channel Volume") {
-          continue;
+          __checkIntrinsic("Channel Volume", component, true);
         } else if (matchName.indexOf("Internal Panner") === 0 || displayName === "Panner") {
-          continue;
+          __checkIntrinsic("Panner", component, false);
         } else {
           reasons.push("the clip has an extra audio component: " + (displayName || matchName));
         }

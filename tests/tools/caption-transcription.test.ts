@@ -621,8 +621,8 @@ function goodClip(file: string, options: FakeClipOptions = {}) {
     components: {
       numItems: 3,
       0: { displayName: "Volume", matchName: "Internal Volume", properties: { numItems: 2, 0: { displayName: "Bypass" }, 1: level } },
-      1: { displayName: "Channel Volume", matchName: "Internal Channel Volume", properties: { numItems: 0 } },
-      2: { displayName: "Panner", matchName: "Internal Panner", properties: { numItems: 0 } },
+      1: { displayName: "Channel Volume", matchName: "Internal Channel Volume", properties: { numItems: 3, 0: { displayName: "Bypass" }, 1: { displayName: "Left", isTimeVarying: () => false, getValue: () => 0.17782794 }, 2: { displayName: "Right", isTimeVarying: () => false, getValue: () => 0.17782794 } } },
+      2: { displayName: "Panner", matchName: "Internal Panner", properties: { numItems: 1, 0: { displayName: "Balance", isTimeVarying: () => false, getValue: () => 0 } } },
     },
     level,
   };
@@ -698,6 +698,31 @@ describe("sequence source: direct media shortcut", () => {
     expect(r.data.source).toBe("project_item_media");
   });
 
+  it("uses the shortcut when Channel Volume is at 0 dB and Panner is centered", async () => {
+    host({
+      tracks: [{
+        clips: [goodClip(media, {
+          mutate: (c) => {
+            c.components[1].properties = {
+              numItems: 3,
+              0: { displayName: "Bypass" },
+              1: { displayName: "Left", isTimeVarying: () => false, getValue: () => 0.17782794 },
+              2: { displayName: "Right", isTimeVarying: () => false, getValue: () => 0.17782794 },
+            };
+            c.components[2].properties = { numItems: 1, 0: { displayName: "Balance", isTimeVarying: () => false, getValue: () => 0 } };
+          },
+        })],
+      }],
+    });
+    const { engine, transcribe } = fakeEngine();
+    const r = (await tool({ engines: { elevenlabs: engine } }).handler(seqArgs())) as Result;
+    expect(r.success).toBe(true);
+    expect(r.data.source).toBe("project_item_media");
+    expect(r.data.media_shortcut_skipped).toEqual([]);
+    expect(transcribe).toHaveBeenCalledWith(media, expect.anything(), KEY);
+    expect(exportHandler).not.toHaveBeenCalled();
+  });
+
   it("media_shortcut: false forces the export and says why", async () => {
     host({ tracks: [{ clips: [goodClip(media)] }] });
     const exported = join(workspace, "Main Cut transcription audio.mp3");
@@ -745,6 +770,31 @@ describe("sequence source: shortcut skipped, sequence exported", () => {
     ["level -6 dB", (c) => { c.level.getValue = () => 0.0891; }, "Volume Level is -6 dB, not 0 dB"],
     ["level silent", (c) => { c.level.getValue = () => 0; }, "Volume Level is silent"],
     ["level unreadable", (c) => { c.level.getValue = () => { throw new Error("x"); }; }, "could not read Volume Level"],
+    ["channel volume left silent", (c) => { c.components[1].properties = { numItems: 1, 0: { displayName: "Left", isTimeVarying: () => false, getValue: () => 0 } }; }, "Channel Volume Left is silent"],
+    ["channel volume left -6 dB", (c) => { c.components[1].properties = { numItems: 1, 0: { displayName: "Left", isTimeVarying: () => false, getValue: () => 0.0891 } }; }, "Channel Volume Left is -6 dB, not 0 dB"],
+    ["channel volume keyframed", (c) => { c.components[1].properties = { numItems: 1, 0: { displayName: "Left", isTimeVarying: () => true, getValue: () => 0.17782794 } }; }, "Channel Volume Left has keyframes"],
+    ["channel volume unreadable", (c) => { c.components[1].properties = { numItems: 1, 0: { displayName: "Left", isTimeVarying: () => false, getValue: () => { throw new Error("x"); } } }; }, "could not read Channel Volume Left"],
+    ["panner not centered", (c) => { c.components[2].properties = { numItems: 1, 0: { displayName: "Balance", isTimeVarying: () => false, getValue: () => -100 } }; }, "Panner Balance is -100, not 0"],
+    ["panner keyframed", (c) => { c.components[2].properties = { numItems: 1, 0: { displayName: "Balance", isTimeVarying: () => true, getValue: () => 0 } }; }, "Panner Balance has keyframes"],
+    ["channel volume no properties", (c) => { c.components[1].properties = { numItems: 0 }; }, "could not read the Channel Volume properties"],
+    ["channel volume properties missing", (c) => { delete c.components[1].properties; }, "could not read the Channel Volume properties"],
+    ["channel volume numItems invalid", (c) => { c.components[1].properties = { numItems: "1", 0: { displayName: "Left", isTimeVarying: () => false, getValue: () => 0.17782794 } }; }, "could not read the Channel Volume properties"],
+    ["channel volume numItems NaN", (c) => { c.components[1].properties = { numItems: NaN }; }, "could not read the Channel Volume properties"],
+    ["channel volume numItems infinite", (c) => { c.components[1].properties = { numItems: Infinity }; }, "could not read the Channel Volume properties"],
+    ["channel volume only Bypass", (c) => { c.components[1].properties = { numItems: 1, 0: { displayName: "Bypass" } }; }, "Channel Volume component exposes no value to check"],
+    ["channel volume null value", (c) => { c.components[1].properties = { numItems: 1, 0: { displayName: "Left", isTimeVarying: () => false, getValue: () => null } }; }, "could not read Channel Volume Left"],
+    ["channel volume empty-string value", (c) => { c.components[1].properties = { numItems: 1, 0: { displayName: "Left", isTimeVarying: () => false, getValue: () => "" } }; }, "could not read Channel Volume Left"],
+    ["channel volume boolean value", (c) => { c.components[1].properties = { numItems: 1, 0: { displayName: "Left", isTimeVarying: () => false, getValue: () => true } }; }, "could not read Channel Volume Left"],
+    ["channel volume numeric string value", (c) => { c.components[1].properties = { numItems: 1, 0: { displayName: "Left", isTimeVarying: () => false, getValue: () => "0.17782794" } }; }, "could not read Channel Volume Left"],
+    ["channel volume unreadable property", (c) => { c.components[1].properties = { numItems: 1, get 0() { throw new Error("x"); } }; }, "could not read Channel Volume property 0"],
+    ["panner no properties", (c) => { c.components[2].properties = { numItems: 0 }; }, "could not read the Panner properties"],
+    ["panner properties missing", (c) => { delete c.components[2].properties; }, "could not read the Panner properties"],
+    ["panner numItems invalid", (c) => { c.components[2].properties = { numItems: -1 }; }, "could not read the Panner properties"],
+    ["panner only Bypass", (c) => { c.components[2].properties = { numItems: 1, 0: { displayName: "Bypass" } }; }, "Panner component exposes no value to check"],
+    ["panner unreadable name", (c) => { c.components[2].properties = { numItems: 1, 0: { get displayName() { throw new Error("x"); }, isTimeVarying: () => false, getValue: () => 0 } }; }, "could not read Panner property 0"],
+    ["panner null value", (c) => { c.components[2].properties = { numItems: 1, 0: { displayName: "Balance", isTimeVarying: () => false, getValue: () => null } }; }, "could not read Panner Balance"],
+    ["panner empty-string value", (c) => { c.components[2].properties = { numItems: 1, 0: { displayName: "Balance", isTimeVarying: () => false, getValue: () => "" } }; }, "could not read Panner Balance"],
+    ["panner array value", (c) => { c.components[2].properties = { numItems: 1, 0: { displayName: "Balance", isTimeVarying: () => false, getValue: () => [] } }; }, "could not read Panner Balance"],
     ["times unreadable", (c) => { Object.defineProperty(c, "start", { get() { throw new Error("x"); } }); }, "clip start and source in/out"],
   ];
 
