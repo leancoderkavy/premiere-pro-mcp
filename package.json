@@ -229,8 +229,8 @@
   "dependencies": {
     "@modelcontextprotocol/node": "^2.1.2",
     "@modelcontextprotocol/server": "^2.4.0",
-    "@posthog/core": "1.69.1",
-    "@posthog/types": "1.425.1",
+    "@posthog/core": "1.69.2",
+    "@posthog/types": "1.427.1",
     "jose": "^6.2.18",
     "posthog-node": "5.74.0",
     "ws": "^8.23.0",
