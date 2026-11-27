@@ -16,6 +16,14 @@ describe("premiere agent instructions", () => {
     expect(text).toContain("Check transcript provenance");
   });
 
+  it("describes the audio-only transcription export default and its H.264 fallback", () => {
+    const text = buildPremiereInstructions(new Set(["transcribe_audio"]));
+    expect(text).toContain("installed audio-only Media Encoder preset by default");
+    expect(text).toContain("falls back to H.264 with picture only when none is found");
+    expect(text).toContain("confirm_upload: true");
+    expect(text).not.toContain("the default sequence export is H.264 with picture");
+  });
+
   it("teaches metadata layers even when no workflow tools are registered", () => {
     const text = buildPremiereInstructions(new Set());
     expect(text).toContain("METADATA:");
