@@ -8,6 +8,7 @@ import { runWithExpectedHostTarget } from "../../src/bridge/project-guard.js";
 vi.mock("../../src/bridge/file-bridge.js", () => ({ sendCommand: vi.fn() }));
 import { sendCommand } from "../../src/bridge/file-bridge.js";
 import { getTimelineTools } from "../../src/tools/timeline.js";
+import { getTransitionsTools } from "../../src/tools/transitions.js";
 import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 
 // One long-lived engine, as in the CEP panel: helper globals survive between commands.
@@ -109,5 +110,16 @@ describe("refusals in tool scripts", () => {
     const result = await runWithUndoTracking(true, () => tools[name].handler(args as never)) as { success: boolean; data?: Record<string, unknown> };
     expect(result).toMatchObject({ success: false, error: "Clip not found: 000fffff", data: { mutationOutcome: "not_applied", timelineChanged: false } });
     expect(mutationReceipt(false, result.data, { dispatched: true }, name).outcome).toBe("not_applied");
+  });
+
+  it("add_transition refuses a missing track as not_applied", async () => {
+    const run = engine({ value: 7 });
+    vi.mocked(sendCommand).mockImplementation(async (script) => run(script));
+    const tools = getTransitionsTools({});
+    const result = await runWithUndoTracking(true, () =>
+      tools.add_transition.handler({ transition_name: "Cross Dissolve", track_index: 0, cut_point_seconds: 1 }),
+    ) as { success: boolean; error?: string; data?: Record<string, unknown> };
+    expect(result).toMatchObject({ success: false, error: "Track not found in the Premiere DOM", data: { mutationOutcome: "not_applied", timelineChanged: false } });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "add_transition").outcome).toBe("not_applied");
   });
 });
