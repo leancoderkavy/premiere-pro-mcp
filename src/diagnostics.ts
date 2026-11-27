@@ -342,7 +342,9 @@ export function buildFirstRunReport(
           boundary: "connected",
           state: "needs_attention",
           message: "Premiere Pro did not answer the safe connection check.",
-          repair: "In Premiere Pro, open Window > Extensions > MCP Bridge and make sure it says Running. Close any open Premiere dialog, then try again.",
+          repair: backend === "uxp"
+            ? "In Premiere Pro, open Window > UXP Plugins > MCP for Adobe Premiere Pro and make sure it says Connected. If two Claude Desktop sessions (Chat and Code/Cowork) are running this server, one already owns the UXP loopback port; this process should relay through it. If this check still fails, another process may be holding port 7777."
+            : "In Premiere Pro, open Window > Extensions > MCP Bridge and make sure it says Running. Close any open Premiere dialog, then try again.",
         },
         {
           id: "active_project",
@@ -362,7 +364,9 @@ export function buildFirstRunReport(
         },
       ],
       nextStep: "Reconnect the Premiere Connector, then run this safe check again.",
-      repair: "If the Connector still does not respond, run get_capabilities to compare the selected bridge directory with the CEP panel, then run premiere-pro-mcp --diagnose-cep and follow its repair guidance.",
+      repair: backend === "uxp"
+        ? "If the UXP panel still does not respond, confirm Window > UXP Plugins > MCP for Adobe Premiere Pro says Connected. Two Claude Desktop sessions share one UXP port: the other session may own it, and this server should relay rather than bind again."
+        : "If the Connector still does not respond, run get_capabilities to compare the selected bridge directory with the CEP panel, then run premiere-pro-mcp --diagnose-cep and follow its repair guidance.",
     };
   }
 

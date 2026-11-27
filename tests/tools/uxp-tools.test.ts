@@ -72,11 +72,13 @@ describe("UXP MCP tools", () => {
     const bridge = {
       request: vi.fn(),
       getState: vi.fn(() => state),
+      attachRelay: vi.fn(async () => false),
       claim: vi.fn(async () => false),
     } as unknown as UxpWebSocketBridge;
     const result = await getUxpTools(bridge).get_uxp_capabilities.handler();
     expect(result).toEqual({ success: true, data: { ...state, capabilitiesSource: "handshake" } });
-    // Discovery may take the loopback port over from another server process, but never calls the host.
+    // Discovery tries to join a peer first; it only claims the port if no relay answers, and never calls the host.
+    expect(bridge.attachRelay).toHaveBeenCalledTimes(1);
     expect(bridge.claim).toHaveBeenCalledTimes(1);
     expect(bridge.request).not.toHaveBeenCalled();
   });

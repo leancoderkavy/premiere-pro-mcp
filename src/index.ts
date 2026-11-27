@@ -366,14 +366,19 @@ async function main() {
     // first real request so Claude Desktop's discover-only probe never holds it.
     uxpBridge = bridge;
     lazyUxp = createLazyUxpStart({
-      start: () => bridge.start(),
+      start: () => bridge.startOrJoin(),
       isPortInUse: isLoopbackPortInUse,
       onStarted: () => {
+        const state = bridge.getState();
         const address = bridge.address();
-        debugLog(`UXP bridge listening on ws://${address.host}:${address.port}${address.path}`);
+        if (state.route === "relay") {
+          debugLog(`UXP bridge relaying through the process on ws://${address.host}:${address.port}${address.path}`);
+        } else {
+          debugLog(`UXP bridge listening on ws://${address.host}:${address.port}${address.path}`);
+        }
       },
       onBusy: () => console.error(
-        "[premiere-pro-mcp] UXP loopback port is busy; UXP tools stay unavailable and the bind is retried until it frees up.",
+        "[premiere-pro-mcp] UXP loopback port is busy; this process will retry joining the instance that holds it instead of binding again.",
       ),
       onError: (error) => console.error("[premiere-pro-mcp] UXP bridge failed to start:", telemetryErrorType(error)),
     });

@@ -72,7 +72,10 @@ describe("non-technical diagnostics", () => {
     expect(report.safeCheck.mutatesProject).toBe(false);
     expect(report.components.find((component) => component.id === "premiere_connector"))
       .toMatchObject({ boundary: "connected", state: "needs_attention" });
-    expect(report.repair).toContain("diagnose-cep");
+    expect(report.repair).toContain("UXP Plugins");
+    expect(report.repair).not.toContain("diagnose-cep");
+    expect(report.components.find((component) => component.id === "premiere_connector")?.repair)
+      .toContain("UXP loopback port");
   });
 
   it("creates a support snapshot without credentials, paths, or project data", () => {
