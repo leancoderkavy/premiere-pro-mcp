@@ -2836,7 +2836,8 @@ function __transitionSnapshot(track) {
   }
   return result;
 }
-function __transitionEditGuard(seq, scopes) {
+function __transitionEditGuard(seq, scopes, reportError) {
+  var fail = reportError || __error;
   var affected = [], seen = {};
   try {
     for (var si = 0; si < scopes.length; si++) {
@@ -2850,9 +2851,9 @@ function __transitionEditGuard(seq, scopes) {
       }
     }
   } catch (transitionReadError) {
-    return __error("Transition safety could not be inspected; no edit was attempted. Inspect the track in Premiere before retrying. " + String(transitionReadError), { mutationOutcome: "not_applied", timelineChanged: false, mutationAttempted: false, transitionsAffected: null });
+    return fail("Transition safety could not be inspected; no edit was attempted. Inspect the track in Premiere before retrying. " + String(transitionReadError), { mutationOutcome: "not_applied", timelineChanged: false, mutationAttempted: false, transitionsAffected: null });
   }
-  if (affected.length) return __error("The edit could strand an attached transition. Use remove_transition for the listed indices, or edit the transition in Premiere, then inspect and retry; nothing changed.", { mutationOutcome: "not_applied", timelineChanged: false, mutationAttempted: false, transitionsAffected: affected });
+  if (affected.length) return fail("The edit could strand an attached transition. Use remove_transition for the listed indices, or edit the transition in Premiere, then inspect and retry; nothing changed.", { mutationOutcome: "not_applied", timelineChanged: false, mutationAttempted: false, transitionsAffected: affected });
   return null;
 }
 
