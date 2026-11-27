@@ -2272,17 +2272,37 @@ function __clipKeyframeBase(clip) {
 }
 
 // Marker setters accept seconds on some hosts; Time getters may be detached.
+// Canonical decimal tick string. ExtendScript Number.toFixed(0)/toString switch
+// to scientific notation at 1e15 (live 26.5.3, ~1:05:37), so exact-tick compares
+// against Premiere's decimal Time.ticks fail and writes can store "1.1e+15".
+function __tickDigits(value) {
+  if (typeof value === "string") {
+    var text = String(value).replace(/^\\s+|\\s+$/g, "");
+    if (/^\\d+$/.test(text)) return text.replace(/^0+/, "") || "0";
+  }
+  var n = Math.round(Number(value));
+  if (!isFinite(n) || n < 0) return null;
+  if (n === 0) return "0";
+  var digits = "";
+  var remaining = n;
+  while (remaining > 0) {
+    var next = Math.floor(remaining / 10);
+    var digit = Math.round(remaining - next * 10);
+    if (digit === 10) { digit = 0; next += 1; }
+    if (digit < 0) digit = 0;
+    digits = String(digit) + digits;
+    remaining = next;
+  }
+  return digits;
+}
 function __markerStoredTicks(marker, field) {
   try {
-    var text = String(marker[field].ticks).replace(/^\\s+|\\s+$/g, "");
-    if (!/^\\d+$/.test(text)) return null;
-    return text.replace(/^0+/, "") || "0";
+    return __tickDigits(String(marker[field].ticks));
   } catch (readMarkerTimeError) { return null; }
 }
 function __setMarkerTick(marker, field, ticks) {
-  var numeric = Number(ticks);
-  if (!isFinite(numeric) || numeric < 0) return false;
-  var wanted = Math.round(numeric).toFixed(0);
+  var wanted = __tickDigits(ticks);
+  if (wanted === null) return false;
   if (__markerStoredTicks(marker, field) === wanted) return true;
   try { marker[field].ticks = wanted; } catch (markerTickWriteError) {}
   if (__markerStoredTicks(marker, field) === wanted) return true;
