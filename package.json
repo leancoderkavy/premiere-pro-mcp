@@ -232,7 +232,7 @@
     "@posthog/core": "1.69.1",
     "@posthog/types": "1.425.1",
     "jose": "^6.2.18",
-    "posthog-node": "5.74.0",
+    "posthog-node": "6.0.6",
     "ws": "^8.23.0",
     "zod": "^4.6.7"
   },
