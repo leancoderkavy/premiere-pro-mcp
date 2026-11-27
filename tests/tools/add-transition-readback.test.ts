@@ -11,7 +11,9 @@ vi.mock("../../src/bridge/file-bridge.js", () => ({
 }));
 
 import { sendCommand } from "../../src/bridge/file-bridge.js";
+import { runWithUndoTracking } from "../../src/bridge/undo-tracking.js";
 import { getTransitionsTools } from "../../src/tools/transitions.js";
+import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
 
 const mockedSendCommand = vi.mocked(sendCommand);
 const TICKS = 254016000000;
@@ -73,6 +75,7 @@ function hostWith(place: (cutSeconds: number) => [number, number], existing: Arr
     },
     qe: {
       project: {
+        undoStackIndex: () => 4,
         getActiveSequence: () => ({ getVideoTrackAt: () => ({ numItems: qeClips.length, getItemAt: (i: number) => qeClips[i] }) }),
         getVideoTransitionByName: (name: string) => ({ name }),
       },
@@ -198,6 +201,20 @@ describe("add_transition_to_clip and batch_add_transitions readback", () => {
     hostWith((cut) => [cut - 0.5, cut + 0.5], [], { ignoreAfterFirst: true });
     const result = await tools.batch_add_transitions.handler({ transition_name: "Cross Dissolve", track_index: 0, duration_seconds: 1 });
     expect(result).toMatchObject({ success: false, data: { outcome: "committed_unverified", timelineChanged: true, added: 1, requestedCount: 2, failedCuts: [1] } });
+  });
+
+  it("refuses a stale clip id as not_applied without adding a transition", async () => {
+    const host = hostWith((cut) => [cut - 0.5, cut + 0.5]);
+    const result = await runWithUndoTracking(true, () =>
+      tools.add_transition_to_clip.handler({ node_id: "gone", transition_name: "Cross Dissolve" }),
+    ) as { success: boolean; error?: string; data?: Record<string, unknown> };
+    expect(result).toMatchObject({
+      success: false,
+      error: "Clip not found",
+      data: { mutationOutcome: "not_applied", timelineChanged: false, refusedBeforeChange: true },
+    });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "add_transition_to_clip").outcome).toBe("not_applied");
+    expect(host.calls()).toBe(0);
   });
 
   it("add_transition_to_clip verifies a dissolve that covers the clip start", async () => {
