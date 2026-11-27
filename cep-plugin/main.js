@@ -39,6 +39,8 @@ function setStatus(state, text) {
   var statusText = document.getElementById("statusText");
   statusText.textContent = text;
   statusText.setAttribute("data-state", state || "stopped");
+  document.body.setAttribute("data-bridge", state || "stopped");
+  if (window.MCPAgentHost && window.MCPAgentHost.bridgeChanged) window.MCPAgentHost.bridgeChanged();
   var detail = document.getElementById("statusDetail");
   if (detail) {
     if (state === "connected") detail.textContent = "Premiere Pro link is active";
@@ -194,6 +196,52 @@ function readScheduledUpdateStatus() {
 
 function ensureDir(dir) {
   return bridgeDirectorySecurity.ensurePrivateBridgeDirectory(dir);
+}
+
+// Premiere keeps the environment it was launched with, so a PREMIERE_TEMP_DIR set
+// later (setx / System settings) only exists in the registry. Read it from there.
+function registryBridgeDirectory() {
+  if (os.platform() !== "win32") return "";
+  try {
+    var out = childProcess.execFileSync("reg", ["query", "HKCU\\Environment", "/v", "PREMIERE_TEMP_DIR"], {
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: 5000,
+    });
+    var match = /PREMIERE_TEMP_DIR\s+REG_(?:EXPAND_)?SZ\s+(.+)/i.exec(out);
+    if (!match) return "";
+    return match[1].trim().replace(/%([^%]+)%/g, function (all, name) {
+      return nodeProcess.env[name] || all;
+    });
+  } catch (e) {
+    return "";
+  }
+}
+
+var lastBridgeDirectoryError = "";
+
+// Tries the configured bridge folders in order and returns the first one that passes
+// the private-directory check, or "" when none does. Never loosens the check itself.
+function pickBridgeDirectory(preferred) {
+  var candidates = [preferred];
+  try {
+    candidates.push(localStorage.getItem("mcp_bridge_temp_dir"));
+  } catch (e) {}
+  candidates.push(nodeProcess.env.PREMIERE_TEMP_DIR, registryBridgeDirectory(), path.join(os.tmpdir(), "premiere-mcp-bridge"));
+  var tried = {};
+  var errors = [];
+  for (var i = 0; i < candidates.length; i++) {
+    var dir = typeof candidates[i] === "string" ? candidates[i].trim() : "";
+    if (!dir || tried[dir.toLowerCase()]) continue;
+    tried[dir.toLowerCase()] = true;
+    try {
+      return ensureDir(dir);
+    } catch (e) {
+      errors.push(dir + ": " + e.message);
+    }
+  }
+  lastBridgeDirectoryError = errors.join(" | ");
+  return "";
 }
 
 function headlessEngineIsLive() {
@@ -454,23 +502,19 @@ function processOneCommand(cmdFileName) {
 }
 
 // ---- Bridge Control ----
-function startBridge() {
-  tempDir = document.getElementById("tempDir").value.trim();
-  if (!tempDir) {
-    log("Please set a temp directory", "err");
-    document.getElementById("tempDir").focus();
-    return;
-  }
-
-  try {
-    tempDir = ensureDir(tempDir);
-    document.getElementById("tempDir").value = tempDir;
-  } catch (e) {
+function startBridge(quiet) {
+  if (bridgeRunning) return true;
+  bridgeStoppedByUser = false;
+  var picked = pickBridgeDirectory(document.getElementById("tempDir").value);
+  if (!picked) {
     bridgeRunning = false;
     setStatus("error", "Connector needs attention");
-    log("Bridge directory rejected: " + e.message, "err");
-    return;
+    if (!quiet) log("No usable bridge directory. " + lastBridgeDirectoryError, "err");
+    return false;
   }
+  if (tempDir && picked !== tempDir && !quiet) log("Using bridge directory " + picked, "ok");
+  tempDir = picked;
+  document.getElementById("tempDir").value = tempDir;
   bridgeRunning = true;
   startBridgeHeartbeat();
   setStatus("waiting", "Connector running");
@@ -481,12 +525,23 @@ function startBridge() {
 
   refreshConnectionCenter();
 
+  if (pollInterval) clearInterval(pollInterval);
   pollInterval = setInterval(function () {
     if (bridgeRunning) processCommands();
   }, POLL_MS);
+  return true;
 }
 
+// Keep the bridge running: MCP tool calls only execute while it polls. A Stop click
+// pauses this until Start (or a chat message) starts it again.
+var bridgeStoppedByUser = false;
+var BRIDGE_WATCHDOG_MS = 5000;
+setInterval(function () {
+  if (!bridgeRunning && !bridgeStoppedByUser) startBridge(true);
+}, BRIDGE_WATCHDOG_MS);
+
 function stopBridge() {
+  bridgeStoppedByUser = true;
   bridgeRunning = false;
   writeBridgeHeartbeat();
   stopBridgeHeartbeat();
@@ -758,16 +813,16 @@ function handleUpdateClick() {
   // Always auto-start. The headless instance (StartOn ApplicationActivate) has no
   // one to click Start, and macOS periodically purges the temp dir — so create it
   // rather than gating auto-start on its existence.
-  try {
-    tempDir = ensureDir(tempDir);
-    document.getElementById("tempDir").value = tempDir;
-  } catch (e) {
+  if (!restoreScheduledUpdateStatus()) setTimeout(checkForUpdates, 1200);
+  var picked = pickBridgeDirectory(tempDir);
+  if (!picked) {
     setStatus("error", "Connector needs attention");
-    log("Bridge directory rejected: " + e.message, "err");
-    return;
+    log("No usable bridge directory yet; retrying. " + lastBridgeDirectoryError, "err");
+    return; // the watchdog keeps retrying
   }
+  tempDir = picked;
+  document.getElementById("tempDir").value = tempDir;
   startBridgeHeartbeat();
   log("Auto-starting bridge...");
-  setTimeout(startBridge, 500);
-  if (!restoreScheduledUpdateStatus()) setTimeout(checkForUpdates, 1200);
+  setTimeout(function () { startBridge(); }, 500);
 })();
