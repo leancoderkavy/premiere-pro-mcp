@@ -1,4 +1,5 @@
 import { mutationReceipt } from "../../src/workflows/mutation-receipt.js";
+import { runWithUndoTracking } from "../../src/bridge/undo-tracking.js";
 import { runInNewContext } from "node:vm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -190,11 +191,43 @@ describe("set_clip_properties verification", () => {
     mockedSendCommand.mockImplementationOnce(async (script) => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
       app: { project: { activeSequence: { videoTracks: { numTracks: 1, 0: { clips: { numItems: 1, 0: clip } } }, audioTracks: { numTracks: 0 } } } },
     }))));
-    await expect(timeline.set_clip_properties.handler({ node_id: "c1", opacity: 50 })).resolves.toMatchObject({
-      success: false, error: expect.stringContaining("Opacity is ambiguous at property indices [0, 1]"),
+    const result = await runWithUndoTracking(true, () => timeline.set_clip_properties.handler({ node_id: "c1", opacity: 50 }));
+    expect(result).toMatchObject({
+      success: false,
+      error: expect.stringContaining("Opacity is ambiguous at property indices [0, 1]"),
+      data: { mutationOutcome: "not_applied", timelineChanged: false, refusedBeforeChange: true },
     });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "set_clip_properties").outcome).toBe("not_applied");
     expect(first.setValue).not.toHaveBeenCalled();
     expect(second.setValue).not.toHaveBeenCalled();
+  });
+
+  it("refuses a missing Opacity property before writing and does not lock later edits", async () => {
+    const clip = { nodeId: "audio-1", name: "VO", components: { numItems: 0 } };
+    mockedSendCommand.mockImplementationOnce(async (script) => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
+      app: { project: { activeSequence: { audioTracks: { numTracks: 1, 0: { clips: { numItems: 1, 0: clip } } }, videoTracks: { numTracks: 0 } } } },
+    }))));
+    const result = await runWithUndoTracking(true, () => timeline.set_clip_properties.handler({ node_id: "audio-1", opacity: 50 }));
+    expect(result).toMatchObject({
+      success: false,
+      error: expect.stringContaining("Opacity property was not found"),
+      data: { mutationOutcome: "not_applied", timelineChanged: false, refusedBeforeChange: true },
+    });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "set_clip_properties").outcome).toBe("not_applied");
+  });
+
+  it("refuses a missing Motion component before writing and does not lock later edits", async () => {
+    const clip = { nodeId: "c1", name: "Clip", components: { numItems: 0 } };
+    mockedSendCommand.mockImplementationOnce(async (script) => JSON.parse(String(runInNewContext(`${getHelpersSource()}\n${script}`, {
+      app: { project: { activeSequence: { videoTracks: { numTracks: 1, 0: { clips: { numItems: 1, 0: clip } } }, audioTracks: { numTracks: 0 } } } },
+    }))));
+    const result = await runWithUndoTracking(true, () => timeline.set_clip_properties.handler({ node_id: "c1", scale: 110 }));
+    expect(result).toMatchObject({
+      success: false,
+      error: expect.stringContaining("Motion component was not found"),
+      data: { mutationOutcome: "not_applied", timelineChanged: false, refusedBeforeChange: true },
+    });
+    expect(mutationReceipt(false, result.data, { dispatched: true }, "set_clip_properties").outcome).toBe("not_applied");
   });
 
   it("preflights requested properties and reads them back after writing", async () => {
