@@ -1808,17 +1808,17 @@ export function getTimelineTools(
             }
             if (component.matchName === "AE.ADBE Motion" || component.displayName === "Motion") motion = component;
           }
-          if (${args.opacity !== undefined ? "true" : "false"} && opacityIndices.length > 1) return __error("Opacity is ambiguous at property indices [" + opacityIndices.join(", ") + "]; nothing was changed.");
+          if (${args.opacity !== undefined ? "true" : "false"} && opacityIndices.length > 1) return __refuse("Opacity is ambiguous at property indices [" + opacityIndices.join(", ") + "]; nothing was changed.");
           ${args.opacity !== undefined ? `
-          if (!opacityProp) return __error("Opacity property was not found; nothing was changed.");
+          if (!opacityProp) return __refuse("Opacity property was not found; nothing was changed.");
           ` : ""}
           ${args.scale !== undefined || args.position_x !== undefined || args.position_y !== undefined || args.rotation !== undefined ? `
-          if (!motion) return __error("Motion component was not found; nothing was changed.");
+          if (!motion) return __refuse("Motion component was not found; nothing was changed.");
           ` : ""}
           ${args.opacity !== undefined ? `
           var beforeOpacity = NaN;
           try { beforeOpacity = readNumericProperty(opacityProp); } catch (e) {}
-          if (!isFinite(beforeOpacity)) return __error("Opacity value could not be read before mutation; nothing was changed.");
+          if (!isFinite(beforeOpacity)) return __refuse("Opacity value could not be read before mutation; nothing was changed.");
           ` : ""}
           ${args.scale !== undefined ? `
           var uniformScale = __isUniformScale(motion);
@@ -1830,26 +1830,26 @@ export function getTimelineTools(
             if (__videoIntrinsicPropertyMatches(motion.properties[sp], "Scale") || __videoIntrinsicPropertyMatches(motion.properties[sp], "Scale Height")) { scaleHeight = motion.properties[sp]; scaleHeightIndices.push(sp); }
             else if (__videoIntrinsicPropertyMatches(motion.properties[sp], "Scale Width")) { scaleWidth = motion.properties[sp]; scaleWidthIndices.push(sp); }
           }
-          if (scaleHeightIndices.length > 1) return __error("Motion Scale is ambiguous at property indices [" + scaleHeightIndices.join(", ") + "]; nothing was changed.");
-          if (scaleWidthIndices.length > 1) return __error("Motion Scale Width is ambiguous at property indices [" + scaleWidthIndices.join(", ") + "]; nothing was changed.");
-          if (!scaleHeight || (!uniformScale && !scaleWidth)) return __error("Required Motion Scale properties were not found; nothing was changed.");
+          if (scaleHeightIndices.length > 1) return __refuse("Motion Scale is ambiguous at property indices [" + scaleHeightIndices.join(", ") + "]; nothing was changed.");
+          if (scaleWidthIndices.length > 1) return __refuse("Motion Scale Width is ambiguous at property indices [" + scaleWidthIndices.join(", ") + "]; nothing was changed.");
+          if (!scaleHeight || (!uniformScale && !scaleWidth)) return __refuse("Required Motion Scale properties were not found; nothing was changed.");
           var beforeScaleHeight = NaN;
           var beforeScaleWidth = NaN;
           try { beforeScaleHeight = readNumericProperty(scaleHeight); } catch (eScaleHeight) {}
           try { beforeScaleWidth = uniformScale ? beforeScaleHeight : readNumericProperty(scaleWidth); } catch (eScaleWidth) {}
-          if (!isFinite(beforeScaleHeight) || !isFinite(beforeScaleWidth)) return __error("Motion Scale values could not be read before mutation; nothing was changed.");
+          if (!isFinite(beforeScaleHeight) || !isFinite(beforeScaleWidth)) return __refuse("Motion Scale values could not be read before mutation; nothing was changed.");
           ` : ""}
           ${args.position_x !== undefined || args.position_y !== undefined ? `
           var positionProp = null;
           var positionIndices = [];
           for (var pp = 0; pp < motion.properties.numItems; pp++) if (__videoIntrinsicPropertyMatches(motion.properties[pp], "Position")) { positionProp = motion.properties[pp]; positionIndices.push(pp); }
-          if (positionIndices.length > 1) return __error("Motion Position is ambiguous at property indices [" + positionIndices.join(", ") + "]; nothing was changed.");
-          if (!positionProp) return __error("Position property was not found; nothing was changed.");
+          if (positionIndices.length > 1) return __refuse("Motion Position is ambiguous at property indices [" + positionIndices.join(", ") + "]; nothing was changed.");
+          if (!positionProp) return __refuse("Position property was not found; nothing was changed.");
           var beforePosition = null;
           try { beforePosition = positionProp.getValue(); } catch (ePosition) {}
-          if (!beforePosition || typeof beforePosition !== "object" || beforePosition.length < 2 || typeof beforePosition[0] !== "number" || typeof beforePosition[1] !== "number" || !isFinite(beforePosition[0]) || !isFinite(beforePosition[1])) return __error("Position value could not be read before mutation; nothing was changed.");
+          if (!beforePosition || typeof beforePosition !== "object" || beforePosition.length < 2 || typeof beforePosition[0] !== "number" || typeof beforePosition[1] !== "number" || !isFinite(beforePosition[0]) || !isFinite(beforePosition[1])) return __refuse("Position value could not be read before mutation; nothing was changed.");
           var positionScale = __motionPointScale(positionProp, __sequenceFrameSize(app.project.activeSequence), "${escapeForExtendScript(args.units ?? "pixels")}");
-          if (!positionScale) return __error("The sequence frame size is unreadable, so position pixels cannot be converted; nothing was changed.");
+          if (!positionScale) return __refuse("The sequence frame size is unreadable, so position pixels cannot be converted; nothing was changed.");
           var wantedPositionX = ${args.position_x !== undefined ? `${args.position_x} * positionScale.x` : "Number(beforePosition[0])"};
           var wantedPositionY = ${args.position_y !== undefined ? `${args.position_y} * positionScale.y` : "Number(beforePosition[1])"};
           ` : ""}
@@ -1857,11 +1857,11 @@ export function getTimelineTools(
           var rotationProp = null;
           var rotationIndices = [];
           for (var rp = 0; rp < motion.properties.numItems; rp++) if (__videoIntrinsicPropertyMatches(motion.properties[rp], "Rotation")) { rotationProp = motion.properties[rp]; rotationIndices.push(rp); }
-          if (rotationIndices.length > 1) return __error("Motion Rotation is ambiguous at property indices [" + rotationIndices.join(", ") + "]; nothing was changed.");
-          if (!rotationProp) return __error("Rotation property was not found; nothing was changed.");
+          if (rotationIndices.length > 1) return __refuse("Motion Rotation is ambiguous at property indices [" + rotationIndices.join(", ") + "]; nothing was changed.");
+          if (!rotationProp) return __refuse("Rotation property was not found; nothing was changed.");
           var beforeRotation = NaN;
           try { beforeRotation = readNumericProperty(rotationProp); } catch (eRotation) {}
-          if (!isFinite(beforeRotation)) return __error("Rotation value could not be read before mutation; nothing was changed.");
+          if (!isFinite(beforeRotation)) return __refuse("Rotation value could not be read before mutation; nothing was changed.");
           ` : ""}
 
           var writeErrors = [];
